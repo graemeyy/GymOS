@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  BASIC
+  PREMIUM
+  PLATINUM
+  ELITE
+}
+
+enum Status {
+  ACTIVE
+  PAUSED
+  CANCELED
+  PAST_DUE
+}
+
+model Member {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  name             String?
+  stripeCustomerId String?   @unique
+  plan             Plan      @default(BASIC)
+  status           Status    @default(ACTIVE)
+  keycardIssued    Boolean   @default(false)
+  lastCheckIn      DateTime?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  checkIns         CheckIn[]
+  payouts          Payout[]
+}
+
+model CheckIn {
+  id        String   @id @default(cuid())
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id])
+  location  String   @default("Main Entrance")
+  timestamp DateTime @default(now())
+}
+
+model Payout {
+  id        String   @id @default(cuid())
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id])
+  amount    Int
+  currency  String   @default("usd")
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model Equipment {
+  id          String   @id @default(cuid())
+  name        String
+  issue       String
+  urgency     String
+  status      String   @default("OFFLINE")
+  partNeeded  String?
+  estimatedCost Int?
+  createdAt   DateTime @default(now())
+}
