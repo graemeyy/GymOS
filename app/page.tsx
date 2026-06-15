@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   Activity,
@@ -20,7 +20,13 @@ import {
   Zap,
   ArrowUpRight,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Cpu,
+  RefreshCw,
+  MessageSquare,
+  Bot,
+  Terminal,
+  Shield
 } from 'lucide-react';
 
 // --- Mock Data ---
@@ -45,7 +51,94 @@ const AT_RISK_MEMBERS = [
   { name: 'Chris P. Bacon', lastSeen: '22 days ago', plan: 'Elite', risk: 'High' },
 ];
 
+const AGENT_LOG_TYPES = {
+  RESOLVE: { icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+  ACTION: { icon: Zap, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+  SHIELD: { icon: Shield, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+  NOTIFY: { icon: Bell, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+};
+
+const AGENT_TASKS = [
+  { type: 'RESOLVE', message: 'Resolved billing dispute for Alex Rivera ($45.00 refund processed).', time: 'Just now' },
+  { type: 'ACTION', message: 'Automatically paused membership for Sarah Chen (Injury noted in email).', time: '2m ago' },
+  { type: 'SHIELD', message: 'Blocked fraudulent login attempt from unknown IP (Stuttgart, DE).', time: '5m ago' },
+  { type: 'ACTION', message: 'Updated expired credit card for Marcus Wright via automated outreach.', time: '12m ago' },
+  { type: 'NOTIFY', message: 'Waived late fee for James Wilson (First-time occurrence).', time: '18m ago' },
+  { type: 'RESOLVE', message: 'Fixed duplicate booking error in HIIT Class (5:00 PM).', time: '25m ago' },
+];
+
 // --- Components ---
+
+const AIAgentFeed = () => {
+  const [logs, setLogs] = useState(AGENT_TASKS);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Rotate logs for simulation
+      setLogs(prev => {
+        const newLogs = [...prev];
+        const last = newLogs.pop();
+        if (last) newLogs.unshift(last);
+        return newLogs;
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl flex flex-col h-full overflow-hidden">
+      <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-zinc-800 rounded-lg">
+            <Cpu className="w-4 h-4 text-zinc-100" />
+          </div>
+          <h2 className="font-bold text-sm tracking-tight text-white uppercase">AI Agent Feed</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Autonomous</span>
+        </div>
+      </div>
+      
+      <div className="flex-1 overflow-hidden relative">
+        <div className="absolute inset-0 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+          {logs.map((log, i) => {
+            const Config = AGENT_LOG_TYPES[log.type as keyof typeof AGENT_LOG_TYPES];
+            return (
+              <div 
+                key={i} 
+                className={`p-3 rounded-xl border border-zinc-800 bg-zinc-950/50 flex gap-3 transition-all duration-500 ${i === 0 ? 'scale-105 border-zinc-700 bg-zinc-900' : 'opacity-60'}`}
+              >
+                <div className={`mt-0.5 p-1.5 rounded-lg h-fit ${Config.bg}`}>
+                  <Config.icon className={`w-3.5 h-3.5 ${Config.color}`} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-zinc-200 leading-relaxed font-medium">
+                    {log.message}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-tighter">{log.time}</span>
+                    <span className="text-[10px] text-zinc-700">•</span>
+                    <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tighter">GymOS-L4</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* Fading overlay at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-zinc-900 to-transparent pointer-events-none" />
+      </div>
+      
+      <div className="p-3 border-t border-zinc-800 bg-zinc-950/30">
+        <button className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
+          <Terminal className="w-3 h-3" />
+          View All Agent Logs
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const MemberModal = ({ member, isOpen, onClose }: { member: any, isOpen: boolean, onClose: () => void }) => {
   if (!isOpen || !member) return null;
@@ -70,7 +163,6 @@ const MemberModal = ({ member, isOpen, onClose }: { member: any, isOpen: boolean
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
-          {/* Quick Info */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-2xl">
               <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-1">Current Plan</p>
@@ -95,7 +187,6 @@ const MemberModal = ({ member, isOpen, onClose }: { member: any, isOpen: boolean
             </div>
           </div>
 
-          {/* History */}
           <section>
             <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
               <History className="w-4 h-4" />
@@ -119,7 +210,6 @@ const MemberModal = ({ member, isOpen, onClose }: { member: any, isOpen: boolean
             </div>
           </section>
 
-          {/* Notes */}
           <section>
             <h4 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4">Staff Notes</h4>
             <textarea 
@@ -321,95 +411,104 @@ export default function GymOSDashboard() {
         </div>
 
         {/* Main Content Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-          {/* Recent Activity Feed */}
-          <section className="lg:col-span-2">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-              <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
-                <h2 className="font-semibold flex items-center gap-2 text-zinc-100">
-                  <Activity className="w-4 h-4 text-zinc-500" />
-                  Recent Activity
-                </h2>
-                <button className="text-xs text-zinc-500 hover:text-white transition-colors">View All</button>
-              </div>
-              <div className="divide-y divide-zinc-800">
-                {RECENT_ACTIVITY.map((item) => (
-                  <div 
-                    key={item.id} 
-                    onClick={() => setSelectedMember(item)}
-                    className="p-4 hover:bg-zinc-950 transition-all flex items-center justify-between group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs group-hover:border-zinc-500 transition-colors">
-                        {item.member.split(' ').map(n => n[0]).join('')}
+          {/* Left/Main Content */}
+          <div className="lg:col-span-8 space-y-8">
+            {/* Recent Activity Feed */}
+            <section>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+                <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+                  <h2 className="font-semibold flex items-center gap-2 text-zinc-100">
+                    <Activity className="w-4 h-4 text-zinc-500" />
+                    Recent Activity
+                  </h2>
+                  <button className="text-xs text-zinc-500 hover:text-white transition-colors">View All</button>
+                </div>
+                <div className="divide-y divide-zinc-800">
+                  {RECENT_ACTIVITY.map((item) => (
+                    <div 
+                      key={item.id} 
+                      onClick={() => setSelectedMember(item)}
+                      className="p-4 hover:bg-zinc-950 transition-all flex items-center justify-between group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs group-hover:border-zinc-500 transition-colors">
+                          {item.member.split(' ').map(n => n[0]).join('')}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium group-hover:text-white transition-colors">{item.member}</p>
+                          <p className="text-xs text-zinc-500">{item.action} &bull; {item.time}</p>
+                        </div>
                       </div>
+                      <div className="flex items-center gap-4">
+                        <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${
+                          item.status === 'Success' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                          item.status === 'Warning' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                          'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                        }`}>
+                          {item.status}
+                        </span>
+                        <ArrowUpRight className="w-4 h-4 text-zinc-700 group-hover:text-zinc-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* At-Risk / Churn List */}
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="font-semibold flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    At-Risk Members
+                  </h2>
+                </div>
+                <div className="space-y-4">
+                  {AT_RISK_MEMBERS.map((member) => (
+                    <div key={member.name} className="flex items-center justify-between bg-zinc-950 border border-zinc-800 p-3 rounded-xl hover:border-zinc-700 transition-colors cursor-pointer group">
                       <div>
-                        <p className="text-sm font-medium group-hover:text-white transition-colors">{item.member}</p>
-                        <p className="text-xs text-zinc-500">{item.action} &bull; {item.time}</p>
+                        <p className="text-sm font-medium group-hover:text-white transition-colors">{member.name}</p>
+                        <p className="text-xs text-zinc-500">Last seen {member.lastSeen}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-md text-zinc-400 block mb-1">
+                          {member.plan}
+                        </span>
+                        <span className={`text-xs font-bold ${member.risk === 'High' ? 'text-rose-500' : 'text-amber-500'}`}>
+                          {member.risk} Risk
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${
-                        item.status === 'Success' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                        item.status === 'Warning' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
-                        'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                      }`}>
-                        {item.status}
-                      </span>
-                      <ArrowUpRight className="w-4 h-4 text-zinc-700 group-hover:text-zinc-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <button className="w-full mt-6 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 py-2.5 rounded-xl text-xs font-bold transition-all border border-zinc-700 hover:border-zinc-600">
+                  Run Retention Agent
+                </button>
               </div>
-            </div>
-          </section>
 
-          {/* At-Risk / Churn List */}
-          <section className="space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-semibold flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-500" />
-                  At-Risk Members
-                </h2>
-              </div>
-              <div className="space-y-4">
-                {AT_RISK_MEMBERS.map((member) => (
-                  <div key={member.name} className="flex items-center justify-between bg-zinc-950 border border-zinc-800 p-3 rounded-xl hover:border-zinc-700 transition-colors cursor-pointer group">
-                    <div>
-                      <p className="text-sm font-medium group-hover:text-white transition-colors">{member.name}</p>
-                      <p className="text-xs text-zinc-500">Last seen {member.lastSeen}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-md text-zinc-400 block mb-1">
-                        {member.plan}
-                      </span>
-                      <span className={`text-xs font-bold ${member.risk === 'High' ? 'text-rose-500' : 'text-amber-500'}`}>
-                        {member.risk} Risk
-                      </span>
-                    </div>
+              <div className="space-y-8">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 bg-gradient-to-br from-zinc-900 to-zinc-950 h-full flex flex-col justify-center">
+                  <div className="flex items-center gap-2 text-zinc-400 text-xs mb-2">
+                    <TrendingUp className="w-3 h-3" />
+                    <span>Conversion Rate</span>
                   </div>
-                ))}
+                  <div className="text-3xl font-bold mb-2">4.2%</div>
+                  <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+                    <div className="bg-white h-full w-[42%]"></div>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 mt-3 font-medium uppercase tracking-widest">+0.4% from last week</p>
+                </div>
               </div>
-              <button className="w-full mt-6 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 py-2.5 rounded-xl text-xs font-bold transition-all border border-zinc-700 hover:border-zinc-600">
-                Run Retention Agent
-              </button>
-            </div>
+            </section>
+          </div>
 
-            {/* Quick Stats Mini-Card */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 bg-gradient-to-br from-zinc-900 to-zinc-950">
-              <div className="flex items-center gap-2 text-zinc-400 text-xs mb-2">
-                <TrendingUp className="w-3 h-3" />
-                <span>Conversion Rate</span>
-              </div>
-              <div className="text-2xl font-bold mb-1">4.2%</div>
-              <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-white h-full w-[42%]"></div>
-              </div>
-              <p className="text-[10px] text-zinc-500 mt-2">+0.4% from last week</p>
-            </div>
-          </section>
+          {/* Right Sidebar: AI Agent Feed */}
+          <div className="lg:col-span-4 h-[600px] lg:sticky lg:top-24">
+            <AIAgentFeed />
+          </div>
 
         </div>
       </main>
