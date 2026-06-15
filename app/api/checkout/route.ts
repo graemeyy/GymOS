@@ -21,8 +21,8 @@ export async function POST(req: Request) {
         },
       ],
       mode: 'subscription',
-      success_url: \`\${process.env.NEXT_PUBLIC_URL}/dashboard?success=true\`,
-      cancel_url: \`\${process.env.NEXT_PUBLIC_URL}/dashboard?canceled=true\`,
+      success_url: `${process.env.NEXT_PUBLIC_URL}/dashboard?success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_URL}/dashboard?canceled=true`,
       customer_email: email,
       metadata: {
         memberId,
