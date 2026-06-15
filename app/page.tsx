@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import {
   Users,
@@ -68,6 +70,30 @@ const MAINTENANCE_GEAR = [
   { id: 1, item: 'Technogym Treadmill #4', status: 'Offline', issue: 'Belt Slippage', part: 'Drive Belt V-22', cost: '$145.00', urgency: 'High' },
   { id: 2, item: 'Cable Crossover (Left)', status: 'Worn', issue: 'Cable Fraying', part: 'Steel Coated Cable 3.5m', cost: '$89.00', urgency: 'Medium' },
   { id: 3, item: 'Concept2 Rower #2', status: 'Noisy', issue: 'Chain dry', part: 'Chain Lube / Replacement', cost: '$12.00', urgency: 'Low' },
+];
+
+const ATTENDANCE_SPIKES = [
+  { hour: '6AM', level: 85 },
+  { hour: '9AM', level: 40 },
+  { hour: '12PM', level: 65 },
+  { hour: '5PM', level: 95 },
+  { hour: '8PM', level: 70 },
+  { hour: '11PM', level: 20 },
+];
+
+const AGENT_LOG_TYPES = {
+  RESOLVE: { icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+  ACTION: { icon: Zap, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+  SHIELD: { icon: Shield, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+  NOTIFY: { icon: Bell, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+};
+
+const AGENT_TASKS = [
+  { type: 'RESOLVE', message: 'Resolved billing dispute for Alex Rivera ($45.00 refund processed).', time: 'Just now' },
+  { type: 'ACTION', message: 'Automatically paused membership for Sarah Chen (Injury noted in email).', time: '2m ago' },
+  { type: 'SHIELD', message: 'Blocked fraudulent login attempt from unknown IP (Stuttgart, DE).', time: '5m ago' },
+  { type: 'ACTION', message: 'Updated expired credit card for Marcus Wright via automated outreach.', time: '12m ago' },
+  { type: 'NOTIFY', message: 'Waived late fee for James Wilson (First-time occurrence).', time: '18m ago' },
 ];
 
 // --- Components ---
