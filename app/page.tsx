@@ -31,7 +31,10 @@ async function getDashboardData() {
     }),
     prisma.member.count({
       where: {
-        status: "PAST_DUE",
+        OR: [
+          { status: "PAST_DUE" },
+          { retentionScore: { lt: 25 } }
+        ]
       },
     }),
     prisma.member.findMany({
@@ -170,7 +173,9 @@ export default async function DashboardPage() {
                       <div className="flex items-center gap-4">
                         <div className="hidden md:block text-right">
                           <p className="text-[10px] text-zinc-500 uppercase font-bold">Retention Score</p>
-                          <p className="text-xs font-bold text-emerald-500">98%</p>
+                          <p className={`text-xs font-bold ${member.retentionScore >= 70 ? "text-emerald-500" : member.retentionScore >= 40 ? "text-amber-500" : "text-red-500"}`}>
+                            {member.retentionScore}%
+                          </p>
                         </div>
                         <ChevronRight className="w-4 h-4 text-zinc-700 group-hover:text-white transition-colors" />
                       </div>

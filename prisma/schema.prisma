@@ -31,6 +31,7 @@ model Member {
   status           Status    @default(ACTIVE)
   keycardIssued    Boolean   @default(false)
   lastCheckIn      DateTime?
+  retentionScore   Int       @default(100)
   notes            String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
