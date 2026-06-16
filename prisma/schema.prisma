@@ -33,6 +33,7 @@ model Member {
   email            String    @unique
   name             String?
   stripeCustomerId String?   @unique
+  stripeSubscriptionId String? @unique
   plan             Plan      @default(BASIC)
   status           Status    @default(ACTIVE)
   keycardIssued    Boolean   @default(false)
