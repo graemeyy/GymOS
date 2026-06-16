@@ -91,6 +91,6 @@ model AgentAction {
   status      ActionStatus @default(PENDING)
   category    String
   metadata    Json?
-  createdAt   DateTime     @now()
+  createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
