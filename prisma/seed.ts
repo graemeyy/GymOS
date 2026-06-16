@@ -86,25 +86,19 @@ async function main() {
   const equipment = [
     {
       name: 'Technogym Treadmill #4',
-      issue: 'Belt Slippage',
-      urgency: 'High',
       status: 'OFFLINE',
       partNeeded: 'Drive Belt V-22',
       estimatedCost: 14500, // $145.00
     },
     {
       name: 'Cable Crossover (Left)',
-      issue: 'Cable Fraying',
-      urgency: 'Medium',
-      status: 'WORN',
+      status: 'WARNING',
       partNeeded: 'Steel Coated Cable 3.5m',
       estimatedCost: 8900,
     },
     {
       name: 'Concept2 Rower #2',
-      issue: 'Chain dry',
-      urgency: 'Low',
-      status: 'NOISY',
+      status: 'OPERATIONAL',
       partNeeded: 'Chain Lube / Replacement',
       estimatedCost: 1200,
     },
@@ -112,7 +106,7 @@ async function main() {
 
   for (const e of equipment) {
     await prisma.equipment.create({
-      data: e,
+      data: e as any,
     });
   }
 
