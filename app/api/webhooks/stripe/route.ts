@@ -1,44 +1,60 @@
-import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
-import { prisma } from '@/lib/prisma';
+import Stripe from 'stripe';
+import { PrismaClient } from '@prisma/client';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2023-10-16' as any,
+});
+const prisma = new PrismaClient();
+
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(req: Request) {
   const body = await req.text();
-  const signature = headers().get('Stripe-Signature') as string;
+  const signature = req.headers.get('stripe-signature')!;
 
-  let event;
+  if (!signature || !webhookSecret) {
+    return NextResponse.json({ error: 'Missing signature or webhook secret' }, { status: 400 });
+  }
+
+  let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
-  } catch (error: any) {
-    return new Response(`Webhook Error: ${error.message}`, { status: 400 });
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+  } catch (err: any) {
+    console.error(`Webhook signature verification failed.`, err.message);
+    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
-
-  const session = event.data.object as any;
 
   if (event.type === 'checkout.session.completed') {
-    const subscription = await stripe.subscriptions.retrieve(session.subscription);
-    
-    await prisma.member.update({
-      where: { email: session.customer_details.email },
-      data: {
-        stripeCustomerId: session.customer as string,
-        status: 'ACTIVE',
-        plan: session.metadata.plan,
-      },
-    });
-  }
+    const session = event.data.object as Stripe.Checkout.Session;
+    const memberId = session.metadata?.memberId;
+    const stripeCustomerId = session.customer as string;
+    const stripeSubscriptionId = session.subscription as string;
 
-  if (event.type === 'invoice.payment_failed') {
-    await prisma.member.update({
-      where: { stripeCustomerId: session.customer as string },
-      data: { status: 'PAST_DUE' },
-    });
+    if (memberId) {
+      await prisma.member.update({
+        where: { id: memberId },
+        data: {
+          stripeCustomerId,
+          status: 'ACTIVE',
+        },
+      });
+
+      await prisma.agentAction.create({
+        data: {
+          title: 'Subscription Completed',
+          description: `Member ${memberId} has successfully subscribed via Stripe.`,
+          status: 'APPROVED',
+          category: 'BILLING',
+          metadata: {
+            stripeCustomerId,
+            stripeSubscriptionId,
+            sessionId: session.id,
+          },
+        },
+      });
+    }
   }
 
   return NextResponse.json({ received: true });
