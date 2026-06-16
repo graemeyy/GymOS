@@ -1,3 +1,4 @@
+import { AgentFeed } from '@/components/AgentFeed';
 import { prisma } from "@/lib/prisma";
 import { 
   Users, 
@@ -20,7 +21,7 @@ import React from "react";
 
 // --- Server Actions / Data Fetching ---
 async function getDashboardData() {
-  const [memberCount, checkInCount, atRiskCount, members, equipment] = await Promise.all([
+  const [memberCount, checkInCount, atRiskCount, members, equipment, agentActions] = await Promise.all([
     prisma.member.count(),
     prisma.checkIn.count({
       where: {
@@ -45,6 +46,10 @@ async function getDashboardData() {
       where: { status: "OFFLINE" },
       take: 3,
     }),
+    prisma.agentAction.findMany({
+      take: 5,
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   return {
@@ -56,6 +61,7 @@ async function getDashboardData() {
     ],
     recentMembers: members,
     maintenanceItems: equipment,
+    agentActions: agentActions,
   };
 }
 
