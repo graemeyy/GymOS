@@ -22,6 +22,12 @@ enum Status {
   PAST_DUE
 }
 
+enum EquipmentStatus {
+  OPERATIONAL
+  WARNING
+  OFFLINE
+}
+
 model Member {
   id               String    @id @default(cuid())
   email            String    @unique
@@ -58,14 +64,18 @@ model Payout {
 }
 
 model Equipment {
-  id          String   @id @default(cuid())
-  name        String
-  issue       String
-  urgency     String
-  status      String   @default("OFFLINE")
-  partNeeded  String?
-  estimatedCost Int?
-  createdAt   DateTime @default(now())
+  id                  String          @id @default(cuid())
+  name                String
+  serialNumber        String          @unique
+  status              EquipmentStatus @default(OPERATIONAL)
+  healthScore         Float           @default(1.0)
+  failureProbability  Float           @default(0.0)
+  lastServicedAt      DateTime?
+  predictedFailureDate DateTime?
+  partNeeded          String?
+  estimatedCost       Int?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 }
 
 enum ActionStatus {
@@ -81,6 +91,6 @@ model AgentAction {
   status      ActionStatus @default(PENDING)
   category    String
   metadata    Json?
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime     @now()
   updatedAt   DateTime     @updatedAt
 }
