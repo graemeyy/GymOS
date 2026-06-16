@@ -1,3 +1,4 @@
+// Deployment Trigger: Linking Vercel Postgres and DATABASE_URL verified.
 generator client {
   provider = "prisma-client-js"
 }
