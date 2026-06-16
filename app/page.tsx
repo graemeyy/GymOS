@@ -43,8 +43,14 @@ async function getDashboardData() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.equipment.findMany({
-      where: { status: "OFFLINE" },
-      take: 3,
+      where: {
+        OR: [
+          { status: "OFFLINE" },
+          { status: "WARNING" }
+        ]
+      },
+      take: 4,
+      orderBy: { failureProbability: 'desc' }
     }),
     prisma.agentAction.findMany({
       take: 5,
@@ -205,23 +211,39 @@ export default async function DashboardPage() {
                   </div>
                   <h2 className="text-lg font-bold text-white">Maintenance Oracle</h2>
                 </div>
-                <Badge variant="warning">3 Actions Pending</Badge>
+                <Badge variant={data.maintenanceItems.length > 0 ? "warning" : "success"}>
+                  {data.maintenanceItems.length} Issues Detected
+                </Badge>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {data.maintenanceItems.map((item) => (
+                {data.maintenanceItems.length > 0 ? data.maintenanceItems.map((item) => (
                   <Card key={item.id} className="p-5 flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start mb-3">
                         <h4 className="text-sm font-bold text-white">{item.name}</h4>
-                        <Badge variant={item.urgency === "High" ? "danger" : "warning"}>{item.urgency}</Badge>
+                        <Badge variant={item.status === "OFFLINE" ? "danger" : "warning"}>
+                          {item.status}
+                        </Badge>
                       </div>
-                      <p className="text-xs text-zinc-500 mb-6">{item.issue}</p>
+                      <div className="space-y-1 mb-6">
+                        <p className="text-xs text-zinc-500">SN: {item.serialNumber}</p>
+                        <p className="text-xs text-zinc-300">Failure Prob: {(item.failureProbability * 100).toFixed(1)}%</p>
+                        {item.predictedFailureDate && (
+                          <p className="text-[10px] text-zinc-600 uppercase font-bold">Est. Failure: {new Date(item.predictedFailureDate).toLocaleDateString()}</p>
+                        )}
+                      </div>
                     </div>
-                    <button className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
-                      <Cpu className="w-3 h-3" /> Auto-Draft PO
-                    </button>
+                    {item.status === "OFFLINE" && (
+                      <button className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                        <Cpu className="w-3 h-3" /> Auto-Draft PO
+                      </button>
+                    )}
                   </Card>
-                ))}
+                )) : (
+                  <div className="col-span-2 py-10 text-center border border-dashed border-zinc-800 rounded-xl">
+                    <p className="text-zinc-500 text-sm italic">All systems operational.</p>
+                  </div>
+                )}
               </div>
             </section>
           </div>
