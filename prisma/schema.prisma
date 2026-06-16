@@ -67,3 +67,20 @@ model Equipment {
   estimatedCost Int?
   createdAt   DateTime @default(now())
 }
+
+enum ActionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AgentAction {
+  id          String       @id @default(cuid())
+  title       String
+  description String
+  status      ActionStatus @default(PENDING)
+  category    String
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
