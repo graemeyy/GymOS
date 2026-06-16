@@ -18,8 +18,8 @@ export async function POST(req: Request) {
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err: any) {
-    console.error(\`Webhook signature verification failed.\`, err.message);
-    return NextResponse.json({ error: \`Webhook Error: \${err.message}\` }, { status: 400 });
+    console.error(`Webhook signature verification failed.`, err.message);
+    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
 
   switch (event.type) {
@@ -29,7 +29,6 @@ export async function POST(req: Request) {
       const stripeCustomerId = session.customer as string;
       const stripeSubscriptionId = session.subscription as string;
       
-      // Determine plan from metadata (fallback to BASIC)
       const planString = session.metadata?.plan?.toUpperCase() || 'BASIC';
       const validPlans = ['BASIC', 'PREMIUM', 'PLATINUM', 'ELITE'];
       const plan = validPlans.includes(planString) ? planString : 'BASIC';
@@ -48,7 +47,7 @@ export async function POST(req: Request) {
         await prisma.agentAction.create({
           data: {
             title: 'Subscription Completed',
-            description: \`Member \${memberId} has successfully subscribed to \${plan} plan.\`,
+            description: `Member ${memberId} has successfully subscribed to ${plan} plan.`,
             status: 'APPROVED',
             category: 'BILLING',
             metadata: {
