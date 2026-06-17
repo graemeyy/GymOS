@@ -39,7 +39,7 @@ const Card = ({ children, className = "", hoverGlow = false }: { children: React
   </div>
 );
 
-const Button = ({ children, variant = "default", className = "" }: { children: React.ReactNode, variant?: "brand" | "outline" | "ghost" | "secondary", className?: string }) => {
+const Button = ({ children, variant = "brand", className = "" }: { children: React.ReactNode, variant?: "brand" | "outline" | "ghost" | "secondary", className?: string }) => {
   const base = "px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 active:scale-95";
   const variants = {
     brand: "bg-[var(--brand-color)] text-black hover:brightness-110 shadow-[0_0_15px_var(--brand-glow)]",
