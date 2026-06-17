@@ -271,7 +271,7 @@ export default function DashboardPage() {
                   <div className="space-y-4">
                     {[
                       { name: "John Wick", time: "08:12 AM", type: "Member", status: "Success" },
-                      { name: "Tyler Durden", time: "07:55 AM", time: "07:55 AM", type: "Guest", status: "Success" },
+                      { name: "Tyler Durden", time: "07:55 AM", type: "Guest", status: "Success" },
                       { name: "Sarah Connor", time: "07:42 AM", type: "Member", status: "Warning" },
                     ].map((log, i) => (
                       <div key={i} className="flex items-center justify-between group/log">
