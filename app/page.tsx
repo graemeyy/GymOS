@@ -1,88 +1,58 @@
-import { AgentFeed } from '@/components/AgentFeed';
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { 
   Users, 
+  Activity, 
   DollarSign, 
+  AlertTriangle, 
+  ShieldCheck, 
+  Wrench, 
   Plus, 
   TrendingUp, 
   Bell,
-  Search,
-  Calendar,
-  ChevronRight,
-  MoreHorizontal,
-  UserPlus,
-  LayoutDashboard,
-  Settings,
-  CreditCard,
-  MessageSquare,
   Palette,
+  ScanLine,
+  UserCheck, 
   Zap,
-  Activity
+  Info
 } from "lucide-react";
 
-// --- Theme Configuration ---
-type BrandColor = "emerald" | "indigo" | "amber" | "rose" | "zinc";
+type BrandColor = "zinc" | "emerald" | "indigo" | "amber" | "rose";
 
 const BRAND_CONFIGS = {
-  emerald: { primary: "#10b981", glow: "rgba(16, 185, 129, 0.15)", border: "rgba(16, 185, 129, 0.3)" },
-  indigo: { primary: "#6366f1", glow: "rgba(99, 102, 241, 0.15)", border: "rgba(99, 102, 241, 0.3)" },
-  amber: { primary: "#f59e0b", glow: "rgba(245, 158, 11, 0.15)", border: "rgba(245, 158, 11, 0.3)" },
-  rose: { primary: "#f43f5e", glow: "rgba(244, 63, 94, 0.15)", border: "rgba(244, 63, 94, 0.3)" },
-  zinc: { primary: "#71717a", glow: "rgba(113, 113, 122, 0.15)", border: "rgba(113, 113, 122, 0.3)" },
+  zinc: { primary: "#71717a", glow: "rgba(113, 113, 122, 0.15)" },
+  emerald: { primary: "#10b981", glow: "rgba(16, 185, 129, 0.15)" },
+  indigo: { primary: "#6366f1", glow: "rgba(99, 102, 241, 0.15)" },
+  amber: { primary: "#f59e0b", glow: "rgba(245, 158, 11, 0.15)" },
+  rose: { primary: "#f43f5e", glow: "rgba(244, 63, 94, 0.15)" },
 };
 
-// --- Custom UI Primitives (Dynamic) ---
-const Card = ({ children, className = "", hoverGlow = false }: { children: React.ReactNode, className?: string, hoverGlow?: boolean }) => (
-  <div className={`bg-zinc-950/80 border border-zinc-900 rounded-xl backdrop-blur-md transition-all duration-500 ${hoverGlow ? 'hover:border-[var(--brand-border)] hover:shadow-[0_0_20px_var(--brand-glow)]' : ''} ${className}`}>
+const Card = ({ children, className = "", style = {} }: { children: React.ReactNode, className?: string, style?: React.CSSProperties }) => (
+  <div 
+    style={style}
+    className={"bg-zinc-900/20 border border-zinc-800/40 backdrop-blur-xl rounded-2xl p-5 hover:border-[var(--gym-brand)]/30 hover:shadow-[0_0_30px_var(--gym-brand-glow)] transition-all duration-500 " + className}
+  >
     {children}
   </div>
 );
 
-const Button = ({ children, variant = "brand", className = "" }: { children: React.ReactNode, variant?: "brand" | "outline" | "ghost" | "secondary", className?: string }) => {
-  const base = "px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 active:scale-95";
-  const variants = {
-    brand: "bg-[var(--brand-color)] text-black hover:brightness-110 shadow-[0_0_15px_var(--brand-glow)]",
-    outline: "bg-transparent border border-zinc-800 text-zinc-300 hover:border-[var(--brand-border)] hover:text-white",
-    ghost: "bg-transparent text-zinc-400 hover:text-white hover:bg-zinc-900",
-    secondary: "bg-zinc-900 text-white hover:bg-zinc-800 border border-zinc-800"
-  };
-  return <button className={`${base} ${variants[variant]} ${className}`}>{children}</button>;
-};
-
-const Badge = ({ children, variant = "brand" }: { children: React.ReactNode, variant?: "brand" | "warning" | "success" }) => {
+const Badge = ({ children, variant = "default" }: { children: React.ReactNode, variant?: "default" | "warning" | "danger" | "success" | "brand" }) => {
   const styles = {
-    brand: "bg-[var(--brand-glow)] text-[var(--brand-color)] border border-[var(--brand-border)]",
+    default: "bg-zinc-800/50 text-zinc-400 border border-zinc-700/30",
     warning: "bg-amber-500/10 text-amber-500 border border-amber-500/20",
+    danger: "bg-red-500/10 text-red-500 border border-red-500/20",
     success: "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20",
+    brand: "bg-[var(--gym-brand-glow)] text-[var(--gym-brand)] border border-[var(--gym-brand)]/20",
   };
   return (
-    <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-tighter ${styles[variant]}`}>
+    <span className={"text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider " + styles[variant]}>
       {children}
     </span>
   );
 };
 
-const MetricCard = ({ label, value, change, icon: Icon }: any) => (
-  <Card className="p-6 group cursor-default" hoverGlow>
-    <div className="flex justify-between items-start mb-4">
-      <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 group-hover:border-[var(--brand-border)] transition-colors">
-        <Icon className="w-5 h-5 text-[var(--brand-color)] transition-all duration-500 group-hover:scale-110" />
-      </div>
-      <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-        <TrendingUp className="w-3 h-3" />
-        {change}
-      </div>
-    </div>
-    <div>
-      <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.1em] mb-1">{label}</p>
-      <p className="text-2xl font-bold text-white tracking-tighter">{value}</p>
-    </div>
-  </Card>
-);
-
-export default function DashboardRedesign() {
+export default function DashboardPage() {
   const [brand, setBrand] = useState<BrandColor>("emerald");
   const [mounted, setMounted] = useState(false);
 
@@ -90,210 +60,270 @@ export default function DashboardRedesign() {
     setMounted(true);
   }, []);
 
-  if (!mounted) return <div className="min-h-screen bg-black" />;
+  const currentBrand = BRAND_CONFIGS[brand];
 
-  const currentTheme = BRAND_CONFIGS[brand];
   const brandStyles = {
-    "--brand-color": currentTheme.primary,
-    "--brand-glow": currentTheme.glow,
-    "--brand-border": currentTheme.border,
+    "--gym-brand": currentBrand.primary,
+    "--gym-brand-glow": currentBrand.glow,
   } as React.CSSProperties;
 
+  if (!mounted) return <div className="min-h-screen bg-zinc-950" />;
+
   return (
-    <div className="min-h-screen bg-black text-zinc-100 font-sans selection:bg-[var(--brand-color)] selection:text-black flex" style={brandStyles}>
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-zinc-800 pb-20 overflow-x-hidden" style={brandStyles}>
+      {/* Ambient background glow */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-[var(--gym-brand-glow)] rounded-full blur-[120px] pointer-events-none opacity-20 z-0" />
       
-      {/* Sidebar */}
-      <aside className="hidden lg:flex w-64 border-r border-zinc-900 flex-col p-6 space-y-8 bg-zinc-950/50 backdrop-blur-xl">
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-9 h-9 rounded-xl bg-[var(--brand-color)] flex items-center justify-center shadow-[0_0_20px_var(--brand-glow)] transition-all duration-500">
-            <Zap className="w-5 h-5 text-black fill-black" />
-          </div>
-          <span className="text-xl font-black tracking-tighter text-white">GymOS</span>
-        </div>
-
-        <nav className="space-y-1">
-          <Button variant="secondary" className="w-full justify-start gap-3 px-3 border-[var(--brand-border)] bg-zinc-900/50">
-            <LayoutDashboard className="w-4 h-4 text-[var(--brand-color)]" /> Dashboard
-          </Button>
-          {[
-            { icon: Users, label: "Members" },
-            { icon: Calendar, label: "Classes" },
-            { icon: MessageSquare, label: "Leads" },
-            { icon: CreditCard, label: "Billing" },
-            { icon: Settings, label: "Settings" }
-          ].map((item) => (
-            <Button key={item.label} variant="ghost" className="w-full justify-start gap-3 px-3">
-              <item.icon className="w-4 h-4" /> {item.label}
-            </Button>
-          ))}
-        </nav>
-
-        {/* Theme Picker in Sidebar */}
-        <div className="pt-8 border-t border-zinc-900">
-           <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2 mb-4">Brand Accent</p>
-           <div className="grid grid-cols-5 gap-2 px-2">
-             {(Object.keys(BRAND_CONFIGS) as BrandColor[]).map((c) => (
-               <button 
-                key={c}
-                onClick={() => setBrand(c)}
-                className={`h-8 rounded-md border-2 transition-all ${brand === c ? 'border-white scale-110 shadow-[0_0_10px_white/20]' : 'border-transparent hover:scale-105'}`}
-                style={{ backgroundColor: BRAND_CONFIGS[c].primary }}
-               />
-             ))}
-           </div>
-        </div>
-
-        <div className="mt-auto pt-6 border-t border-zinc-900">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-400 group cursor-pointer hover:border-[var(--brand-border)] transition-colors">GY</div>
-            <div>
-              <p className="text-xs font-bold text-white">Graeme York</p>
-              <p className="text-[10px] text-zinc-500 font-medium">Head of Operations</p>
+      <nav className="border-b border-zinc-900/50 bg-zinc-950/50 backdrop-blur-2xl sticky top-0 z-50">
+        <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2 group cursor-pointer">
+               <div className="w-8 h-8 rounded-xl bg-[var(--gym-brand)] flex items-center justify-center shadow-[0_0_20px_var(--gym-brand-glow)] group-hover:scale-110 transition-transform duration-500">
+                 <Zap className="w-4 h-4 text-black fill-black" />
+               </div>
+               <span className="text-xl font-bold tracking-tighter text-white">GymOS</span>
             </div>
-          </div>
-        </div>
-      </aside>
-
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-zinc-900 flex items-center justify-between px-6 lg:px-10 bg-black/50 backdrop-blur-2xl sticky top-0 z-50">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="relative w-full max-w-md hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-              <input 
-                type="text" 
-                placeholder="Search command center..." 
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-[var(--brand-border)] focus:shadow-[0_0_10px_var(--brand-glow)] transition-all duration-300"
-              />
+            <div className="hidden md:flex items-center gap-8 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              <a href="#" className="text-[var(--gym-brand)] transition-colors">Overview</a>
+              <a href="#" className="hover:text-zinc-300 transition-colors">Members</a>
+              <a href="#" className="hover:text-zinc-300 transition-colors">Staff</a>
+              <a href="#" className="hover:text-zinc-300 transition-colors">Settings</a>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-zinc-500 hover:text-white transition-colors relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-[var(--brand-color)] rounded-full border-2 border-black animate-pulse" />
+            <button className="p-2 text-zinc-500 hover:text-white transition-colors relative group">
+                <Bell className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-[var(--gym-brand)] rounded-full border border-zinc-950 shadow-[0_0_8px_var(--gym-brand-glow)]" />
             </button>
-            <Button variant="brand" className="px-4 h-10">
-              <Plus className="w-4 h-4" /> <span className="hidden sm:inline">New Member</span>
-            </Button>
+            <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-400 hover:border-zinc-700 transition-colors cursor-pointer">GY</div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-[1600px] mx-auto px-6 py-12 relative z-10">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
+          <div>
+            <h1 className="text-6xl font-black tracking-tighter text-white mb-3">Iron Sanctuary</h1>
+            <p className="text-zinc-500 text-sm flex items-center gap-3 font-medium">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+              </span>
+              System Online — Facilitating Peak Performance
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button className="bg-zinc-900/50 border border-zinc-800/50 hover:bg-zinc-800/80 text-zinc-400 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all backdrop-blur-md">
+              Reports
+            </button>
+            <button className="bg-white text-black hover:bg-zinc-200 px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:scale-[1.02] active:scale-[0.98]">
+              <Plus className="w-4 h-4" /> New Member
+            </button>
           </div>
         </header>
 
-        <main className="p-6 lg:p-10 space-y-8 overflow-y-auto custom-scrollbar">
-          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-            <MetricCard label="Total Revenue" value="$24,530" change="+12.5%" icon={DollarSign} />
-            <MetricCard label="Active Members" value="428" change="+4.2%" icon={Users} />
-            <MetricCard label="New Leads" value="64" change="+18.7%" icon={UserPlus} />
-            <MetricCard label="Check-ins" value="1,246" change="+2.4%" icon={Activity} />
-          </section>
-
-          <section>
-            <Card className="p-8 border-[var(--brand-border)]/10" hoverGlow>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                <div>
-                  <h3 className="text-xl font-bold text-white tracking-tighter">Performance Matrix</h3>
-                  <p className="text-xs text-zinc-500 font-medium">Real-time attendance and revenue scalability.</p>
-                </div>
-                <div className="flex items-center gap-2 bg-zinc-900/50 p-1 rounded-xl border border-zinc-800">
-                   <button className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest bg-[var(--brand-color)] text-black rounded-lg shadow-[0_0_10px_var(--brand-glow)]">Revenue</button>
-                   <button className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">Retention</button>
-                </div>
-              </div>
-              
-              <div className="h-[300px] w-full flex items-end justify-between gap-3 px-2 relative group/chart">
-                <div className="absolute inset-0 grid grid-rows-4 pointer-events-none opacity-20">
-                  {[...Array(4)].map((_, i) => <div key={i} className="border-t border-zinc-800 w-full" />)}
-                </div>
-                {[45, 52, 48, 61, 72, 68, 85, 78, 92, 88, 95, 100].map((val, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-4 group relative z-10">
-                    <div 
-                      className="w-full bg-zinc-900 rounded-t-md relative overflow-hidden group-hover:bg-[var(--brand-glow)] group-hover:border-t-2 group-hover:border-[var(--brand-color)] transition-all duration-500 cursor-pointer" 
-                      style={{ height: `${val}%` }}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-t from-transparent to-[var(--brand-color)] opacity-0 group-hover:opacity-20 transition-opacity" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-3 space-y-8">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 px-1">Gym Vitals</h3>
+            <div className="grid gap-4">
+                {[
+                  { label: "Members", value: "1,284", icon: Users, color: "text-blue-400", glow: "shadow-[0_0_15px_rgba(96,165,250,0.1)]" },
+                  { label: "Check-ins", value: "42", icon: Activity, color: "text-emerald-400", glow: "shadow-[0_0_15px_rgba(52,211,153,0.1)]" },
+                  { label: "Revenue", value: "$42.8k", icon: DollarSign, color: "text-white", glow: "" },
+                  { label: "At-Risk", value: "12", icon: AlertTriangle, color: "text-amber-400", glow: "shadow-[0_0_15px_rgba(251,191,36,0.1)]" },
+                ].map((stat) => (
+                  <Card key={stat.label} className={"group cursor-default py-5 border-zinc-800/30 " + stat.glow}>
+                    <div className="flex items-center gap-5">
+                      <div className={"p-3 rounded-xl bg-zinc-950/50 border border-zinc-800/50 group-hover:border-zinc-700/50 transition-colors " + stat.color}>
+                        <stat.icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-0.5">{stat.label}</p>
+                        <p className="text-2xl font-black text-white tracking-tighter">{stat.value}</p>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tighter transition-colors group-hover:text-zinc-300">
-                      {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}
-                    </span>
-                  </div>
+                  </Card>
+                ))}
+            </div>
+
+            <Card className="mt-8 border-[var(--gym-brand)]/10 bg-gradient-to-b from-zinc-900/10 to-zinc-950/40">
+              <div className="flex items-center gap-3 mb-8">
+                <Palette className="w-4 h-4 text-[var(--gym-brand)]" />
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">Brand Mode</h3>
+              </div>
+              <p className="text-xs text-zinc-500 mb-8 leading-relaxed font-medium">Shift the system accent and ambient glow across the dashboard.</p>
+              <div className="grid grid-cols-5 gap-3">
+                {(Object.keys(BRAND_CONFIGS) as BrandColor[]).map((c) => (
+                  <button 
+                    key={c}
+                    onClick={() => setBrand(c)}
+                    className={"h-10 rounded-xl border-2 transition-all duration-500 " + (brand === c ? 'border-white scale-110 shadow-[0_0_15px_var(--gym-brand-glow)]' : 'border-transparent hover:scale-105 opacity-60 hover:opacity-100')}
+                    style={{ backgroundColor: BRAND_CONFIGS[c].primary }}
+                  />
                 ))}
               </div>
+              <div className="mt-8 pt-8 border-t border-zinc-900/50">
+                <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Active Profile</span>
+                    <Badge variant="brand">{brand}</Badge>
+                </div>
+              </div>
             </Card>
-          </section>
+          </div>
 
-          <section className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between px-2">
-                <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Recent Deployments</h3>
-                <Button variant="ghost" className="text-[10px] p-0 h-auto uppercase tracking-tighter font-black">Archive</Button>
-              </div>
-              <Card className="overflow-hidden border-zinc-900/50">
-                <div className="divide-y divide-zinc-900/50">
+          <div className="lg:col-span-5 space-y-8">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 px-1">Autonomous Operations</h3>
+            <Card className="p-0 overflow-hidden group border-zinc-800/30">
+               <div className="p-6 border-b border-zinc-900/50 flex items-center justify-between bg-zinc-950/40 backdrop-blur-md">
+                 <div className="flex items-center gap-4">
+                    <div className="p-2.5 bg-blue-500/5 rounded-xl border border-blue-500/10">
+                      <ShieldCheck className="w-5 h-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-white tracking-tight">Churn Shield</h4>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Predictive Retention Agent</p>
+                    </div>
+                 </div>
+                 <Badge variant="brand">Active</Badge>
+               </div>
+               <div className="divide-y divide-zinc-900/30">
                   {[
-                    { name: "Alex Rivera", class: "HIIT Training", time: "09:00 AM", status: "Success" },
-                    { name: "Sarah Chen", class: "Yoga Flow", time: "10:30 AM", status: "Success" },
-                    { name: "James Wilson", class: "Strength Lab", time: "05:00 PM", status: "Warning" },
-                    { name: "Emma Thompson", class: "HIIT Training", time: "06:30 PM", status: "Success" },
-                  ].map((booking, i) => (
-                    <div key={i} className="p-4 flex items-center justify-between hover:bg-[var(--brand-glow)] transition-all duration-300 group cursor-pointer">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-black text-zinc-500 group-hover:border-[var(--brand-border)] group-hover:text-[var(--brand-color)] transition-all">
-                          {booking.name.split(' ').map(n => n[0]).join('')}
+                    { name: "Marcus Wright", plan: "Pro", score: 88, status: "Active" },
+                    { name: "Elena Rodriguez", plan: "Basic", score: 32, status: "At Risk" },
+                    { name: "Sarah Chen", plan: "Pro", score: 94, status: "Active" },
+                  ].map((m, i) => (
+                    <div key={i} className="p-5 flex items-center justify-between hover:bg-[var(--gym-brand-glow)] transition-all duration-500 cursor-pointer group/row">
+                        <div className="flex items-center gap-4">
+                           <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800/50 flex items-center justify-center text-xs font-black text-zinc-400 group-hover/row:border-[var(--gym-brand)]/50 group-hover/row:text-white transition-all">
+                            {m.name[0]}
+                           </div>
+                           <div>
+                             <p className="text-sm font-bold text-zinc-200 group-hover/row:text-white transition-colors">{m.name}</p>
+                             <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-[0.2em]">{m.plan} Membership</p>
+                           </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-white group-hover:text-[var(--brand-color)] transition-colors">{booking.name}</p>
-                          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{booking.class}</p>
+                        <div className="text-right">
+                          <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest mb-1">Score</p>
+                          <p className={"text-sm font-black tracking-tighter " + (m.score > 70 ? 'text-emerald-500' : 'text-amber-500')}>{m.score}%</p>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-6">
-                        <div className="text-right hidden sm:block">
-                          <p className="text-xs font-bold text-white">{booking.time}</p>
-                          <Badge variant={booking.status === 'Warning' ? 'warning' : 'brand'}>{booking.status}</Badge>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-zinc-800 group-hover:text-white transition-all transform group-hover:translate-x-1" />
-                      </div>
                     </div>
                   ))}
-                </div>
-              </Card>
-            </div>
+               </div>
+               <div className="p-4 bg-zinc-950/60 text-center border-t border-zinc-900/50">
+                 <button className="text-[9px] font-black text-zinc-500 hover:text-[var(--gym-brand)] transition-colors uppercase tracking-[0.3em]">Neural Network Insights</button>
+               </div>
+            </Card>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between px-2">
-                <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Member Retention Leads</h3>
-                <Button variant="ghost" className="text-[10px] p-0 h-auto uppercase tracking-tighter font-black">Full CRM</Button>
-              </div>
-              <Card className="overflow-hidden border-zinc-900/50">
-                <div className="divide-y divide-zinc-900/50">
-                  {[
-                    { name: "Marcus Wright", source: "Instagram", date: "Today", score: 92 },
-                    { name: "Elena Rodriguez", source: "Website", date: "Yesterday", score: 85 },
-                    { name: "Chris Bacon", source: "Referral", date: "2 days ago", score: 78 },
-                    { name: "John Wick", source: "Direct", date: "3 days ago", score: 95 },
-                  ].map((lead, i) => (
-                    <div key={i} className="p-4 flex items-center justify-between hover:bg-[var(--brand-glow)] transition-all duration-300 group cursor-pointer">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xs font-black text-zinc-500 group-hover:border-[var(--brand-border)] group-hover:text-[var(--brand-color)] transition-all">
-                          {lead.name[0]}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-white group-hover:text-[var(--brand-color)] transition-colors">{lead.name}</p>
-                          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{lead.source} • {lead.date}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800 group-hover:border-[var(--brand-border)] transition-colors">
-                          <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Score</span>
-                          <span className="text-xs font-black text-[var(--brand-color)]">{lead.score}</span>
-                        </div>
-                        <MoreHorizontal className="w-4 h-4 text-zinc-800 group-hover:text-white transition-colors" />
-                      </div>
+            <Card className="p-0 overflow-hidden border-amber-500/5">
+               <div className="p-6 border-b border-zinc-900/50 flex items-center justify-between bg-zinc-950/40 backdrop-blur-md">
+                 <div className="flex items-center gap-4">
+                    <div className="p-2.5 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                      <Wrench className="w-5 h-5 text-amber-500" />
                     </div>
-                  ))}
-                </div>
-              </Card>
-            </div>
-          </section>
-        </main>
-      </div>
+                    <div>
+                      <h4 className="text-sm font-black text-white tracking-tight">Maintenance Oracle</h4>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">IoT Equipment Monitoring</p>
+                    </div>
+                 </div>
+                 <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">2 Alerts</span>
+                 </div>
+               </div>
+               <div className="p-6 space-y-4">
+                  <div className="p-5 rounded-2xl bg-amber-500/[0.03] border border-amber-500/10 flex items-start justify-between group/alert hover:bg-amber-500/[0.06] transition-all duration-500">
+                    <div>
+                      <p className="text-xs font-bold text-zinc-200 group-hover/alert:text-white transition-colors">Treadmill #4 - Motor Heat</p>
+                      <p className="text-[10px] text-zinc-500 mt-1.5 font-medium leading-relaxed">Critical thermal limit detected. High probability of core failure within 72 hours.</p>
+                    </div>
+                    <button className="p-2 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg transition-all text-amber-500">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="p-5 rounded-2xl bg-zinc-950/50 border border-zinc-900 flex items-start justify-between opacity-50 hover:opacity-100 transition-all duration-500">
+                    <div>
+                      <p className="text-xs font-bold text-zinc-400">Rowing Machine B - Chain Tension</p>
+                      <p className="text-[10px] text-zinc-600 mt-1.5 font-medium">Routine maintenance recommended for peak efficiency next week.</p>
+                    </div>
+                    <Info className="w-4 h-4 text-zinc-800" />
+                  </div>
+               </div>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-4 space-y-8">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 px-1">Scanner Node</h3>
+            <Card className="p-0 overflow-hidden border-zinc-800/30">
+               <div className="p-10 bg-zinc-950/80 flex flex-col items-center justify-center border-b border-zinc-900/50 relative group cursor-pointer overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-b from-[var(--gym-brand-glow)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                  <div className="relative">
+                    <div className="absolute -inset-8 bg-[var(--gym-brand-glow)] rounded-full blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 animate-pulse" />
+                    <ScanLine className="w-20 h-20 text-[var(--gym-brand)] relative z-10 group-hover:scale-110 transition-transform duration-700" />
+                  </div>
+                  <p className="mt-8 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 group-hover:text-white transition-colors relative z-10">Initialize Scan</p>
+                  <p className="mt-2 text-[9px] text-zinc-700 font-bold uppercase tracking-widest relative z-10">Sensor Status: Standby</p>
+               </div>
+               
+               <div className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Access Log</h5>
+                    <div className="flex items-center gap-2">
+                       <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                       <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Realtime</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {[
+                      { name: "John Wick", time: "08:12 AM", type: "Member", status: "Success" },
+                      { name: "Tyler Durden", time: "07:55 AM", type: "Guest", status: "Success" },
+                      { name: "Sarah Connor", time: "07:42 AM", type: "Member", status: "Warning" },
+                    ].map((log, i) => (
+                      <div key={i} className="flex items-center justify-between group/log">
+                        <div className="flex items-center gap-4">
+                           <div className={"w-0.5 h-8 rounded-full " + (log.status === 'Success' ? 'bg-emerald-500/40' : 'bg-amber-500/40')} />
+                           <div>
+                             <p className="text-xs font-bold text-zinc-200 group-hover/log:text-white transition-colors">{log.name}</p>
+                             <p className="text-[10px] text-zinc-600 font-medium uppercase tracking-wider">{log.time} <span className="mx-1 opacity-30">|</span> {log.type}</p>
+                           </div>
+                        </div>
+                        <button className="opacity-0 group-hover/log:opacity-100 p-2 hover:bg-zinc-900 rounded-xl transition-all duration-300">
+                          <UserCheck className="w-4 h-4 text-zinc-600 hover:text-white" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+               </div>
+               
+               <div className="p-5 bg-zinc-950/80 border-t border-zinc-900/50">
+                  <div className="flex gap-3">
+                    <button className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white hover:border-zinc-700 transition-all">Manual Override</button>
+                    <button className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white hover:border-zinc-700 transition-all">Issue Guest</button>
+                  </div>
+               </div>
+            </Card>
+
+            <Card className="p-8 bg-gradient-to-br from-zinc-950 to-zinc-900/20 border-emerald-500/5 hover:border-emerald-500/10 transition-all duration-700">
+              <div className="flex items-center gap-3 mb-8">
+                <TrendingUp className="w-4 h-4 text-emerald-500/70" />
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">Peak Forecast</h3>
+              </div>
+              <div className="flex items-end justify-between h-24 gap-1.5 mb-6 group/chart">
+                {[30, 45, 60, 85, 100, 75, 50, 40, 60, 90, 80, 45].map((h, i) => (
+                  <div 
+                    key={i} 
+                    style={{ height: h + "%" }} 
+                    className={"flex-1 rounded-t-lg transition-all duration-1000 " + (h > 80 ? 'bg-rose-500/30' : 'bg-emerald-500/10 group-hover/chart:bg-emerald-500/20')} 
+                  />
+                ))}
+              </div>
+              <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-full py-2 px-4">
+                <p className="text-[9px] text-emerald-500/80 text-center font-black uppercase tracking-[0.2em]">Expected Peak: 17:00 - 19:00</p>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
