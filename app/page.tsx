@@ -106,8 +106,8 @@ export default function DashboardPage() {
             <h1 className="text-6xl font-black tracking-tighter text-white mb-3">Iron Sanctuary</h1>
             <p className="text-zinc-500 text-sm flex items-center gap-3 font-medium">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--gym-brand)]/75 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--gym-brand)] shadow-[0_0_8px_var(--gym-brand-glow)]"></span>
               </span>
               System Online — Facilitating Peak Performance
             </p>
@@ -127,14 +127,14 @@ export default function DashboardPage() {
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 px-1">Gym Vitals</h3>
             <div className="grid gap-4">
                 {[
-                  { label: "Members", value: "1,284", icon: Users, color: "text-blue-400", glow: "shadow-[0_0_15px_rgba(96,165,250,0.1)]" },
-                  { label: "Check-ins", value: "42", icon: Activity, color: "text-emerald-400", glow: "shadow-[0_0_15px_rgba(52,211,153,0.1)]" },
+                  { label: "Members", value: "1,284", icon: Users, color: "text-[var(--gym-brand)]", glow: "shadow-[0_0_15px_var(--gym-brand-glow)]" },
+                  { label: "Check-ins", value: "42", icon: Activity, color: "text-[var(--gym-brand)]", glow: "shadow-[0_0_15px_var(--gym-brand-glow)]" },
                   { label: "Revenue", value: "$42.8k", icon: DollarSign, color: "text-white", glow: "" },
                   { label: "At-Risk", value: "12", icon: AlertTriangle, color: "text-amber-400", glow: "shadow-[0_0_15px_rgba(251,191,36,0.1)]" },
                 ].map((stat) => (
                   <Card key={stat.label} className={"group cursor-default py-5 border-zinc-800/30 " + stat.glow}>
                     <div className="flex items-center gap-5">
-                      <div className={"p-3 rounded-xl bg-zinc-950/50 border border-zinc-800/50 group-hover:border-zinc-700/50 transition-colors " + stat.color}>
+                      <div className={"p-3 rounded-xl bg-zinc-950/50 border border-zinc-800/50 group-hover:border-[var(--gym-brand)]/50 transition-colors " + stat.color}>
                         <stat.icon className="w-4 h-4" />
                       </div>
                       <div>
@@ -176,8 +176,8 @@ export default function DashboardPage() {
             <Card className="p-0 overflow-hidden group border-zinc-800/30">
                <div className="p-6 border-b border-zinc-900/50 flex items-center justify-between bg-zinc-950/40 backdrop-blur-md">
                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-blue-500/5 rounded-xl border border-blue-500/10">
-                      <ShieldCheck className="w-5 h-5 text-blue-500" />
+                    <div className="p-2.5 bg-[var(--gym-brand-glow)] rounded-xl border border-[var(--gym-brand)]/10">
+                      <ShieldCheck className="w-5 h-5 text-[var(--gym-brand)]" />
                     </div>
                     <div>
                       <h4 className="text-sm font-black text-white tracking-tight">Churn Shield</h4>
@@ -204,7 +204,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest mb-1">Score</p>
-                          <p className={"text-sm font-black tracking-tighter " + (m.score > 70 ? 'text-emerald-500' : 'text-amber-500')}>{m.score}%</p>
+                          <p className={"text-sm font-black tracking-tighter " + (m.score > 70 ? 'text-[var(--gym-brand)]' : 'text-amber-500')}>{m.score}%</p>
                         </div>
                     </div>
                   ))}
@@ -214,11 +214,11 @@ export default function DashboardPage() {
                </div>
             </Card>
 
-            <Card className="p-0 overflow-hidden border-amber-500/5">
+            <Card className="p-0 overflow-hidden border-[var(--gym-brand)]/5">
                <div className="p-6 border-b border-zinc-900/50 flex items-center justify-between bg-zinc-950/40 backdrop-blur-md">
                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-amber-500/5 rounded-xl border border-amber-500/10">
-                      <Wrench className="w-5 h-5 text-amber-500" />
+                    <div className="p-2.5 bg-[var(--gym-brand-glow)] rounded-xl border border-[var(--gym-brand)]/10">
+                      <Wrench className="w-5 h-5 text-[var(--gym-brand)]" />
                     </div>
                     <div>
                       <h4 className="text-sm font-black text-white tracking-tight">Maintenance Oracle</h4>
@@ -226,17 +226,17 @@ export default function DashboardPage() {
                     </div>
                  </div>
                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">2 Alerts</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--gym-brand)] animate-pulse" />
+                    <span className="text-[10px] font-black text-[var(--gym-brand)] uppercase tracking-widest">2 Alerts</span>
                  </div>
                </div>
                <div className="p-6 space-y-4">
-                  <div className="p-5 rounded-2xl bg-amber-500/[0.03] border border-amber-500/10 flex items-start justify-between group/alert hover:bg-amber-500/[0.06] transition-all duration-500">
+                  <div className="p-5 rounded-2xl bg-[var(--gym-brand-glow)]/50 border border-[var(--gym-brand)]/10 flex items-start justify-between group/alert hover:bg-[var(--gym-brand-glow)] transition-all duration-500">
                     <div>
                       <p className="text-xs font-bold text-zinc-200 group-hover/alert:text-white transition-colors">Treadmill #4 - Motor Heat</p>
                       <p className="text-[10px] text-zinc-500 mt-1.5 font-medium leading-relaxed">Critical thermal limit detected. High probability of core failure within 72 hours.</p>
                     </div>
-                    <button className="p-2 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg transition-all text-amber-500">
+                    <button className="p-2 bg-[var(--gym-brand-glow)] hover:bg-[var(--gym-brand-glow)]/80 rounded-lg transition-all text-[var(--gym-brand)]">
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
@@ -268,7 +268,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between mb-6">
                     <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Access Log</h5>
                     <div className="flex items-center gap-2">
-                       <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                       <span className="w-1 h-1 rounded-full bg-[var(--gym-brand)] animate-pulse" />
                        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Realtime</span>
                     </div>
                   </div>
@@ -281,7 +281,7 @@ export default function DashboardPage() {
                     ].map((log, i) => (
                       <div key={i} className="flex items-center justify-between group/log">
                         <div className="flex items-center gap-4">
-                           <div className={"w-0.5 h-8 rounded-full " + (log.status === 'Success' ? 'bg-emerald-500/40' : 'bg-amber-500/40')} />
+                           <div className={"w-0.5 h-8 rounded-full " + (log.status === 'Success' ? 'bg-[var(--gym-brand)]/40' : 'bg-amber-500/40')} />
                            <div>
                              <p className="text-xs font-bold text-zinc-200 group-hover/log:text-white transition-colors">{log.name}</p>
                              <p className="text-[10px] text-zinc-600 font-medium uppercase tracking-wider">{log.time} <span className="mx-1 opacity-30">|</span> {log.type}</p>
@@ -303,9 +303,9 @@ export default function DashboardPage() {
                </div>
             </Card>
 
-            <Card className="p-8 bg-gradient-to-br from-zinc-950 to-zinc-900/20 border-emerald-500/5 hover:border-emerald-500/10 transition-all duration-700">
+            <Card className="p-8 bg-gradient-to-br from-zinc-950 to-zinc-900/20 border-[var(--gym-brand)]/5 hover:border-[var(--gym-brand)]/10 transition-all duration-700">
               <div className="flex items-center gap-3 mb-8">
-                <TrendingUp className="w-4 h-4 text-emerald-500/70" />
+                <TrendingUp className="w-4 h-4 text-[var(--gym-brand)]/70" />
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">Peak Forecast</h3>
               </div>
               <div className="flex items-end justify-between h-24 gap-1.5 mb-6 group/chart">
@@ -313,12 +313,12 @@ export default function DashboardPage() {
                   <div 
                     key={i} 
                     style={{ height: h + "%" }} 
-                    className={"flex-1 rounded-t-lg transition-all duration-1000 " + (h > 80 ? 'bg-rose-500/30' : 'bg-emerald-500/10 group-hover/chart:bg-emerald-500/20')} 
+                    className={"flex-1 rounded-t-lg transition-all duration-1000 " + (h > 80 ? 'bg-rose-500/30' : 'bg-[var(--gym-brand)]/10 group-hover/chart:bg-[var(--gym-brand)]/20')} 
                   />
                 ))}
               </div>
-              <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-full py-2 px-4">
-                <p className="text-[9px] text-emerald-500/80 text-center font-black uppercase tracking-[0.2em]">Expected Peak: 17:00 - 19:00</p>
+              <div className="bg-[var(--gym-brand-glow)] border border-[var(--gym-brand)]/10 rounded-full py-2 px-4">
+                <p className="text-[9px] text-[var(--gym-brand)] text-center font-black uppercase tracking-[0.2em]">Expected Peak: 17:00 - 19:00</p>
               </div>
             </Card>
           </div>
