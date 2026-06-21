@@ -18,7 +18,7 @@ import {
   Info
 } from "lucide-react";
 
-type BrandColor = "zinc" | "emerald" | "indigo" | "amber" | "rose";
+type BrandColor = "zinc" | "emerald" | "indigo" | "amber" | "rose" | "neon";
 
 const BRAND_CONFIGS = {
   zinc: { primary: "#71717a", glow: "rgba(113, 113, 122, 0.15)" },
@@ -26,12 +26,13 @@ const BRAND_CONFIGS = {
   indigo: { primary: "#6366f1", glow: "rgba(99, 102, 241, 0.15)" },
   amber: { primary: "#f59e0b", glow: "rgba(245, 158, 11, 0.15)" },
   rose: { primary: "#f43f5e", glow: "rgba(244, 63, 94, 0.15)" },
+  neon: { primary: "#00d2ff", glow: "rgba(0, 210, 255, 0.25)" },
 };
 
 const Card = ({ children, className = "", style = {} }: { children: React.ReactNode, className?: string, style?: React.CSSProperties }) => (
   <div 
     style={style}
-    className={"bg-zinc-900/20 border border-zinc-800/40 backdrop-blur-xl rounded-2xl p-5 hover:border-[var(--gym-brand)]/30 hover:shadow-[0_0_30px_var(--gym-brand-glow)] transition-all duration-500 " + className}
+    className={"glass-panel rounded-2xl p-5 hover:border-[var(--gym-brand)]/50 hover:shadow-[0_0_40px_var(--gym-brand-glow)] transition-all duration-700 " + className}
   >
     {children}
   </div>
@@ -53,7 +54,7 @@ const Badge = ({ children, variant = "default" }: { children: React.ReactNode, v
 };
 
 export default function DashboardPage() {
-  const [brand, setBrand] = useState<BrandColor>("emerald");
+  const [brand, setBrand] = useState<BrandColor>("neon");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -67,18 +68,18 @@ export default function DashboardPage() {
     "--gym-brand-glow": currentBrand.glow,
   } as React.CSSProperties;
 
-  if (!mounted) return <div className="min-h-screen bg-zinc-950" />;
+  if (!mounted) return <div className="min-h-screen bg-[#09090b]" />;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-zinc-800 pb-20 overflow-x-hidden" style={brandStyles}>
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans selection:bg-zinc-800 pb-20 overflow-x-hidden" style={brandStyles}>
       {/* Ambient background glow */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-[var(--gym-brand-glow)] rounded-full blur-[120px] pointer-events-none opacity-20 z-0" />
+      <div className="fixed top-[-10%] left-1/2 -translate-x-1/2 w-[1200px] h-[800px] bg-[var(--gym-brand-glow)] rounded-full blur-[160px] pointer-events-none opacity-30 z-0" />
       
-      <nav className="border-b border-zinc-900/50 bg-zinc-950/50 backdrop-blur-2xl sticky top-0 z-50">
+      <nav className="border-b border-zinc-900/50 bg-[#09090b]/80 backdrop-blur-2xl sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2 group cursor-pointer">
-               <div className="w-8 h-8 rounded-xl bg-[var(--gym-brand)] flex items-center justify-center shadow-[0_0_20px_var(--gym-brand-glow)] group-hover:scale-110 transition-transform duration-500">
+               <div className="w-8 h-8 rounded-xl bg-[var(--gym-brand)] flex items-center justify-center shadow-[0_0_25px_var(--gym-brand-glow)] group-hover:scale-110 transition-transform duration-500">
                  <Zap className="w-4 h-4 text-black fill-black" />
                </div>
                <span className="text-xl font-bold tracking-tighter text-white">GymOS</span>
@@ -103,20 +104,20 @@ export default function DashboardPage() {
       <main className="max-w-[1600px] mx-auto px-6 py-12 relative z-10">
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
           <div>
-            <h1 className="text-6xl font-black tracking-tighter text-white mb-3">Iron Sanctuary</h1>
+            <h1 className="text-7xl font-black tracking-tighter text-white mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-zinc-500">Iron Sanctuary</h1>
             <p className="text-zinc-500 text-sm flex items-center gap-3 font-medium">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--gym-brand)]/75 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--gym-brand)] shadow-[0_0_8px_var(--gym-brand-glow)]"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--gym-brand)] shadow-[0_0_12px_var(--gym-brand-glow)]"></span>
               </span>
               System Online — Facilitating Peak Performance
             </p>
           </div>
           <div className="flex gap-3">
-            <button className="bg-zinc-900/50 border border-zinc-800/50 hover:bg-zinc-800/80 text-zinc-400 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all backdrop-blur-md">
+            <button className="bg-zinc-900/40 border border-zinc-800/40 hover:bg-zinc-800/60 text-zinc-400 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all backdrop-blur-md">
               Reports
             </button>
-            <button className="bg-white text-black hover:bg-zinc-200 px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:scale-[1.02] active:scale-[0.98]">
+            <button className="bg-[var(--gym-brand)] text-black hover:scale-[1.02] active:scale-[0.98] px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-[0_0_30px_var(--gym-brand-glow)]">
               <Plus className="w-4 h-4" /> New Member
             </button>
           </div>
@@ -127,12 +128,12 @@ export default function DashboardPage() {
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 px-1">Gym Vitals</h3>
             <div className="grid gap-4">
                 {[
-                  { label: "Members", value: "1,284", icon: Users, color: "text-[var(--gym-brand)]", glow: "shadow-[0_0_15px_var(--gym-brand-glow)]" },
-                  { label: "Check-ins", value: "42", icon: Activity, color: "text-[var(--gym-brand)]", glow: "shadow-[0_0_15px_var(--gym-brand-glow)]" },
+                  { label: "Members", value: "1,284", icon: Users, color: "text-[var(--gym-brand)]", glow: "shadow-[0_0_20px_var(--gym-brand-glow)]" },
+                  { label: "Check-ins", value: "42", icon: Activity, color: "text-[var(--gym-brand)]", glow: "shadow-[0_0_20px_var(--gym-brand-glow)]" },
                   { label: "Revenue", value: "$42.8k", icon: DollarSign, color: "text-white", glow: "" },
-                  { label: "At-Risk", value: "12", icon: AlertTriangle, color: "text-amber-400", glow: "shadow-[0_0_15px_rgba(251,191,36,0.1)]" },
+                  { label: "At-Risk", value: "12", icon: AlertTriangle, color: "text-amber-400", glow: "shadow-[0_0_20px_rgba(251,191,36,0.15)]" },
                 ].map((stat) => (
-                  <Card key={stat.label} className={"group cursor-default py-5 border-zinc-800/30 " + stat.glow}>
+                  <Card key={stat.label} className={"group cursor-default py-5 " + stat.glow}>
                     <div className="flex items-center gap-5">
                       <div className={"p-3 rounded-xl bg-zinc-950/50 border border-zinc-800/50 group-hover:border-[var(--gym-brand)]/50 transition-colors " + stat.color}>
                         <stat.icon className="w-4 h-4" />
@@ -146,13 +147,13 @@ export default function DashboardPage() {
                 ))}
             </div>
 
-            <Card className="mt-8 border-[var(--gym-brand)]/10 bg-gradient-to-b from-zinc-900/10 to-zinc-950/40">
+            <Card className="mt-8 border-[var(--gym-brand)]/10 bg-gradient-to-b from-zinc-900/20 to-zinc-950/60">
               <div className="flex items-center gap-3 mb-8">
                 <Palette className="w-4 h-4 text-[var(--gym-brand)]" />
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">Brand Mode</h3>
               </div>
               <p className="text-xs text-zinc-500 mb-8 leading-relaxed font-medium">Shift the system accent and ambient glow across the dashboard.</p>
-              <div className="grid grid-cols-5 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 {(Object.keys(BRAND_CONFIGS) as BrandColor[]).map((c) => (
                   <button 
                     key={c}
@@ -173,10 +174,10 @@ export default function DashboardPage() {
 
           <div className="lg:col-span-5 space-y-8">
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 px-1">Autonomous Operations</h3>
-            <Card className="p-0 overflow-hidden group border-zinc-800/30">
-               <div className="p-6 border-b border-zinc-900/50 flex items-center justify-between bg-zinc-950/40 backdrop-blur-md">
+            <Card className="p-0 overflow-hidden group">
+               <div className="p-6 border-b border-zinc-900/50 flex items-center justify-between bg-zinc-950/60 backdrop-blur-md">
                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-[var(--gym-brand-glow)] rounded-xl border border-[var(--gym-brand)]/10">
+                    <div className="p-2.5 bg-[var(--gym-brand-glow)] rounded-xl border border-[var(--gym-brand)]/20">
                       <ShieldCheck className="w-5 h-5 text-[var(--gym-brand)]" />
                     </div>
                     <div>
@@ -186,7 +187,7 @@ export default function DashboardPage() {
                  </div>
                  <Badge variant="brand">Active</Badge>
                </div>
-               <div className="divide-y divide-zinc-900/30">
+               <div className="divide-y divide-zinc-900/40">
                   {[
                     { name: "Marcus Wright", plan: "Pro", score: 88, status: "Active" },
                     { name: "Elena Rodriguez", plan: "Basic", score: 32, status: "At Risk" },
@@ -209,15 +210,15 @@ export default function DashboardPage() {
                     </div>
                   ))}
                </div>
-               <div className="p-4 bg-zinc-950/60 text-center border-t border-zinc-900/50">
+               <div className="p-4 bg-zinc-950/80 text-center border-t border-zinc-900/50">
                  <button className="text-[9px] font-black text-zinc-500 hover:text-[var(--gym-brand)] transition-colors uppercase tracking-[0.3em]">Neural Network Insights</button>
                </div>
             </Card>
 
-            <Card className="p-0 overflow-hidden border-[var(--gym-brand)]/5">
-               <div className="p-6 border-b border-zinc-900/50 flex items-center justify-between bg-zinc-950/40 backdrop-blur-md">
+            <Card className="p-0 overflow-hidden border-[var(--gym-brand)]/10">
+               <div className="p-6 border-b border-zinc-900/50 flex items-center justify-between bg-zinc-950/60 backdrop-blur-md">
                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-[var(--gym-brand-glow)] rounded-xl border border-[var(--gym-brand)]/10">
+                    <div className="p-2.5 bg-[var(--gym-brand-glow)] rounded-xl border border-[var(--gym-brand)]/20">
                       <Wrench className="w-5 h-5 text-[var(--gym-brand)]" />
                     </div>
                     <div>
@@ -231,7 +232,7 @@ export default function DashboardPage() {
                  </div>
                </div>
                <div className="p-6 space-y-4">
-                  <div className="p-5 rounded-2xl bg-[var(--gym-brand-glow)]/50 border border-[var(--gym-brand)]/10 flex items-start justify-between group/alert hover:bg-[var(--gym-brand-glow)] transition-all duration-500">
+                  <div className="p-5 rounded-2xl bg-[var(--gym-brand-glow)]/40 border border-[var(--gym-brand)]/20 flex items-start justify-between group/alert hover:bg-[var(--gym-brand-glow)] transition-all duration-500">
                     <div>
                       <p className="text-xs font-bold text-zinc-200 group-hover/alert:text-white transition-colors">Treadmill #4 - Motor Heat</p>
                       <p className="text-[10px] text-zinc-500 mt-1.5 font-medium leading-relaxed">Critical thermal limit detected. High probability of core failure within 72 hours.</p>
@@ -253,7 +254,7 @@ export default function DashboardPage() {
 
           <div className="lg:col-span-4 space-y-8">
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 px-1">Scanner Node</h3>
-            <Card className="p-0 overflow-hidden border-zinc-800/30">
+            <Card className="p-0 overflow-hidden">
                <div className="p-10 bg-zinc-950/80 flex flex-col items-center justify-center border-b border-zinc-900/50 relative group cursor-pointer overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-b from-[var(--gym-brand-glow)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                   <div className="relative">
@@ -295,7 +296,7 @@ export default function DashboardPage() {
                   </div>
                </div>
                
-               <div className="p-5 bg-zinc-950/80 border-t border-zinc-900/50">
+               <div className="p-5 bg-zinc-950/90 border-t border-zinc-900/50">
                   <div className="flex gap-3">
                     <button className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white hover:border-zinc-700 transition-all">Manual Override</button>
                     <button className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white hover:border-zinc-700 transition-all">Issue Guest</button>
@@ -303,7 +304,7 @@ export default function DashboardPage() {
                </div>
             </Card>
 
-            <Card className="p-8 bg-gradient-to-br from-zinc-950 to-zinc-900/20 border-[var(--gym-brand)]/5 hover:border-[var(--gym-brand)]/10 transition-all duration-700">
+            <Card className="p-8 bg-gradient-to-br from-[#09090b] to-zinc-900/40 border-[var(--gym-brand)]/10 hover:border-[var(--gym-brand)]/30 transition-all duration-700">
               <div className="flex items-center gap-3 mb-8">
                 <TrendingUp className="w-4 h-4 text-[var(--gym-brand)]/70" />
                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">Peak Forecast</h3>
@@ -313,11 +314,11 @@ export default function DashboardPage() {
                   <div 
                     key={i} 
                     style={{ height: h + "%" }} 
-                    className={"flex-1 rounded-t-lg transition-all duration-1000 " + (h > 80 ? 'bg-rose-500/30' : 'bg-[var(--gym-brand)]/10 group-hover/chart:bg-[var(--gym-brand)]/20')} 
+                    className={"flex-1 rounded-t-lg transition-all duration-1000 " + (h > 80 ? 'bg-rose-500/30' : 'bg-[var(--gym-brand)]/20 group-hover/chart:bg-[var(--gym-brand)]/40')} 
                   />
                 ))}
               </div>
-              <div className="bg-[var(--gym-brand-glow)] border border-[var(--gym-brand)]/10 rounded-full py-2 px-4">
+              <div className="bg-[var(--gym-brand-glow)] border border-[var(--gym-brand)]/20 rounded-full py-2 px-4">
                 <p className="text-[9px] text-[var(--gym-brand)] text-center font-black uppercase tracking-[0.2em]">Expected Peak: 17:00 - 19:00</p>
               </div>
             </Card>

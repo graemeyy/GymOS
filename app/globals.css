@@ -1,3 +1,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    
+    /* Obsidian (Zinc-950) Background */
+    --obsidian: #09090b;
+    
+    /* Neon Blue/Indigo Glowing Variables */
+    --neon-blue: #00d2ff;
+    --neon-indigo: #6366f1;
+    --glow-blue: rgba(0, 210, 255, 0.4);
+    --glow-indigo: rgba(99, 102, 241, 0.4);
+    
+    /* Glassmorphism Styles */
+    --glass-bg: rgba(24, 24, 27, 0.6);
+    --glass-border: rgba(63, 63, 70, 0.4);
+  }
+}
+
+body {
+  background-color: var(--obsidian);
+  color: var(--foreground);
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+.neon-glow-blue {
+  box-shadow: 0 0 20px var(--glow-blue);
+}
+
+.neon-glow-indigo {
+  box-shadow: 0 0 20px var(--glow-indigo);
+}
