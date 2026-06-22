@@ -15,7 +15,9 @@ import {
   ScanLine,
   UserCheck, 
   Zap,
-  Info
+  Info,
+  X,
+  Loader2
 } from "lucide-react";
 
 type BrandColor = "zinc" | "emerald" | "indigo" | "amber" | "rose" | "neon";
@@ -56,10 +58,23 @@ const Badge = ({ children, variant = "default" }: { children: React.ReactNode, v
 export default function DashboardPage() {
   const [brand, setBrand] = useState<BrandColor>("neon");
   const [mounted, setMounted] = useState(false);
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'info'} | null>(null);
+  
+  // Form state
+  const [formData, setFormData] = useState({ name: "", email: "", plan: "BASIC" });
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const currentBrand = BRAND_CONFIGS[brand];
 
@@ -67,6 +82,34 @@ export default function DashboardPage() {
     "--gym-brand": currentBrand.primary,
     "--gym-brand-glow": currentBrand.glow,
   } as React.CSSProperties;
+
+  const handleAction = (name: string) => {
+    setNotification({ message: `${name} initiated. System operational.`, type: 'info' });
+  };
+
+  const handleSubmitMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch("/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (res.ok) {
+        setNotification({ message: "New member enrolled successfully.", type: 'success' });
+        setShowMemberModal(false);
+        setFormData({ name: "", email: "", plan: "BASIC" });
+      } else {
+        const err = await res.json();
+        alert(err.error || "Enrollment failed.");
+      }
+    } catch (err) {
+      alert("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!mounted) return (
     <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
@@ -79,6 +122,73 @@ export default function DashboardPage() {
       {/* Ambient background glow */}
       <div className="fixed top-[-10%] left-1/2 -translate-x-1/2 w-[1200px] h-[800px] bg-[var(--gym-brand-glow)] rounded-full blur-[160px] pointer-events-none opacity-30 z-0" />
       
+      {/* Notifications */}
+      {notification && (
+        <div className="fixed top-24 right-6 z-[100] animate-in slide-in-from-right fade-in duration-500">
+          <div className={`px-6 py-3 rounded-xl border backdrop-blur-xl shadow-2xl flex items-center gap-3 ${notification.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-blue-500/10 border-blue-500/20 text-blue-400'}`}>
+            <Zap className="w-4 h-4 fill-current" />
+            <span className="text-xs font-bold uppercase tracking-wider">{notification.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* New Member Modal */}
+      {showMemberModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowMemberModal(false)} />
+          <Card className="w-full max-w-md relative animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xl font-black tracking-tight">New Member Enrollment</h2>
+              <button onClick={() => setShowMemberModal(false)} className="text-zinc-500 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmitMember} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Full Name</label>
+                <input 
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:border-[var(--gym-brand)] focus:outline-none transition-colors"
+                  placeholder="e.g. Jax Teller"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Email Address</label>
+                <input 
+                  required
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:border-[var(--gym-brand)] focus:outline-none transition-colors"
+                  placeholder="jax@reaper.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Membership Tier</label>
+                <select 
+                  value={formData.plan}
+                  onChange={(e) => setFormData({...formData, plan: e.target.value})}
+                  className="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:border-[var(--gym-brand)] focus:outline-none transition-colors appearance-none"
+                >
+                  <option value="BASIC">Basic Sanctuary</option>
+                  <option value="PREMIUM">Premium Obsidian</option>
+                  <option value="PLATINUM">Platinum Elite</option>
+                </select>
+              </div>
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-[var(--gym-brand)] text-black py-4 rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_var(--gym-brand-glow)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Authorize Enrollment"}
+              </button>
+            </form>
+          </Card>
+        </div>
+      )}
+
       <nav className="border-b border-zinc-900/50 bg-[#09090b]/80 backdrop-blur-2xl sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
@@ -118,10 +228,16 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <button className="bg-zinc-900/40 border border-zinc-800/40 hover:bg-zinc-800/60 text-zinc-300 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all backdrop-blur-md">
+            <button 
+              onClick={() => handleAction("Diagnostic Report Generation")}
+              className="bg-zinc-900/40 border border-zinc-800/40 hover:bg-zinc-800/60 text-zinc-300 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all backdrop-blur-md"
+            >
               Reports
             </button>
-            <button className="bg-[var(--gym-brand)] text-black hover:scale-[1.02] active:scale-[0.98] px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-[0_0_30px_var(--gym-brand-glow)]">
+            <button 
+              onClick={() => setShowMemberModal(true)}
+              className="bg-[var(--gym-brand)] text-black hover:scale-[1.02] active:scale-[0.98] px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-[0_0_30px_var(--gym-brand-glow)]"
+            >
               <Plus className="w-4 h-4" /> New Member
             </button>
           </div>
@@ -215,7 +331,7 @@ export default function DashboardPage() {
                   ))}
                </div>
                <div className="p-4 bg-zinc-950/80 text-center border-t border-zinc-900/50">
-                 <button className="text-[9px] font-black text-zinc-400 hover:text-[var(--gym-brand)] transition-colors uppercase tracking-[0.3em]">Neural Network Insights</button>
+                 <button onClick={() => handleAction("Neural Insight Processing")} className="text-[9px] font-black text-zinc-400 hover:text-[var(--gym-brand)] transition-colors uppercase tracking-[0.3em]">Neural Network Insights</button>
                </div>
             </Card>
 
@@ -241,7 +357,7 @@ export default function DashboardPage() {
                       <p className="text-xs font-bold text-zinc-200 group-hover/alert:text-white transition-colors">Treadmill #4 - Motor Heat</p>
                       <p className="text-[10px] text-zinc-400 mt-1.5 font-medium leading-relaxed">Critical thermal limit detected. High probability of core failure within 72 hours.</p>
                     </div>
-                    <button className="p-2 bg-[var(--gym-brand-glow)] hover:bg-[var(--gym-brand-glow)]/80 rounded-lg transition-all text-[var(--gym-brand)]">
+                    <button onClick={() => handleAction("Service Ticket")} className="p-2 bg-[var(--gym-brand-glow)] hover:bg-[var(--gym-brand-glow)]/80 rounded-lg transition-all text-[var(--gym-brand)]">
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
@@ -259,7 +375,10 @@ export default function DashboardPage() {
           <div className="lg:col-span-4 space-y-8">
             <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 px-1">Scanner Node</h3>
             <Card className="p-0 overflow-hidden">
-               <div className="p-10 bg-zinc-950/80 flex flex-col items-center justify-center border-b border-zinc-900/50 relative group cursor-pointer overflow-hidden">
+               <div 
+                onClick={() => handleAction("Biometric Node Calibration")}
+                className="p-10 bg-zinc-950/80 flex flex-col items-center justify-center border-b border-zinc-900/50 relative group cursor-pointer overflow-hidden"
+               >
                   <div className="absolute inset-0 bg-gradient-to-b from-[var(--gym-brand-glow)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                   <div className="relative">
                     <div className="absolute -inset-8 bg-[var(--gym-brand-glow)] rounded-full blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 animate-pulse" />
@@ -302,8 +421,8 @@ export default function DashboardPage() {
                
                <div className="p-5 bg-zinc-950/90 border-t border-zinc-900/50">
                   <div className="flex gap-3">
-                    <button className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">Manual Override</button>
-                    <button className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">Issue Guest</button>
+                    <button onClick={() => handleAction("Manual Access Override")} className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">Manual Override</button>
+                    <button onClick={() => handleAction("Guest Pass Issuance")} className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">Issue Guest</button>
                   </div>
                </div>
             </Card>
@@ -322,7 +441,7 @@ export default function DashboardPage() {
                   />
                 ))}
               </div>
-              <div className="bg-[var(--gym-brand-glow)] border border-[var(--gym-brand)]/20 rounded-full py-2 px-4">
+              <div className="bg-[var(--gym-brand-glow)] border border(--gym-brand)]/20 rounded-full py-2 px-4">
                 <p className="text-[9px] text-[var(--gym-brand)] text-center font-black uppercase tracking-[0.2em]">Expected Peak: 17:00 - 19:00</p>
               </div>
             </Card>
