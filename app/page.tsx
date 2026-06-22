@@ -40,7 +40,7 @@ const Card = ({ children, className = "", style = {} }: { children: React.ReactN
 
 const Badge = ({ children, variant = "default" }: { children: React.ReactNode, variant?: "default" | "warning" | "danger" | "success" | "brand" }) => {
   const styles = {
-    default: "bg-zinc-800/50 text-zinc-400 border border-zinc-700/30",
+    default: "bg-zinc-800/50 text-zinc-300 border border-zinc-700/30",
     warning: "bg-amber-500/10 text-amber-500 border border-amber-500/20",
     danger: "bg-red-500/10 text-red-500 border border-red-500/20",
     success: "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20",
@@ -68,7 +68,11 @@ export default function DashboardPage() {
     "--gym-brand-glow": currentBrand.glow,
   } as React.CSSProperties;
 
-  if (!mounted) return <div className="min-h-screen bg-[#09090b]" />;
+  if (!mounted) return (
+    <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
+      <p className="text-zinc-400 font-bold uppercase tracking-[0.3em] animate-pulse">Initializing GymOS...</p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans selection:bg-zinc-800 pb-20 overflow-x-hidden" style={brandStyles}>
@@ -84,19 +88,19 @@ export default function DashboardPage() {
                </div>
                <span className="text-xl font-bold tracking-tighter text-white">GymOS</span>
             </div>
-            <div className="hidden md:flex items-center gap-8 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+            <div className="hidden md:flex items-center gap-8 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400">
               <a href="#" className="text-[var(--gym-brand)] transition-colors">Overview</a>
-              <a href="#" className="hover:text-zinc-300 transition-colors">Members</a>
-              <a href="#" className="hover:text-zinc-300 transition-colors">Staff</a>
-              <a href="#" className="hover:text-zinc-300 transition-colors">Settings</a>
+              <a href="#" className="hover:text-zinc-200 transition-colors">Members</a>
+              <a href="#" className="hover:text-zinc-200 transition-colors">Staff</a>
+              <a href="#" className="hover:text-zinc-200 transition-colors">Settings</a>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-2 text-zinc-500 hover:text-white transition-colors relative group">
+            <button className="p-2 text-zinc-400 hover:text-white transition-colors relative group">
                 <Bell className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                 <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-[var(--gym-brand)] rounded-full border border-zinc-950 shadow-[0_0_8px_var(--gym-brand-glow)]" />
             </button>
-            <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-400 hover:border-zinc-700 transition-colors cursor-pointer">GY</div>
+            <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-300 hover:border-zinc-700 transition-colors cursor-pointer">GY</div>
           </div>
         </div>
       </nav>
@@ -104,8 +108,8 @@ export default function DashboardPage() {
       <main className="max-w-[1600px] mx-auto px-6 py-12 relative z-10">
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
           <div>
-            <h1 className="text-7xl font-black tracking-tighter text-white mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-zinc-500">Iron Sanctuary</h1>
-            <p className="text-zinc-500 text-sm flex items-center gap-3 font-medium">
+            <h1 className="text-7xl font-black tracking-tighter text-white mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-zinc-400">Iron Sanctuary</h1>
+            <p className="text-zinc-400 text-sm flex items-center gap-3 font-medium">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--gym-brand)]/75 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--gym-brand)] shadow-[0_0_12px_var(--gym-brand-glow)]"></span>
@@ -114,7 +118,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <button className="bg-zinc-900/40 border border-zinc-800/40 hover:bg-zinc-800/60 text-zinc-400 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all backdrop-blur-md">
+            <button className="bg-zinc-900/40 border border-zinc-800/40 hover:bg-zinc-800/60 text-zinc-300 hover:text-white px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all backdrop-blur-md">
               Reports
             </button>
             <button className="bg-[var(--gym-brand)] text-black hover:scale-[1.02] active:scale-[0.98] px-5 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-[0_0_30px_var(--gym-brand-glow)]">
@@ -125,7 +129,7 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-3 space-y-8">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 px-1">Gym Vitals</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 px-1">Gym Vitals</h3>
             <div className="grid gap-4">
                 {[
                   { label: "Members", value: "1,284", icon: Users, color: "text-[var(--gym-brand)]", glow: "shadow-[0_0_20px_var(--gym-brand-glow)]" },
@@ -139,7 +143,7 @@ export default function DashboardPage() {
                         <stat.icon className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-0.5">{stat.label}</p>
+                        <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-0.5">{stat.label}</p>
                         <p className="text-2xl font-black text-white tracking-tighter">{stat.value}</p>
                       </div>
                     </div>
@@ -150,9 +154,9 @@ export default function DashboardPage() {
             <Card className="mt-8 border-[var(--gym-brand)]/10 bg-gradient-to-b from-zinc-900/20 to-zinc-950/60">
               <div className="flex items-center gap-3 mb-8">
                 <Palette className="w-4 h-4 text-[var(--gym-brand)]" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">Brand Mode</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-200">Brand Mode</h3>
               </div>
-              <p className="text-xs text-zinc-500 mb-8 leading-relaxed font-medium">Shift the system accent and ambient glow across the dashboard.</p>
+              <p className="text-xs text-zinc-400 mb-8 leading-relaxed font-medium">Shift the system accent and ambient glow across the dashboard.</p>
               <div className="grid grid-cols-3 gap-3">
                 {(Object.keys(BRAND_CONFIGS) as BrandColor[]).map((c) => (
                   <button 
@@ -165,7 +169,7 @@ export default function DashboardPage() {
               </div>
               <div className="mt-8 pt-8 border-t border-zinc-900/50">
                 <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Active Profile</span>
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Active Profile</span>
                     <Badge variant="brand">{brand}</Badge>
                 </div>
               </div>
@@ -173,7 +177,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="lg:col-span-5 space-y-8">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 px-1">Autonomous Operations</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 px-1">Autonomous Operations</h3>
             <Card className="p-0 overflow-hidden group">
                <div className="p-6 border-b border-zinc-900/50 flex items-center justify-between bg-zinc-950/60 backdrop-blur-md">
                  <div className="flex items-center gap-4">
@@ -182,7 +186,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h4 className="text-sm font-black text-white tracking-tight">Churn Shield</h4>
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Predictive Retention Agent</p>
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Predictive Retention Agent</p>
                     </div>
                  </div>
                  <Badge variant="brand">Active</Badge>
@@ -195,23 +199,23 @@ export default function DashboardPage() {
                   ].map((m, i) => (
                     <div key={i} className="p-5 flex items-center justify-between hover:bg-[var(--gym-brand-glow)] transition-all duration-500 cursor-pointer group/row">
                         <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800/50 flex items-center justify-center text-xs font-black text-zinc-400 group-hover/row:border-[var(--gym-brand)]/50 group-hover/row:text-white transition-all">
+                           <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800/50 flex items-center justify-center text-xs font-black text-zinc-300 group-hover/row:border-[var(--gym-brand)]/50 group-hover/row:text-white transition-all">
                             {m.name[0]}
                            </div>
                            <div>
                              <p className="text-sm font-bold text-zinc-200 group-hover/row:text-white transition-colors">{m.name}</p>
-                             <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-[0.2em]">{m.plan} Membership</p>
+                             <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-[0.2em]">{m.plan} Membership</p>
                            </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest mb-1">Score</p>
+                          <p className="text-[9px] text-zinc-400 font-black uppercase tracking-widest mb-1">Score</p>
                           <p className={"text-sm font-black tracking-tighter " + (m.score > 70 ? 'text-[var(--gym-brand)]' : 'text-amber-500')}>{m.score}%</p>
                         </div>
                     </div>
                   ))}
                </div>
                <div className="p-4 bg-zinc-950/80 text-center border-t border-zinc-900/50">
-                 <button className="text-[9px] font-black text-zinc-500 hover:text-[var(--gym-brand)] transition-colors uppercase tracking-[0.3em]">Neural Network Insights</button>
+                 <button className="text-[9px] font-black text-zinc-400 hover:text-[var(--gym-brand)] transition-colors uppercase tracking-[0.3em]">Neural Network Insights</button>
                </div>
             </Card>
 
@@ -223,7 +227,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <h4 className="text-sm font-black text-white tracking-tight">Maintenance Oracle</h4>
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">IoT Equipment Monitoring</p>
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">IoT Equipment Monitoring</p>
                     </div>
                  </div>
                  <div className="flex items-center gap-2">
@@ -235,7 +239,7 @@ export default function DashboardPage() {
                   <div className="p-5 rounded-2xl bg-[var(--gym-brand-glow)]/40 border border-[var(--gym-brand)]/20 flex items-start justify-between group/alert hover:bg-[var(--gym-brand-glow)] transition-all duration-500">
                     <div>
                       <p className="text-xs font-bold text-zinc-200 group-hover/alert:text-white transition-colors">Treadmill #4 - Motor Heat</p>
-                      <p className="text-[10px] text-zinc-500 mt-1.5 font-medium leading-relaxed">Critical thermal limit detected. High probability of core failure within 72 hours.</p>
+                      <p className="text-[10px] text-zinc-400 mt-1.5 font-medium leading-relaxed">Critical thermal limit detected. High probability of core failure within 72 hours.</p>
                     </div>
                     <button className="p-2 bg-[var(--gym-brand-glow)] hover:bg-[var(--gym-brand-glow)]/80 rounded-lg transition-all text-[var(--gym-brand)]">
                       <Plus className="w-4 h-4" />
@@ -243,17 +247,17 @@ export default function DashboardPage() {
                   </div>
                   <div className="p-5 rounded-2xl bg-zinc-950/50 border border-zinc-900 flex items-start justify-between opacity-50 hover:opacity-100 transition-all duration-500">
                     <div>
-                      <p className="text-xs font-bold text-zinc-400">Rowing Machine B - Chain Tension</p>
-                      <p className="text-[10px] text-zinc-600 mt-1.5 font-medium">Routine maintenance recommended for peak efficiency next week.</p>
+                      <p className="text-xs font-bold text-zinc-300">Rowing Machine B - Chain Tension</p>
+                      <p className="text-[10px] text-zinc-400 mt-1.5 font-medium">Routine maintenance recommended for peak efficiency next week.</p>
                     </div>
-                    <Info className="w-4 h-4 text-zinc-800" />
+                    <Info className="w-4 h-4 text-zinc-500" />
                   </div>
                </div>
             </Card>
           </div>
 
           <div className="lg:col-span-4 space-y-8">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 px-1">Scanner Node</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 px-1">Scanner Node</h3>
             <Card className="p-0 overflow-hidden">
                <div className="p-10 bg-zinc-950/80 flex flex-col items-center justify-center border-b border-zinc-900/50 relative group cursor-pointer overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-b from-[var(--gym-brand-glow)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
@@ -261,16 +265,16 @@ export default function DashboardPage() {
                     <div className="absolute -inset-8 bg-[var(--gym-brand-glow)] rounded-full blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 animate-pulse" />
                     <ScanLine className="w-20 h-20 text-[var(--gym-brand)] relative z-10 group-hover:scale-110 transition-transform duration-700" />
                   </div>
-                  <p className="mt-8 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 group-hover:text-white transition-colors relative z-10">Initialize Scan</p>
-                  <p className="mt-2 text-[9px] text-zinc-700 font-bold uppercase tracking-widest relative z-10">Sensor Status: Standby</p>
+                  <p className="mt-8 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 group-hover:text-white transition-colors relative z-10">Initialize Scan</p>
+                  <p className="mt-2 text-[9px] text-zinc-500 font-bold uppercase tracking-widest relative z-10">Sensor Status: Standby</p>
                </div>
                
                <div className="p-6">
                   <div className="flex items-center justify-between mb-6">
-                    <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">Access Log</h5>
+                    <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Access Log</h5>
                     <div className="flex items-center gap-2">
                        <span className="w-1 h-1 rounded-full bg-[var(--gym-brand)] animate-pulse" />
-                       <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Realtime</span>
+                       <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Realtime</span>
                     </div>
                   </div>
                   
@@ -285,11 +289,11 @@ export default function DashboardPage() {
                            <div className={"w-0.5 h-8 rounded-full " + (log.status === 'Success' ? 'bg-[var(--gym-brand)]/40' : 'bg-amber-500/40')} />
                            <div>
                              <p className="text-xs font-bold text-zinc-200 group-hover/log:text-white transition-colors">{log.name}</p>
-                             <p className="text-[10px] text-zinc-600 font-medium uppercase tracking-wider">{log.time} <span className="mx-1 opacity-30">|</span> {log.type}</p>
+                             <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">{log.time} <span className="mx-1 opacity-30">|</span> {log.type}</p>
                            </div>
                         </div>
                         <button className="opacity-0 group-hover/log:opacity-100 p-2 hover:bg-zinc-900 rounded-xl transition-all duration-300">
-                          <UserCheck className="w-4 h-4 text-zinc-600 hover:text-white" />
+                          <UserCheck className="w-4 h-4 text-zinc-400 hover:text-white" />
                         </button>
                       </div>
                     ))}
@@ -298,8 +302,8 @@ export default function DashboardPage() {
                
                <div className="p-5 bg-zinc-950/90 border-t border-zinc-900/50">
                   <div className="flex gap-3">
-                    <button className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white hover:border-zinc-700 transition-all">Manual Override</button>
-                    <button className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white hover:border-zinc-700 transition-all">Issue Guest</button>
+                    <button className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">Manual Override</button>
+                    <button className="flex-1 bg-zinc-900/50 border border-zinc-800/50 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white hover:border-zinc-700 transition-all">Issue Guest</button>
                   </div>
                </div>
             </Card>
@@ -307,7 +311,7 @@ export default function DashboardPage() {
             <Card className="p-8 bg-gradient-to-br from-[#09090b] to-zinc-900/40 border-[var(--gym-brand)]/10 hover:border-[var(--gym-brand)]/30 transition-all duration-700">
               <div className="flex items-center gap-3 mb-8">
                 <TrendingUp className="w-4 h-4 text-[var(--gym-brand)]/70" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">Peak Forecast</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Peak Forecast</h3>
               </div>
               <div className="flex items-end justify-between h-24 gap-1.5 mb-6 group/chart">
                 {[30, 45, 60, 85, 100, 75, 50, 40, 60, 90, 80, 45].map((h, i) => (

@@ -16,9 +16,9 @@
     --glow-blue: rgba(0, 210, 255, 0.4);
     --glow-indigo: rgba(99, 102, 241, 0.4);
     
-    /* Glassmorphism Styles */
-    --glass-bg: rgba(24, 24, 27, 0.6);
-    --glass-border: rgba(63, 63, 70, 0.4);
+    /* Glassmorphism Styles - Lightened for readability */
+    --glass-bg: rgba(39, 39, 42, 0.4);
+    --glass-border: rgba(82, 82, 91, 0.5);
   }
 }
 
@@ -29,8 +29,8 @@ body {
 
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
 }
 
