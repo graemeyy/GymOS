@@ -48,7 +48,7 @@ const Badge = ({ children, variant = "default" }: { children: React.ReactNode, v
 
 const MetricCard = ({ label, value, change, icon: Icon, colorClass, trend = "up" }: any) => (
   <Card className="group cursor-default relative overflow-hidden">
-    <div className={`absolute top-0 left-0 w-1 h-full ${colorClass.split(' ')[0]}`} />
+    <div className={`absolute top-0 left-0 w-1.5 h-full ${colorClass.split(' ')[0]}`} />
     <div className="flex justify-between items-start mb-6">
       <div className={`p-3 rounded-2xl bg-zinc-50 border border-zinc-100 group-hover:scale-110 transition-transform duration-500 ${colorClass}`}>
         <Icon className="w-5 h-5" />
@@ -133,7 +133,7 @@ export default function DashboardPage() {
       {/* New Member Modal */}
       {showMemberModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-md" onClick={() => setShowMemberModal(false)} />
+          <div className="absolute inset-0 bg-zinc-900/10 backdrop-blur-sm" onClick={() => setShowMemberModal(false)} />
           <Card className="w-full max-w-md relative animate-in zoom-in-95 duration-300 border-none shadow-2xl">
             <div className="flex items-center justify-between mb-10">
               <div>
@@ -168,20 +168,23 @@ export default function DashboardPage() {
               </div>
               <div className="space-y-3">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">System Tier</label>
-                <select 
-                  value={formData.plan}
-                  onChange={(e) => setFormData({...formData, plan: e.target.value})}
-                  className="w-full bg-zinc-50 border-2 border-zinc-100 rounded-2xl px-5 py-4 text-sm font-bold focus:border-indigo-500 focus:bg-white focus:outline-none transition-all appearance-none"
-                >
-                  <option value="BASIC">Standard Entry</option>
-                  <option value="PREMIUM">Premium Access</option>
-                  <option value="PLATINUM">Platinum Elite</option>
-                </select>
+                <div className="relative">
+                  <select 
+                    value={formData.plan}
+                    onChange={(e) => setFormData({...formData, plan: e.target.value})}
+                    className="w-full bg-zinc-50 border-2 border-zinc-100 rounded-2xl px-5 py-4 text-sm font-bold focus:border-indigo-500 focus:bg-white focus:outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="BASIC">Standard Entry</option>
+                    <option value="PREMIUM">Premium Access</option>
+                    <option value="PLATINUM">Platinum Elite</option>
+                  </select>
+                  <ChevronRight className="w-5 h-5 absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-zinc-400 pointer-events-none" />
+                </div>
               </div>
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full bg-indigo-600 text-white py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-3"
+                className="w-full bg-indigo-600 text-white py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] shadow-lg shadow-indigo-100 hover:bg-indigo-700 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-3"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Authorize Access <ChevronRight className="w-4 h-4" /></>}
               </button>
@@ -230,11 +233,11 @@ export default function DashboardPage() {
               <div className="h-px w-12 bg-zinc-200" />
               <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em]">Iron Sanctuary</span>
             </div>
-            <h1 className="text-6xl md:text-8xl font-black tracking-tight text-zinc-900 mb-6">Operations Center</h1>
+            <h1 className="text-6xl md:text-8xl font-black tracking-tight text-zinc-900 mb-6 leading-none">Operations Center</h1>
             <p className="text-zinc-500 text-base md:text-lg flex items-center gap-4 font-bold">
               <span className="flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-lg shadow-emerald-200"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-lg shadow-emerald-100"></span>
               </span>
               Neural Network Online <span className="text-zinc-300">|</span> 1,284 Active Nodes Managed
             </p>
@@ -263,7 +266,7 @@ export default function DashboardPage() {
                   value="$42,850" 
                   change="+12.5%" 
                   icon={DollarSign} 
-                  colorClass="bg-emerald-600 text-emerald-600 shadow-emerald-50"
+                  colorClass="bg-emerald-600 text-emerald-600 shadow-emerald-100"
                   trend="up"
                 />
                 <MetricCard 
@@ -271,7 +274,7 @@ export default function DashboardPage() {
                   value="1,284" 
                   change="+4.2%" 
                   icon={Users} 
-                  colorClass="bg-indigo-600 text-indigo-600 shadow-indigo-50"
+                  colorClass="bg-indigo-600 text-indigo-600 shadow-indigo-100"
                   trend="up"
                 />
                 <MetricCard 
@@ -279,7 +282,7 @@ export default function DashboardPage() {
                   value="142" 
                   change="-2.1%" 
                   icon={Activity} 
-                  colorClass="bg-amber-500 text-amber-500 shadow-amber-50"
+                  colorClass="bg-amber-500 text-amber-500 shadow-amber-100"
                   trend="down"
                 />
                 <MetricCard 
@@ -287,7 +290,7 @@ export default function DashboardPage() {
                   value="02" 
                   change="+1" 
                   icon={AlertTriangle} 
-                  colorClass="bg-rose-600 text-rose-600 shadow-rose-50"
+                  colorClass="bg-rose-600 text-rose-600 shadow-rose-100"
                   trend="up"
                 />
             </div>
@@ -299,7 +302,7 @@ export default function DashboardPage() {
                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">Predictive Retention</h3>
                 <Badge variant="success">Shield Active</Badge>
               </div>
-              <Card className="p-0 overflow-hidden">
+              <Card className="p-0 overflow-hidden shadow-xl shadow-zinc-100/50">
                  <div className="divide-y divide-zinc-100">
                     {[
                       { name: "Marcus Wright", plan: "Elite", score: 92, trend: "up" },
@@ -340,10 +343,10 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="space-y-6">
-                <Card className="p-0 border-rose-200 shadow-lg shadow-rose-50 group hover:border-rose-300">
+                <Card className="p-0 border-rose-200 shadow-xl shadow-rose-100/50 group hover:border-rose-300">
                   <div className="p-6 flex items-start justify-between">
                     <div className="flex gap-5">
-                      <div className="p-4 bg-rose-100 rounded-2xl text-rose-600 h-fit">
+                      <div className="p-4 bg-rose-50 rounded-2xl text-rose-600 h-fit border border-rose-100">
                         <Wrench className="w-6 h-6" />
                       </div>
                       <div>
@@ -354,13 +357,13 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="p-4 bg-rose-50 border-t border-rose-100">
-                    <button onClick={() => handleAction("Service Ticket #429")} className="w-full py-3 bg-white border-2 border-rose-200 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-[0.3em] hover:bg-rose-100 transition-all">Authorize Intervention</button>
+                    <button onClick={() => handleAction("Service Ticket #429")} className="w-full py-3 bg-white border-2 border-rose-200 text-rose-600 rounded-xl text-[9px] font-black uppercase tracking-[0.3em] hover:bg-rose-100 hover:border-rose-300 transition-all shadow-sm">Authorize Intervention</button>
                   </div>
                 </Card>
                 
-                <Card className="flex items-center justify-between group hover:border-amber-200">
+                <Card className="flex items-center justify-between group hover:border-amber-200 shadow-sm">
                   <div className="flex items-center gap-5">
-                    <div className="p-3 bg-amber-50 rounded-2xl text-amber-600 group-hover:scale-110 transition-transform">
+                    <div className="p-3 bg-amber-50 rounded-2xl text-amber-600 group-hover:scale-110 transition-transform border border-amber-100">
                       <Info className="w-5 h-5" />
                     </div>
                     <div>
@@ -383,10 +386,10 @@ export default function DashboardPage() {
                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">Online</span>
                 </div>
               </div>
-              <Card className="p-0 overflow-hidden border-2 border-indigo-100">
+              <Card className="p-0 overflow-hidden border-2 border-indigo-100 shadow-2xl shadow-indigo-100/50">
                  <div 
                   onClick={() => handleAction("Biometric Calibration")}
-                  className="p-16 bg-gradient-to-br from-indigo-600 to-indigo-800 flex flex-col items-center justify-center relative group cursor-pointer overflow-hidden"
+                  className="p-16 bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 flex flex-col items-center justify-center relative group cursor-pointer overflow-hidden"
                  >
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
                     <div className="relative">
