@@ -5,239 +5,271 @@ import {
   Users, 
   Activity, 
   DollarSign, 
-  AlertCircle, 
+  AlertTriangle, 
+  ShieldCheck, 
   Wrench, 
   Plus, 
   TrendingUp, 
   Bell,
-  ScanLine, 
+  ScanLine,
   UserCheck, 
   Zap,
   Info,
   X,
   Loader2,
   ChevronRight,
-  ShieldCheck
+  TrendingDown,
+  LayoutDashboard,
+  Box,
+  Cpu,
+  BarChart3,
+  Calendar,
+  Settings
 } from "lucide-react";
 
-// ADHD-Friendly: Bold borders, strictly white/blue/slate-900, no shadows/blur
-const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-  <div className={"bg-white border-2 border-slate-900 rounded-none p-6 " + className}>
+// --- BRUTALIST UI PRIMITIVES ---
+const BrutalCard = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
+  <div className={`bg-white border-[3px] border-slate-900 shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] p-6 rounded-none ${className}`}>
     {children}
   </div>
 );
 
-const Badge = ({ children, active = false }: { children: React.ReactNode, active?: boolean }) => {
+const BrutalButton = ({ children, variant = "primary", className = "", onClick }: any) => {
+  const base = "border-[3px] border-slate-900 px-6 py-3 font-black uppercase tracking-tighter transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none flex items-center justify-center gap-2 rounded-none";
+  const variants = {
+    primary: "bg-[#0055ff] text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:bg-[#0044cc]",
+    secondary: "bg-white text-slate-900 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:bg-slate-50",
+    danger: "bg-white text-red-600 border-red-600 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] hover:bg-red-50"
+  };
   return (
-    <span className={`text-[10px] font-black px-3 py-1 border-2 uppercase tracking-widest ${active ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-900 border-slate-900'}`}>
+    <button onClick={onClick} className={`${base} ${variants[variant as keyof typeof variants]} ${className}`}>
+      {children}
+    </button>
+  );
+};
+
+const BrutalBadge = ({ children, variant = "blue" }: { children: React.ReactNode, variant?: "blue" | "white" }) => {
+  const styles = {
+    blue: "bg-[#0055ff] text-white border-2 border-slate-900",
+    white: "bg-white text-slate-900 border-2 border-slate-900",
+  };
+  return (
+    <span className={`text-[10px] font-black px-3 py-1 uppercase tracking-widest inline-block rounded-none ${styles[variant]}`}>
       {children}
     </span>
   );
 };
 
-const MetricCard = ({ label, value, icon: Icon }: any) => (
-  <Card className="flex flex-col gap-4">
-    <div className="flex justify-between items-center">
-      <div className="p-2 border-2 border-slate-900 text-slate-900">
-        <Icon className="w-5 h-5" />
+// --- COMPONENTS ---
+
+const DashboardTab = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+    <BrutalCard className="bg-[#0055ff] text-white">
+      <div className="flex justify-between items-start mb-8">
+        <DollarSign className="w-10 h-10" />
+        <TrendingUp className="w-6 h-6" />
       </div>
-      <Badge active>Live</Badge>
-    </div>
-    <div>
-      <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-1">{label}</p>
-      <p className="text-4xl font-black text-slate-900 tracking-tighter">{value}</p>
-    </div>
-  </Card>
+      <p className="font-black uppercase tracking-widest text-xs opacity-80">Revenue</p>
+      <h2 className="text-4xl font-black italic">$42.8K</h2>
+    </BrutalCard>
+
+    <BrutalCard>
+      <div className="flex justify-between items-start mb-8 text-[#0055ff]">
+        <Users className="w-10 h-10" />
+        <Plus className="w-6 h-6" />
+      </div>
+      <p className="font-black uppercase tracking-widest text-xs text-slate-500">Active Nodes</p>
+      <h2 className="text-4xl font-black italic text-slate-900">1,284</h2>
+    </BrutalCard>
+
+    <BrutalCard>
+      <div className="flex justify-between items-start mb-8 text-[#0055ff]">
+        <Activity className="w-10 h-10" />
+        <TrendingDown className="w-6 h-6" />
+      </div>
+      <p className="font-black uppercase tracking-widest text-xs text-slate-500">Check-ins</p>
+      <h2 className="text-4xl font-black italic text-slate-900">142</h2>
+    </BrutalCard>
+
+    <BrutalCard>
+      <div className="flex justify-between items-start mb-8 text-[#0055ff]">
+        <AlertTriangle className="w-10 h-10" />
+        <span className="font-black text-xl">!</span>
+      </div>
+      <p className="font-black uppercase tracking-widest text-xs text-slate-500">Alerts</p>
+      <h2 className="text-4xl font-black italic text-slate-900">02</h2>
+    </BrutalCard>
+  </div>
 );
 
-export default function DashboardPage() {
+const ChurnShieldTab = () => (
+  <div className="space-y-10">
+    <BrutalCard className="border-l-[12px] border-l-[#0055ff]">
+      <div className="flex items-center gap-4 mb-6">
+        <ShieldCheck className="w-8 h-8 text-[#0055ff]" />
+        <h2 className="text-3xl font-black uppercase italic tracking-tighter">Churn Shield Predictive Agent</h2>
+      </div>
+      <p className="text-slate-700 font-bold max-w-2xl mb-8">
+        AUTONOMOUS RETENTION PROTOCOL ENGAGED. ANALYZING NODE BEHAVIOR PATTERNS TO PREVENT SUBSCRIPTION DROPOFF VIA AGENTIC PREDICTION.
+      </p>
+      <div className="border-[3px] border-slate-900">
+        <div className="bg-slate-900 text-white p-4 font-black uppercase tracking-widest text-[10px] flex justify-between">
+          <span>Target Node</span>
+          <span>Risk Score</span>
+          <span>Status</span>
+        </div>
+        {[
+          { name: "MARCUS WRIGHT", score: "92%", status: "OPTIMAL" },
+          { name: "ELENA RODRIGUEZ", score: "32%", status: "CRITICAL" },
+          { name: "SARAH CHEN", score: "88%", status: "OPTIMAL" },
+          { name: "TYLER DURDEN", score: "15%", status: "IMMINENT_LOSS" },
+        ].map((node, i) => (
+          <div key={i} className="p-4 border-t-[3px] border-slate-900 flex justify-between items-center font-black group hover:bg-[#0055ff] hover:text-white transition-colors cursor-pointer">
+            <span className="italic">{node.name}</span>
+            <span className="text-2xl tracking-tighter">{node.score}</span>
+            <BrutalBadge variant={node.status === 'OPTIMAL' ? 'blue' : 'white'}>{node.status}</BrutalBadge>
+          </div>
+        ))}
+      </div>
+    </BrutalCard>
+  </div>
+);
+
+const MaintenanceTab = () => (
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <BrutalCard className="bg-[#0055ff] text-white border-slate-900">
+      <Wrench className="w-12 h-12 mb-6" />
+      <h2 className="text-4xl font-black uppercase italic mb-4">Maintenance Oracle</h2>
+      <p className="font-bold mb-8 opacity-90">IoT SENSORS DETECTING HARDWARE FATIGUE IN REAL-TIME. HARDWARE LIFECYCLE PREDICTION ACTIVE.</p>
+      <div className="space-y-4">
+        <div className="bg-white text-slate-900 p-6 border-[3px] border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div className="flex justify-between items-center mb-4">
+            <span className="font-black uppercase tracking-widest text-xs">Node #04: Treadmill</span>
+            <BrutalBadge>Critical</BrutalBadge>
+          </div>
+          <p className="font-black text-xl italic mb-2 tracking-tighter">MOTOR THERMAL LIMIT REACHED</p>
+          <div className="w-full h-4 bg-slate-200 border-2 border-slate-900 rounded-none overflow-hidden">
+            <div className="h-full bg-red-600 w-[95%]" />
+          </div>
+        </div>
+      </div>
+    </BrutalCard>
+
+    <BrutalCard>
+      <Cpu className="w-12 h-12 mb-6 text-[#0055ff]" />
+      <h2 className="text-4xl font-black uppercase italic mb-4">System Node Log</h2>
+      <div className="space-y-4">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="p-4 border-2 border-slate-900 font-black flex justify-between items-center">
+            <span className="uppercase text-[10px] tracking-widest">Node_Sync_{i * 1234}</span>
+            <span className="text-[#0055ff]">ONLINE</span>
+          </div>
+        ))}
+      </div>
+    </BrutalCard>
+  </div>
+);
+
+export default function GymOSBrutalist() {
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [mounted, setMounted] = useState(false);
-  const [showMemberModal, setShowMemberModal] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ name: "", email: "", plan: "BASIC" });
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const handleSubmitMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await fetch("/api/members", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      if (res.ok) {
-        setShowMemberModal(false);
-        setFormData({ name: "", email: "", plan: "BASIC" });
-      } else {
-        const err = await res.json();
-        alert(err.error || "Enrollment failed.");
-      }
-    } catch (err) {
-      alert("Network error.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => setMounted(true), []);
 
   if (!mounted) return null;
 
+  const tabs = [
+    { id: "dashboard", label: "Operations", icon: LayoutDashboard },
+    { id: "churn", label: "Churn Shield", icon: ShieldCheck },
+    { id: "maintenance", label: "IoT Oracle", icon: Wrench },
+    { id: "nodes", label: "Node Access", icon: ScanLine },
+  ];
+
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans pb-20 selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-white text-slate-900 font-mono selection:bg-[#0055ff] selection:text-white p-4 md:p-8">
       
-      {/* High Contrast Header */}
-      <nav className="border-b-4 border-slate-900 bg-white sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-12">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 flex items-center justify-center border-2 border-slate-900">
-                <Zap className="w-5 h-5 text-white fill-white" />
-              </div>
-              <span className="text-2xl font-black tracking-tighter uppercase">GymOS</span>
+      {/* HEADER SECTION */}
+      <header className="mb-12 border-b-[6px] border-slate-900 pb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-slate-900 flex items-center justify-center">
+              <Zap className="w-8 h-8 text-[#0055ff] fill-[#0055ff]" />
             </div>
-            <div className="hidden lg:flex items-center gap-10 text-[10px] font-black uppercase tracking-[0.25em]">
-              <a href="/" className="text-blue-600 border-b-2 border-blue-600 pb-1">Command</a>
-              <a href="/members" className="text-slate-400 hover:text-slate-900 transition-colors">Members</a>
-              <a href="#" className="text-slate-400 hover:text-slate-900 transition-colors">Intelligence</a>
-            </div>
+            <h1 className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter">GymOS</h1>
           </div>
-          <div className="flex items-center gap-6">
-            <button className="w-10 h-10 border-2 border-slate-900 flex items-center justify-center hover:bg-slate-900 hover:text-white transition-colors">
-                <Bell className="w-5 h-5" />
-            </button>
-            <div className="w-10 h-10 bg-slate-900 text-white flex items-center justify-center font-black text-xs">GY</div>
-          </div>
+          <p className="text-xl font-black uppercase tracking-tighter text-[#0055ff]">Iron Sanctuary Node Management System [v4.0.0]</p>
         </div>
-      </nav>
+        <div className="flex gap-4">
+           <BrutalButton variant="secondary"><Bell className="w-5 h-5" /></BrutalButton>
+           <BrutalButton>Enroll New Node</BrutalButton>
+        </div>
+      </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-16">
-        {/* Symmetric Header Section */}
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-10 mb-16 border-b-4 border-slate-900 pb-12">
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <Badge active>System Online</Badge>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Iron Sanctuary Node</span>
-            </div>
-            <h1 className="text-7xl font-black tracking-tight uppercase leading-none mb-4">Operations</h1>
-            <p className="text-slate-900 text-lg font-black uppercase tracking-widest flex items-center gap-3">
-              <Activity className="w-5 h-5 text-blue-600" />
-              1,284 Active Nodes Managed
-            </p>
-          </div>
-          <div className="flex gap-4">
-            <button 
-              onClick={() => setShowMemberModal(true)}
-              className="bg-blue-600 text-white border-2 border-slate-900 px-10 py-5 text-[11px] font-black uppercase tracking-[0.3em] flex items-center gap-3 hover:bg-blue-700 active:translate-y-1 transition-all"
+      <main className="max-w-[1600px] mx-auto">
+        
+        {/* TAB NAVIGATION */}
+        <div className="flex flex-wrap gap-0 mb-12 border-[3px] border-slate-900 bg-slate-900">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 min-w-[150px] py-4 px-6 flex items-center justify-center gap-3 font-black uppercase tracking-widest text-xs transition-all border-r-[3px] border-slate-900 last:border-r-0 ${
+                activeTab === tab.id 
+                ? 'bg-[#0055ff] text-white italic' 
+                : 'bg-white text-slate-900 hover:bg-[#0055ff]/10'
+              }`}
             >
-              <Plus className="w-5 h-5" /> Enroll Node
+              <tab.icon className="w-5 h-5" />
+              {tab.label}
             </button>
-          </div>
-        </header>
+          ))}
+        </div>
 
-        {/* Symmetric 3-Column Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          
-          {/* Column 1: Core Metrics */}
-          <div className="space-y-10">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-400 border-l-4 border-blue-600 pl-3">Network Stats</h3>
-            <div className="space-y-6">
-              <MetricCard label="Revenue" value="$42,850" icon={DollarSign} />
-              <MetricCard label="Active Nodes" value="1,284" icon={Users} />
-              <MetricCard label="Alerts" value="02" icon={AlertCircle} />
-            </div>
-          </div>
-
-          {/* Column 2: Intelligence Feed */}
-          <div className="space-y-10">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-400 border-l-4 border-blue-600 pl-3">Retention Intelligence</h3>
-            <Card className="p-0 border-2 border-slate-900">
-              <div className="divide-y-2 divide-slate-900">
-                {[
-                  { name: "Marcus Wright", score: 92 },
-                  { name: "Elena Rodriguez", score: 32 },
-                  { name: "Sarah Chen", score: 88 },
-                  { name: "Tyler Durden", score: 15 },
-                ].map((m, i) => (
-                  <div key={i} className="p-6 flex items-center justify-between hover:bg-blue-50 transition-colors cursor-pointer group">
-                    <div>
-                      <p className="text-sm font-black uppercase tracking-tight group-hover:text-blue-600">{m.name}</p>
-                      <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Protocol Sync: {m.score}%</p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-slate-900" />
-                  </div>
-                ))}
-              </div>
-              <button className="w-full py-5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.4em] hover:bg-blue-600 transition-colors">Access Matrix</button>
-            </Card>
-          </div>
-
-          {/* Column 3: System Status */}
-          <div className="space-y-10">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-400 border-l-4 border-blue-600 pl-3">Hardware Sync</h3>
-            <div className="space-y-6">
-              <Card className="border-2 border-blue-600">
-                <div className="flex items-start gap-4 mb-6">
-                  <div className="p-3 bg-blue-600 text-white border-2 border-slate-900">
-                    <ScanLine className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black uppercase tracking-tight">Scanner Node</h4>
-                    <p className="text-[9px] text-blue-600 font-black uppercase tracking-widest mt-1">Live Sync Active</p>
-                  </div>
-                </div>
+        {/* CONTENT AREA */}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {activeTab === 'dashboard' && <DashboardTab />}
+          {activeTab === 'churn' && <ChurnShieldTab />}
+          {activeTab === 'maintenance' && <MaintenanceTab />}
+          {activeTab === 'nodes' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <BrutalCard className="lg:col-span-2">
+                <h2 className="text-4xl font-black uppercase italic mb-8">Access Logistics</h2>
                 <div className="space-y-4">
                   {[
-                    { name: "John Wick", time: "08:12 AM" },
-                    { name: "Sarah Connor", time: "07:42 AM" },
+                    { user: "JOHN WICK", time: "08:12:00", type: "MEMBER", status: "AUTHORIZED" },
+                    { user: "SARAH CONNOR", time: "07:42:15", type: "MEMBER", status: "WARNING" },
+                    { user: "ELLEN RIPLEY", time: "07:15:30", type: "OFFICER", status: "AUTHORIZED" },
+                    { user: "TYLER DURDEN", time: "06:55:00", type: "GUEST", status: "DENIED" },
                   ].map((log, i) => (
-                    <div key={i} className="flex justify-between items-center py-2 border-b-2 border-slate-100 last:border-0">
-                      <span className="text-xs font-black uppercase">{log.name}</span>
-                      <span className="text-[10px] font-bold text-slate-400">{log.time}</span>
+                    <div key={i} className="flex justify-between items-center p-4 border-[3px] border-slate-900 font-black">
+                      <div className="flex flex-col">
+                        <span className="text-xl italic tracking-tighter">{log.user}</span>
+                        <span className="text-[10px] tracking-[0.3em] text-[#0055ff]">{log.time} // {log.type}</span>
+                      </div>
+                      <BrutalBadge variant={log.status === 'DENIED' ? 'white' : 'blue'}>{log.status}</BrutalBadge>
                     </div>
                   ))}
                 </div>
-              </Card>
-
-              <Card className="bg-white border-2 border-slate-900">
-                <div className="flex items-center gap-3 mb-4">
-                  <Wrench className="w-5 h-5 text-blue-600" />
-                  <h4 className="text-xs font-black uppercase tracking-widest">Maintenance</h4>
-                </div>
-                <p className="text-[10px] font-bold text-slate-500 leading-tight">02 Components require manual intervention. Priority: HIGH.</p>
-              </Card>
+              </BrutalCard>
+              <BrutalCard className="bg-slate-900 text-white flex flex-col items-center justify-center py-20 border-[#0055ff] border-[8px]">
+                <ScanLine className="w-32 h-32 text-[#0055ff] mb-8 animate-pulse" />
+                <h3 className="text-3xl font-black uppercase italic text-center leading-none mb-6">Initialize Biometric Sync</h3>
+                <BrutalButton variant="secondary" className="w-full">Start Scanner</BrutalButton>
+              </BrutalCard>
             </div>
-          </div>
-
+          )}
         </div>
       </main>
 
-      {/* Enroll Modal - High Contrast */}
-      {showMemberModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-slate-900/80" onClick={() => setShowMemberModal(false)} />
-          <div className="bg-white border-4 border-slate-900 p-10 max-w-md w-full relative z-[101]">
-            <div className="flex justify-between items-center mb-10">
-              <h2 className="text-2xl font-black uppercase tracking-tighter">Enroll Node</h2>
-              <button onClick={() => setShowMemberModal(false)}><X className="w-6 h-6" /></button>
-            </div>
-            <form onSubmit={handleSubmitMember} className="space-y-8">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest">Legal Name</label>
-                <input required className="w-full border-2 border-slate-900 p-4 text-sm font-black uppercase outline-none focus:bg-blue-50" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest">Email Connection</label>
-                <input required type="email" className="w-full border-2 border-slate-900 p-4 text-sm font-black uppercase outline-none focus:bg-blue-50" />
-              </div>
-              <button type="submit" className="w-full bg-blue-600 text-white border-2 border-slate-900 py-5 font-black uppercase tracking-widest hover:bg-blue-700 transition-colors">Authorize Access</button>
-            </form>
-          </div>
+      {/* FOOTER */}
+      <footer className="mt-20 border-t-[3px] border-slate-900 pt-8 flex justify-between items-center">
+        <p className="font-black uppercase tracking-widest text-[10px]">© 2026 IRON SANCTUARY OPERATIONS // ALL NODES PROTECTED</p>
+        <div className="flex gap-4">
+          <div className="w-4 h-4 bg-[#0055ff] border-2 border-slate-900" />
+          <div className="w-4 h-4 bg-white border-2 border-slate-900" />
+          <div className="w-4 h-4 bg-slate-900 border-2 border-slate-900" />
         </div>
-      )}
-
+      </footer>
     </div>
   );
 }
