@@ -24,7 +24,8 @@ import {
   Cpu,
   BarChart3,
   Calendar,
-  Settings
+  Settings,
+  RefreshCw
 } from "lucide-react";
 
 // --- BRUTALIST UI PRIMITIVES ---
@@ -34,24 +35,25 @@ const BrutalCard = ({ children, className = "" }: { children: React.ReactNode, c
   </div>
 );
 
-const BrutalButton = ({ children, variant = "primary", className = "", onClick }: any) => {
-  const base = "border-[3px] border-slate-900 px-6 py-3 font-black uppercase tracking-tighter transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none flex items-center justify-center gap-2 rounded-none";
+const BrutalButton = ({ children, variant = "primary", className = "", onClick, disabled = false }: any) => {
+  const base = "border-[3px] border-slate-900 px-6 py-3 font-black uppercase tracking-tighter transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none flex items-center justify-center gap-2 rounded-none disabled:opacity-50 disabled:cursor-not-allowed";
   const variants = {
     primary: "bg-[#0055ff] text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:bg-[#0044cc]",
     secondary: "bg-white text-slate-900 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:bg-slate-50",
     danger: "bg-white text-red-600 border-red-600 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] hover:bg-red-50"
   };
   return (
-    <button onClick={onClick} className={`${base} ${variants[variant as keyof typeof variants]} ${className}`}>
+    <button onClick={onClick} disabled={disabled} className={`${base} ${variants[variant as keyof typeof variants]} ${className}`}>
       {children}
     </button>
   );
 };
 
-const BrutalBadge = ({ children, variant = "blue" }: { children: React.ReactNode, variant?: "blue" | "white" }) => {
+const BrutalBadge = ({ children, variant = "blue" }: { children: React.ReactNode, variant?: "blue" | "white" | "red" }) => {
   const styles = {
     blue: "bg-[#0055ff] text-white border-2 border-slate-900",
     white: "bg-white text-slate-900 border-2 border-slate-900",
+    red: "bg-red-600 text-white border-2 border-slate-900"
   };
   return (
     <span className={`text-[10px] font-black px-3 py-1 uppercase tracking-widest inline-block rounded-none ${styles[variant]}`}>
@@ -60,9 +62,9 @@ const BrutalBadge = ({ children, variant = "blue" }: { children: React.ReactNode
   );
 };
 
-// --- COMPONENTS ---
+// --- TABS ---
 
-const DashboardTab = () => (
+const DashboardTab = ({ stats }: { stats: any }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
     <BrutalCard className="bg-[#0055ff] text-white">
       <div className="flex justify-between items-start mb-8">
@@ -70,7 +72,7 @@ const DashboardTab = () => (
         <TrendingUp className="w-6 h-6" />
       </div>
       <p className="font-black uppercase tracking-widest text-xs opacity-80">Revenue</p>
-      <h2 className="text-4xl font-black italic">$42.8K</h2>
+      <h2 className="text-4xl font-black italic">{stats.revenue}</h2>
     </BrutalCard>
 
     <BrutalCard>
@@ -79,7 +81,7 @@ const DashboardTab = () => (
         <Plus className="w-6 h-6" />
       </div>
       <p className="font-black uppercase tracking-widest text-xs text-slate-500">Active Nodes</p>
-      <h2 className="text-4xl font-black italic text-slate-900">1,284</h2>
+      <h2 className="text-4xl font-black italic text-slate-900">{stats.activeMembers}</h2>
     </BrutalCard>
 
     <BrutalCard>
@@ -88,7 +90,7 @@ const DashboardTab = () => (
         <TrendingDown className="w-6 h-6" />
       </div>
       <p className="font-black uppercase tracking-widest text-xs text-slate-500">Check-ins</p>
-      <h2 className="text-4xl font-black italic text-slate-900">142</h2>
+      <h2 className="text-4xl font-black italic text-slate-900">{stats.checkIns}</h2>
     </BrutalCard>
 
     <BrutalCard>
@@ -97,39 +99,57 @@ const DashboardTab = () => (
         <span className="font-black text-xl">!</span>
       </div>
       <p className="font-black uppercase tracking-widest text-xs text-slate-500">Alerts</p>
-      <h2 className="text-4xl font-black italic text-slate-900">02</h2>
+      <h2 className="text-4xl font-black italic text-slate-900">{stats.alerts}</h2>
     </BrutalCard>
   </div>
 );
 
-const ChurnShieldTab = () => (
+const ChurnShieldTab = ({ members, loading, onRefresh }: { members: any[], loading: boolean, onRefresh: () => void }) => (
   <div className="space-y-10">
     <BrutalCard className="border-l-[12px] border-l-[#0055ff]">
-      <div className="flex items-center gap-4 mb-6">
-        <ShieldCheck className="w-8 h-8 text-[#0055ff]" />
-        <h2 className="text-3xl font-black uppercase italic tracking-tighter">Churn Shield Predictive Agent</h2>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <ShieldCheck className="w-8 h-8 text-[#0055ff]" />
+          <h2 className="text-3xl font-black uppercase italic tracking-tighter">Churn Shield Predictive Agent</h2>
+        </div>
+        <BrutalButton variant="secondary" onClick={onRefresh} disabled={loading}>
+          {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          Sync Database
+        </BrutalButton>
       </div>
       <p className="text-slate-700 font-bold max-w-2xl mb-8">
-        AUTONOMOUS RETENTION PROTOCOL ENGAGED. ANALYZING NODE BEHAVIOR PATTERNS TO PREVENT SUBSCRIPTION DROPOFF VIA AGENTIC PREDICTION.
+        AUTONOMOUS RETENTION PROTOCOL ENGAGED. CONSUMING LIVE DATABASE METRICS TO PREVENT SUBSCRIPTION DROPOFF VIA AGENTIC PREDICTION.
       </p>
       <div className="border-[3px] border-slate-900">
         <div className="bg-slate-900 text-white p-4 font-black uppercase tracking-widest text-[10px] flex justify-between">
-          <span>Target Node</span>
-          <span>Risk Score</span>
-          <span>Status</span>
+          <span className="flex-1">Target Node</span>
+          <span className="w-32 text-center">Protocol</span>
+          <span className="w-32 text-center">Risk Score</span>
+          <span className="w-40 text-right">Status</span>
         </div>
-        {[
-          { name: "MARCUS WRIGHT", score: "92%", status: "OPTIMAL" },
-          { name: "ELENA RODRIGUEZ", score: "32%", status: "CRITICAL" },
-          { name: "SARAH CHEN", score: "88%", status: "OPTIMAL" },
-          { name: "TYLER DURDEN", score: "15%", status: "IMMINENT_LOSS" },
-        ].map((node, i) => (
-          <div key={i} className="p-4 border-t-[3px] border-slate-900 flex justify-between items-center font-black group hover:bg-[#0055ff] hover:text-white transition-colors cursor-pointer">
-            <span className="italic">{node.name}</span>
-            <span className="text-2xl tracking-tighter">{node.score}</span>
-            <BrutalBadge variant={node.status === 'OPTIMAL' ? 'blue' : 'white'}>{node.status}</BrutalBadge>
-          </div>
-        ))}
+        {loading ? (
+           <div className="p-12 flex flex-col items-center justify-center gap-4 border-t-[3px] border-slate-900">
+             <Loader2 className="w-8 h-8 animate-spin text-[#0055ff]" />
+             <span className="font-black uppercase tracking-widest text-xs">Querying Node Retention Data...</span>
+           </div>
+        ) : (
+          members.map((member, i) => {
+            const score = member.retentionScore ?? 100;
+            const status = score < 40 ? 'CRITICAL' : score < 70 ? 'WARNING' : 'OPTIMAL';
+            return (
+              <div key={member.id} className="p-4 border-t-[3px] border-slate-900 flex justify-between items-center font-black group hover:bg-[#0055ff] hover:text-white transition-colors cursor-pointer">
+                <span className="italic flex-1 uppercase">{member.name || member.email}</span>
+                <span className="w-32 text-center text-xs opacity-60">{member.plan}</span>
+                <span className="w-32 text-center text-2xl tracking-tighter">{score}%</span>
+                <div className="w-40 text-right">
+                  <BrutalBadge variant={status === 'OPTIMAL' ? 'blue' : status === 'WARNING' ? 'white' : 'red'}>
+                    {member.status === 'ACTIVE' ? status : member.status}
+                  </BrutalBadge>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </BrutalCard>
   </div>
@@ -173,8 +193,42 @@ const MaintenanceTab = () => (
 export default function GymOSBrutalist() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [mounted, setMounted] = useState(false);
+  const [members, setMembers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    revenue: "$42.8K",
+    activeMembers: "1,284",
+    checkIns: "142",
+    alerts: "02"
+  });
 
-  useEffect(() => setMounted(true), []);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/members?limit=10");
+      if (res.ok) {
+        const data = await res.json();
+        setMembers(data);
+        
+        // Dynamic stats if possible
+        if (data.length > 0) {
+          setStats(prev => ({
+            ...prev,
+            activeMembers: data.filter((m: any) => m.status === 'ACTIVE').length.toString()
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch node data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setMounted(true);
+    fetchData();
+  }, []);
 
   if (!mounted) return null;
 
@@ -227,8 +281,14 @@ export default function GymOSBrutalist() {
 
         {/* CONTENT AREA */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {activeTab === 'dashboard' && <DashboardTab />}
-          {activeTab === 'churn' && <ChurnShieldTab />}
+          {activeTab === 'dashboard' && <DashboardTab stats={stats} />}
+          {activeTab === 'churn' && (
+            <ChurnShieldTab 
+              members={members} 
+              loading={loading} 
+              onRefresh={fetchData} 
+            />
+          )}
           {activeTab === 'maintenance' && <MaintenanceTab />}
           {activeTab === 'nodes' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
