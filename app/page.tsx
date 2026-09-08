@@ -1,393 +1,120 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Users,
-  Activity,
-  DollarSign,
-  AlertTriangle,
-  ShieldCheck,
-  Wrench,
-  Plus,
-  TrendingUp,
-  Bell,
-  ScanLine,
-  UserCheck,
-  Zap,
-  Info,
-  X,
-  Loader2,
-  ChevronRight,
-  TrendingDown,
-  LayoutDashboard,
-  Box,
-  Cpu,
-  BarChart3,
-  Calendar,
-  Settings,
-  RefreshCw,
-  LogOut
-} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { DollarSign, Users, Activity, AlertTriangle, UserCheck, Wrench, ArrowRight } from "lucide-react";
+import { AppShell } from "@/components/AppShell";
+import { Card, PageHeader, StatTile, Badge, LinkButton, EmptyState } from "@/components/ui";
 import { formatCents } from "@/lib/pricing";
 
-// --- BRUTALIST UI PRIMITIVES ---
-const BrutalCard = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-  <div className={`bg-white border-[3px] border-slate-900 shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] p-6 rounded-none ${className}`}>
-    {children}
-  </div>
-);
-
-const BrutalButton = ({ children, variant = "primary", className = "", onClick, disabled = false }: any) => {
-  const base = "border-[3px] border-slate-900 px-6 py-3 font-black uppercase tracking-tighter transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none flex items-center justify-center gap-2 rounded-none disabled:opacity-50 disabled:cursor-not-allowed";
-  const variants = {
-    primary: "bg-[#0055ff] text-white shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:bg-[#0044cc]",
-    secondary: "bg-white text-slate-900 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:bg-slate-50",
-    danger: "bg-white text-red-600 border-red-600 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] hover:bg-red-50"
-  };
-  return (
-    <button onClick={onClick} disabled={disabled} className={`${base} ${variants[variant as keyof typeof variants]} ${className}`}>
-      {children}
-    </button>
-  );
-};
-
-const BrutalBadge = ({ children, variant = "blue" }: { children: React.ReactNode, variant?: "blue" | "white" | "red" }) => {
-  const styles = {
-    blue: "bg-[#0055ff] text-white border-2 border-slate-900",
-    white: "bg-white text-slate-900 border-2 border-slate-900",
-    red: "bg-red-600 text-white border-2 border-slate-900"
-  };
-  return (
-    <span className={`text-[10px] font-black px-3 py-1 uppercase tracking-widest inline-block rounded-none ${styles[variant]}`}>
-      {children}
-    </span>
-  );
-};
-
-// --- TABS ---
-
-const DashboardTab = ({ stats }: { stats: any }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-    <BrutalCard className="bg-[#0055ff] text-white">
-      <div className="flex justify-between items-start mb-8">
-        <DollarSign className="w-10 h-10" />
-        <TrendingUp className="w-6 h-6" />
-      </div>
-      <p className="font-black uppercase tracking-widest text-xs opacity-80">Revenue</p>
-      <h2 className="text-4xl font-black italic">{stats.revenue}</h2>
-    </BrutalCard>
-
-    <BrutalCard>
-      <div className="flex justify-between items-start mb-8 text-[#0055ff]">
-        <Users className="w-10 h-10" />
-        <Plus className="w-6 h-6" />
-      </div>
-      <p className="font-black uppercase tracking-widest text-xs text-slate-500">Active Nodes</p>
-      <h2 className="text-4xl font-black italic text-slate-900">{stats.activeMembers}</h2>
-    </BrutalCard>
-
-    <BrutalCard>
-      <div className="flex justify-between items-start mb-8 text-[#0055ff]">
-        <Activity className="w-10 h-10" />
-        <TrendingDown className="w-6 h-6" />
-      </div>
-      <p className="font-black uppercase tracking-widest text-xs text-slate-500">Check-ins</p>
-      <h2 className="text-4xl font-black italic text-slate-900">{stats.checkIns}</h2>
-    </BrutalCard>
-
-    <BrutalCard>
-      <div className="flex justify-between items-start mb-8 text-[#0055ff]">
-        <AlertTriangle className="w-10 h-10" />
-        <span className="font-black text-xl">!</span>
-      </div>
-      <p className="font-black uppercase tracking-widest text-xs text-slate-500">Alerts</p>
-      <h2 className="text-4xl font-black italic text-slate-900">{stats.alerts}</h2>
-    </BrutalCard>
-  </div>
-);
-
-const ChurnShieldTab = ({ members, loading, onRefresh }: { members: any[], loading: boolean, onRefresh: () => void }) => (
-  <div className="space-y-10">
-    <BrutalCard className="border-l-[12px] border-l-[#0055ff]">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <ShieldCheck className="w-8 h-8 text-[#0055ff]" />
-          <h2 className="text-3xl font-black uppercase italic tracking-tighter">Churn Shield Predictive Agent</h2>
-        </div>
-        <BrutalButton variant="secondary" onClick={onRefresh} disabled={loading}>
-          {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          Sync Database
-        </BrutalButton>
-      </div>
-      <p className="text-slate-700 font-bold max-w-2xl mb-8">
-        AUTONOMOUS RETENTION PROTOCOL ENGAGED. CONSUMING LIVE DATABASE METRICS TO PREVENT SUBSCRIPTION DROPOFF VIA AGENTIC PREDICTION.
-      </p>
-      <div className="border-[3px] border-slate-900">
-        <div className="bg-slate-900 text-white p-4 font-black uppercase tracking-widest text-[10px] flex justify-between">
-          <span className="flex-1">Target Node</span>
-          <span className="w-32 text-center">Protocol</span>
-          <span className="w-32 text-center">Risk Score</span>
-          <span className="w-40 text-right">Status</span>
-        </div>
-        {loading ? (
-           <div className="p-12 flex flex-col items-center justify-center gap-4 border-t-[3px] border-slate-900">
-             <Loader2 className="w-8 h-8 animate-spin text-[#0055ff]" />
-             <span className="font-black uppercase tracking-widest text-xs">Querying Node Retention Data...</span>
-           </div>
-        ) : (
-          members.map((member, i) => {
-            const score = member.retentionScore ?? 100;
-            const status = score < 40 ? 'CRITICAL' : score < 70 ? 'WARNING' : 'OPTIMAL';
-            return (
-              <div key={member.id} className="p-4 border-t-[3px] border-slate-900 flex justify-between items-center font-black group hover:bg-[#0055ff] hover:text-white transition-colors cursor-pointer">
-                <span className="italic flex-1 uppercase">{member.name || member.email}</span>
-                <span className="w-32 text-center text-xs opacity-60">{member.plan}</span>
-                <span className="w-32 text-center text-2xl tracking-tighter">{score}%</span>
-                <div className="w-40 text-right">
-                  <BrutalBadge variant={status === 'OPTIMAL' ? 'blue' : status === 'WARNING' ? 'white' : 'red'}>
-                    {member.status === 'ACTIVE' ? status : member.status}
-                  </BrutalBadge>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </BrutalCard>
-  </div>
-);
-
-const MaintenanceTab = ({ equipment }: { equipment: any[] }) => {
-  const flagged = equipment.filter((e) => e.status !== "OPERATIONAL");
-  const nominal = equipment.filter((e) => e.status === "OPERATIONAL");
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <BrutalCard className="bg-[#0055ff] text-white border-slate-900">
-        <Wrench className="w-12 h-12 mb-6" />
-        <h2 className="text-4xl font-black uppercase italic mb-4">Maintenance Oracle</h2>
-        <p className="font-bold mb-8 opacity-90">LIVE EQUIPMENT HEALTH FROM THE HARDWARE REGISTRY.</p>
-        <div className="space-y-4">
-          {flagged.length === 0 ? (
-            <p className="font-black uppercase tracking-widest text-xs opacity-80">No hardware issues detected.</p>
-          ) : flagged.map((eq) => (
-            <div key={eq.id} className="bg-white text-slate-900 p-6 border-[3px] border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-              <div className="flex justify-between items-center mb-4">
-                <span className="font-black uppercase tracking-widest text-xs">{eq.name}</span>
-                <BrutalBadge>{eq.status === "OFFLINE" ? "Critical" : "Warning"}</BrutalBadge>
-              </div>
-              <p className="font-black text-xl italic mb-2 tracking-tighter">
-                {eq.partNeeded ? `PART NEEDED: ${eq.partNeeded.toUpperCase()}` : eq.status}
-              </p>
-              <div className="w-full h-4 bg-slate-200 border-2 border-slate-900 rounded-none overflow-hidden">
-                <div
-                  className={`h-full ${eq.status === "OFFLINE" ? "bg-red-600" : "bg-amber-500"}`}
-                  style={{ width: `${Math.round((1 - eq.healthScore) * 100)}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </BrutalCard>
-
-      <BrutalCard>
-        <Cpu className="w-12 h-12 mb-6 text-[#0055ff]" />
-        <h2 className="text-4xl font-black uppercase italic mb-4">System Node Log</h2>
-        <div className="space-y-4">
-          {nominal.length === 0 ? (
-            <p className="font-black uppercase tracking-widest text-xs text-slate-400">No equipment registered.</p>
-          ) : nominal.map((eq) => (
-            <div key={eq.id} className="p-4 border-2 border-slate-900 font-black flex justify-between items-center">
-              <span className="uppercase text-[10px] tracking-widest">{eq.name}</span>
-              <span className="text-[#0055ff]">ONLINE</span>
-            </div>
-          ))}
-        </div>
-      </BrutalCard>
-    </div>
-  );
-};
-
-export default function GymOSBrutalist() {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [mounted, setMounted] = useState(false);
-  const [members, setMembers] = useState<any[]>([]);
-  const [recentCheckIns, setRecentCheckIns] = useState<any[]>([]);
+export default function DashboardPage() {
+  const [stats, setStats] = useState<{ revenueCents: number; activeMembers: number; checkInsToday: number; alerts: number } | null>(null);
+  const [checkIns, setCheckIns] = useState<any[]>([]);
   const [equipment, setEquipment] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    revenue: "—",
-    activeMembers: "—",
-    checkIns: "—",
-    alerts: "—"
-  });
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/members?limit=10");
-      if (res.ok) {
-        const data = await res.json();
-        setMembers(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch node data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const res = await fetch("/api/dashboard/stats");
-      if (res.ok) {
-        const data = await res.json();
-        setStats({
-          revenue: formatCents(data.revenueCents),
-          activeMembers: data.activeMembers.toLocaleString(),
-          checkIns: data.checkInsToday.toLocaleString(),
-          alerts: data.alerts.toString().padStart(2, "0")
-        });
-      }
-    } catch (err) {
-      console.error("Failed to fetch dashboard stats:", err);
-    }
-  };
-
-  const fetchRecentCheckIns = async () => {
-    try {
-      const res = await fetch("/api/check-in");
-      if (res.ok) setRecentCheckIns(await res.json());
-    } catch (err) {
-      console.error("Failed to fetch check-ins:", err);
-    }
-  };
-
-  const fetchEquipment = async () => {
-    try {
-      const res = await fetch("/api/equipment");
-      if (res.ok) setEquipment(await res.json());
-    } catch (err) {
-      console.error("Failed to fetch equipment:", err);
-    }
-  };
-
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  };
 
   useEffect(() => {
-    setMounted(true);
-    fetchData();
-    fetchStats();
-    fetchRecentCheckIns();
-    fetchEquipment();
+    Promise.all([
+      fetch("/api/dashboard/stats").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/check-in").then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/equipment").then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([s, c, e]) => {
+        setStats(s);
+        setCheckIns(Array.isArray(c) ? c : []);
+        setEquipment(Array.isArray(e) ? e : []);
+      })
+      .catch((err) => console.error("Failed to load dashboard:", err))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (!mounted) return null;
-
-  const tabs = [
-    { id: "dashboard", label: "Operations", icon: LayoutDashboard },
-    { id: "churn", label: "Churn Shield", icon: ShieldCheck },
-    { id: "maintenance", label: "IoT Oracle", icon: Wrench },
-    { id: "nodes", label: "Node Access", icon: ScanLine },
-  ];
+  const flaggedEquipment = equipment.filter((e) => e.status !== "OPERATIONAL");
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-mono selection:bg-[#0055ff] selection:text-white p-4 md:p-8">
-      
-      {/* HEADER SECTION */}
-      <header className="mb-12 border-b-[6px] border-slate-900 pb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-slate-900 flex items-center justify-center">
-              <Zap className="w-8 h-8 text-[#0055ff] fill-[#0055ff]" />
-            </div>
-            <h1 className="text-6xl md:text-8xl font-black uppercase italic tracking-tighter">GymOS</h1>
+    <AppShell>
+      <PageHeader
+        title="Dashboard"
+        description="Today's overview across members, equipment, and check-ins."
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatTile icon={DollarSign} label="Monthly revenue" value={loading || !stats ? "—" : formatCents(stats.revenueCents)} />
+        <StatTile icon={Users} label="Active members" value={loading || !stats ? "—" : stats.activeMembers.toLocaleString()} />
+        <StatTile icon={Activity} label="Check-ins today" value={loading || !stats ? "—" : stats.checkInsToday.toLocaleString()} />
+        <StatTile
+          icon={AlertTriangle}
+          label="Needs attention"
+          value={loading || !stats ? "—" : stats.alerts.toString()}
+          tone={stats && stats.alerts > 0 ? "warn" : "neutral"}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-lg font-medium text-ink">Recent check-ins</h2>
+            <LinkButton href="/members" variant="ghost" className="!px-2 !py-1 text-xs">
+              View members <ArrowRight className="w-3.5 h-3.5" />
+            </LinkButton>
           </div>
-          <p className="text-xl font-black uppercase tracking-tighter text-[#0055ff]">Iron Sanctuary Node Management System [v4.0.0]</p>
-        </div>
-        <div className="flex gap-4">
-           <BrutalButton variant="secondary"><Bell className="w-5 h-5" /></BrutalButton>
-           <BrutalButton>Enroll New Node</BrutalButton>
-           <BrutalButton variant="secondary" onClick={handleLogout}><LogOut className="w-5 h-5" /></BrutalButton>
-        </div>
-      </header>
-
-      <main className="max-w-[1600px] mx-auto">
-        
-        {/* TAB NAVIGATION */}
-        <div className="flex flex-wrap gap-0 mb-12 border-[3px] border-slate-900 bg-slate-900">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 min-w-[150px] py-4 px-6 flex items-center justify-center gap-3 font-black uppercase tracking-widest text-xs transition-all border-r-[3px] border-slate-900 last:border-r-0 ${
-                activeTab === tab.id 
-                ? 'bg-[#0055ff] text-white italic' 
-                : 'bg-white text-slate-900 hover:bg-[#0055ff]/10'
-              }`}
-            >
-              <tab.icon className="w-5 h-5" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* CONTENT AREA */}
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {activeTab === 'dashboard' && <DashboardTab stats={stats} />}
-          {activeTab === 'churn' && (
-            <ChurnShieldTab
-              members={members}
-              loading={loading}
-              onRefresh={() => { fetchData(); fetchStats(); }}
-            />
-          )}
-          {activeTab === 'maintenance' && <MaintenanceTab equipment={equipment} />}
-          {activeTab === 'nodes' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <BrutalCard className="lg:col-span-2">
-                <h2 className="text-4xl font-black uppercase italic mb-8">Access Logistics</h2>
-                <div className="space-y-4">
-                  {recentCheckIns.length === 0 ? (
-                    <p className="font-black uppercase tracking-widest text-xs text-slate-400">No check-ins recorded yet.</p>
-                  ) : recentCheckIns.map((ci: any) => (
-                    <div key={ci.id} className="flex justify-between items-center p-4 border-[3px] border-slate-900 font-black">
-                      <div className="flex flex-col">
-                        <span className="text-xl italic tracking-tighter uppercase">{ci.member?.name || ci.member?.email || "Unknown"}</span>
-                        <span className="text-[10px] tracking-[0.3em] text-[#0055ff]">{new Date(ci.timestamp).toLocaleTimeString()} // MEMBER</span>
-                      </div>
-                      <BrutalBadge variant={ci.member?.status === 'ACTIVE' ? 'blue' : 'white'}>
-                        {ci.member?.status === 'ACTIVE' ? 'AUTHORIZED' : ci.member?.status}
-                      </BrutalBadge>
+          {loading ? (
+            <p className="text-sm text-ink-soft">Loading…</p>
+          ) : checkIns.length === 0 ? (
+            <EmptyState>No check-ins recorded yet.</EmptyState>
+          ) : (
+            <ul className="divide-y divide-line">
+              {checkIns.slice(0, 6).map((ci: any) => (
+                <li key={ci.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-surface-muted flex items-center justify-center text-ink-soft">
+                      <UserCheck className="w-4 h-4" />
                     </div>
-                  ))}
-                </div>
-              </BrutalCard>
-              <BrutalCard className="bg-slate-900 text-white flex flex-col items-center justify-center py-20 border-[#0055ff] border-[8px]">
-                <ScanLine className="w-32 h-32 text-[#0055ff] mb-8 animate-pulse" />
-                <h3 className="text-3xl font-black uppercase italic text-center leading-none mb-6">Initialize Biometric Sync</h3>
-                <BrutalButton variant="secondary" className="w-full">Start Scanner</BrutalButton>
-              </BrutalCard>
-            </div>
+                    <div>
+                      <p className="text-sm font-medium text-ink">{ci.member?.name || ci.member?.email || "Unknown"}</p>
+                      <p className="text-xs text-ink-soft">{new Date(ci.timestamp).toLocaleTimeString()}</p>
+                    </div>
+                  </div>
+                  <Badge variant={ci.member?.status === "ACTIVE" ? "good" : "neutral"}>
+                    {ci.member?.status === "ACTIVE" ? "Active" : ci.member?.status}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
-      </main>
+        </Card>
 
-      {/* FOOTER */}
-      <footer className="mt-20 border-t-[3px] border-slate-900 pt-8 flex justify-between items-center">
-        <p className="font-black uppercase tracking-widest text-[10px]">© 2026 IRON SANCTUARY OPERATIONS // ALL NODES PROTECTED</p>
-        <div className="flex gap-4">
-          <div className="w-4 h-4 bg-[#0055ff] border-2 border-slate-900" />
-          <div className="w-4 h-4 bg-white border-2 border-slate-900" />
-          <div className="w-4 h-4 bg-slate-900 border-2 border-slate-900" />
-        </div>
-      </footer>
-    </div>
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-lg font-medium text-ink">Equipment status</h2>
+            <LinkButton href="/equipment" variant="ghost" className="!px-2 !py-1 text-xs">
+              View all <ArrowRight className="w-3.5 h-3.5" />
+            </LinkButton>
+          </div>
+          {loading ? (
+            <p className="text-sm text-ink-soft">Loading…</p>
+          ) : flaggedEquipment.length === 0 ? (
+            <EmptyState>Everything's operational.</EmptyState>
+          ) : (
+            <ul className="divide-y divide-line">
+              {flaggedEquipment.slice(0, 6).map((eq: any) => (
+                <li key={eq.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-surface-muted flex items-center justify-center text-ink-soft">
+                      <Wrench className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-ink">{eq.name}</p>
+                      {eq.partNeeded && <p className="text-xs text-ink-soft">{eq.partNeeded}</p>}
+                    </div>
+                  </div>
+                  <Badge variant={eq.status === "OFFLINE" ? "bad" : "warn"}>
+                    {eq.status === "OFFLINE" ? "Offline" : "Warning"}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+    </AppShell>
   );
 }

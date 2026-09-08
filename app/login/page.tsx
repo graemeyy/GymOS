@@ -45,39 +45,37 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans flex items-center justify-center p-6">
-      <div className="w-full max-w-sm border-[3px] border-slate-900 shadow-[8px_8px_0px_0px_rgba(15,23,42,1)] p-8">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-blue-600 flex items-center justify-center border-2 border-slate-900">
-            <Zap className="w-5 h-5 text-white fill-white" />
+    <div className="min-h-screen bg-chalk text-ink font-sans flex items-center justify-center p-6">
+      <div className="w-full max-w-sm bg-surface border border-line rounded-2xl p-8">
+        <div className="flex items-center gap-2.5 mb-8">
+          <div className="w-9 h-9 rounded-lg bg-ember flex items-center justify-center">
+            <Zap className="w-4.5 h-4.5 text-white" />
           </div>
-          <span className="text-2xl font-black tracking-tighter uppercase">GymOS</span>
+          <span className="font-display font-medium text-ink">GymOS</span>
         </div>
-        <h1 className="text-xl font-black uppercase tracking-widest mb-6 flex items-center gap-2">
-          <Lock className="w-5 h-5" /> Staff Sign In
+        <h1 className="font-display text-xl font-medium text-ink mb-6 flex items-center gap-2">
+          <Lock className="w-4.5 h-4.5 text-ink-soft" /> Staff sign in
         </h1>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest">Password</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-ink">Password</label>
             <input
               required
               type="password"
               autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-white border-2 border-slate-900 p-4 font-bold text-sm focus:ring-4 focus:ring-blue-600/20 focus:outline-none"
+              className="w-full bg-chalk border border-line rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ember/30"
               placeholder="••••••••"
             />
           </div>
-          {error && (
-            <p className="text-rose-600 text-xs font-bold uppercase tracking-wide">{error}</p>
-          )}
+          {error && <p className="text-bad text-sm">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white border-2 border-slate-900 py-4 font-black uppercase tracking-[0.3em] hover:bg-blue-700 transition-all active:translate-y-1 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full bg-ember text-white rounded-xl py-2.5 font-medium hover:bg-ember-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign in"}
           </button>
         </form>
       </div>

@@ -1,34 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Zap,
-  ArrowLeft,
-  Cpu,
-  Terminal,
-  Server,
-  LogOut
-} from "lucide-react";
+import { ScanFace, UserCheck, XCircle } from "lucide-react";
+import { AppShell } from "@/components/AppShell";
+import { Card, PageHeader, Badge, EmptyState } from "@/components/ui";
 
-const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-  <div className={"bg-white border-2 border-slate-900 rounded-none p-6 " + className}>
-    {children}
-  </div>
-);
-
-const Badge = ({ children, variant = "active" }: { children: React.ReactNode, variant?: "active" | "idle" }) => {
-  return (
-    <span className={`text-[10px] font-black px-3 py-1 border-2 uppercase tracking-widest ${variant === 'active' ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
-      {children}
-    </span>
-  );
-};
-
-export default function IOTPage() {
-  const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+export default function AccessControlPage() {
   const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const fetchEvents = async () => {
     try {
@@ -36,144 +15,89 @@ export default function IOTPage() {
       if (res.ok) setEvents(await res.json());
     } catch (err) {
       console.error("Failed to fetch gateway events:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    setMounted(true);
     fetchEvents();
     const interval = setInterval(fetchEvents, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  };
-
-  if (!mounted) return null;
+  const mainEntry = events.filter((ev: any) => ev.location === "Main Entrance").length;
+  const otherGateways = events.length - mainEntry;
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans pb-20 selection:bg-blue-600 selection:text-white">
-      <nav className="border-b-4 border-slate-900 bg-white sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-12">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 flex items-center justify-center border-2 border-slate-900">
-                <Zap className="w-5 h-5 text-white fill-white" />
-              </div>
-              <span className="text-2xl font-black tracking-tighter uppercase">GymOS</span>
-            </div>
-            <div className="hidden lg:flex items-center gap-10 text-[10px] font-black uppercase tracking-[0.25em]">
-              <a href="/" className="text-slate-400 hover:text-slate-900">Command</a>
-              <a href="/iot" className="text-blue-600 border-b-2 border-blue-600 pb-1">Gateways</a>
-              <a href="/equipment" className="text-slate-400 hover:text-slate-900">Hardware</a>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors"
-            >
-              <LogOut className="w-4 h-4" /> Sign Out
-            </button>
-            <div className="w-10 h-10 bg-slate-900 text-white flex items-center justify-center font-black text-xs">GY</div>
-          </div>
-        </div>
-      </nav>
+    <AppShell>
+      <PageHeader title="Access control" description="Entry gateway activity, updated live." />
 
-      <main className="max-w-7xl mx-auto px-6 py-16">
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-10 mb-16 border-b-4 border-slate-900 pb-12">
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <a href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:underline">
-                <ArrowLeft className="w-3 h-3" /> Dashboard
-              </a>
-              <span className="text-slate-300">|</span>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Peripheral Sync</span>
-            </div>
-            <h1 className="text-7xl font-black tracking-tight uppercase leading-none mb-4">IoT Gateways</h1>
-            <p className="text-slate-900 text-lg font-black uppercase tracking-widest">Entry Controller & Hardware Sync</p>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-2 space-y-10">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-400 border-l-4 border-blue-600 pl-3">Live Access Stream</h3>
-            <Card className="bg-slate-900 border-4 border-slate-900 font-mono text-blue-400 p-8">
-              <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-4">
-                <Terminal className="w-5 h-5" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Gateway Monitor v2.1</span>
-              </div>
-              <div className="space-y-3 text-xs">
-                {events.length === 0 ? (
-                  <p className="text-slate-500">No gateway events recorded yet.</p>
-                ) : events.map((ev: any) => {
-                  const denied = ev.member?.status !== "ACTIVE";
-                  return (
-                    <p key={ev.id} className={denied ? "text-rose-500" : undefined}>
-                      <span className="text-slate-500">[{new Date(ev.timestamp).toLocaleTimeString()}]</span>{" "}
-                      {denied ? "AUTH_FAILURE" : "AUTH_SUCCESS"}: {ev.member?.name || ev.member?.email || "Unknown"} @ {ev.location}
-                    </p>
-                  );
-                })}
-                <p className="animate-pulse">_</p>
-              </div>
-            </Card>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {(() => {
-                const mainEvents = events.filter((ev: any) => ev.location === "Main Entrance").length;
-                const otherEvents = events.length - mainEvents;
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
+          <h2 className="font-display text-lg font-medium text-ink mb-4">Recent scans</h2>
+          {loading ? (
+            <p className="text-sm text-ink-soft">Loading…</p>
+          ) : events.length === 0 ? (
+            <EmptyState>No gateway scans recorded yet.</EmptyState>
+          ) : (
+            <ul className="divide-y divide-line">
+              {events.map((ev: any) => {
+                const denied = ev.member?.status !== "ACTIVE";
                 return (
-                  <>
-                    <Card className="border-2 border-slate-900">
-                      <div className="flex justify-between items-start mb-6">
-                        <Cpu className="w-8 h-8 text-blue-600" />
-                        <Badge variant={mainEvents > 0 ? "active" : "idle"}>{mainEvents > 0 ? "Active" : "Idle"}</Badge>
+                  <li key={ev.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${denied ? "bg-bad-soft text-bad" : "bg-good-soft text-good"}`}>
+                        {denied ? <XCircle className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                       </div>
-                      <h4 className="text-lg font-black uppercase tracking-tight">Main Entry Controller</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{mainEvents} scans (last 10)</p>
-                    </Card>
-                    <Card className="border-2 border-slate-900">
-                      <div className="flex justify-between items-start mb-6">
-                        <Server className="w-8 h-8 text-slate-400" />
-                        <Badge variant={otherEvents > 0 ? "active" : "idle"}>{otherEvents > 0 ? "Active" : "Idle"}</Badge>
+                      <div>
+                        <p className="text-sm font-medium text-ink">{ev.member?.name || ev.member?.email || "Unknown"}</p>
+                        <p className="text-xs text-ink-soft">{ev.location} · {new Date(ev.timestamp).toLocaleTimeString()}</p>
                       </div>
-                      <h4 className="text-lg font-black uppercase tracking-tight">Secondary Gateways</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{otherEvents} scans (last 10)</p>
-                    </Card>
-                  </>
+                    </div>
+                    <Badge variant={denied ? "bad" : "good"}>{denied ? "Denied" : "Granted"}</Badge>
+                  </li>
                 );
-              })()}
-            </div>
-          </div>
+              })}
+            </ul>
+          )}
+        </Card>
 
-          <div className="space-y-10">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-400 border-l-4 border-blue-600 pl-3">API Configuration</h3>
-            <Card className="border-2 border-slate-900">
-              <div className="space-y-6">
+        <div className="space-y-6">
+          <Card>
+            <h2 className="font-display text-lg font-medium text-ink mb-4">Gateways</h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-xl border border-line p-4">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Endpoint URL</p>
-                  <div className="p-3 bg-slate-50 border-2 border-slate-900 text-[10px] font-mono break-all">
-                    /api/iot/checkin
-                  </div>
+                  <p className="text-sm font-medium text-ink">Main entrance</p>
+                  <p className="text-xs text-ink-soft">{mainEntry} scans (last 10)</p>
                 </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Security Key</p>
-                  <div className="p-3 bg-slate-50 border-2 border-slate-900 text-[10px] font-mono">
-                    GYM_SEC_****************
-                  </div>
-                </div>
-                <button className="w-full py-4 bg-blue-600 text-white text-[10px] font-black uppercase tracking-[0.2em] border-2 border-slate-900 hover:bg-blue-700 transition-all">
-                  Regenerate Token
-                </button>
+                <Badge variant={mainEntry > 0 ? "good" : "neutral"}>{mainEntry > 0 ? "Active" : "Idle"}</Badge>
               </div>
-            </Card>
-          </div>
+              <div className="flex items-center justify-between rounded-xl border border-line p-4">
+                <div>
+                  <p className="text-sm font-medium text-ink">Other gateways</p>
+                  <p className="text-xs text-ink-soft">{otherGateways} scans (last 10)</p>
+                </div>
+                <Badge variant={otherGateways > 0 ? "good" : "neutral"}>{otherGateways > 0 ? "Active" : "Idle"}</Badge>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 mb-3 text-ink-soft">
+              <ScanFace className="w-4 h-4" />
+              <h2 className="text-sm font-medium text-ink">Hardware endpoint</h2>
+            </div>
+            <p className="text-xs text-ink-soft mb-3">
+              Point your entry scanners at this endpoint, authenticated with the gateway secret from your environment config.
+            </p>
+            <code className="block text-xs bg-chalk border border-line rounded-lg px-3 py-2 text-ink-soft">
+              POST /api/iot/checkin
+            </code>
+          </Card>
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }
