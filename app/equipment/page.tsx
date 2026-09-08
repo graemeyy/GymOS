@@ -1,18 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  Zap,
-  ArrowLeft,
-  Wrench,
-  Activity,
-  AlertCircle,
-  CheckCircle2,
-  Settings,
-  History,
-  Timer,
-  Loader2
-} from "lucide-react";
+import { Activity, Loader2 } from "lucide-react";
+import { AppShell } from "@/components/AppShell";
+import { Card, PageHeader, Badge, Button, EmptyState } from "@/components/ui";
 
 interface Equipment {
   id: string;
@@ -23,26 +14,6 @@ interface Equipment {
   partNeeded: string | null;
   estimatedCost: number | null;
 }
-
-const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
-  <div className={"bg-white border-2 border-slate-900 rounded-none p-6 " + className}>
-    {children}
-  </div>
-);
-
-const Badge = ({ children, variant = "default" }: { children: React.ReactNode, variant?: "default" | "success" | "warning" | "danger" }) => {
-  const styles = {
-    default: "bg-white text-slate-900 border-slate-900",
-    success: "bg-blue-600 text-white border-blue-600",
-    warning: "bg-amber-500 text-white border-amber-500",
-    danger: "bg-rose-600 text-white border-rose-600",
-  };
-  return (
-    <span className={`text-[10px] font-black px-3 py-1 border-2 uppercase tracking-widest ${styles[variant]}`}>
-      {children}
-    </span>
-  );
-};
 
 function statusLabel(status: Equipment["status"]) {
   if (status === "OPERATIONAL") return "Operational";
@@ -85,110 +56,74 @@ export default function EquipmentPage() {
   const priorityQueue = equipment.filter((e) => e.status !== "OPERATIONAL");
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans pb-20 selection:bg-blue-600 selection:text-white">
-      <nav className="border-b-4 border-slate-900 bg-white sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-12">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 flex items-center justify-center border-2 border-slate-900">
-                <Zap className="w-5 h-5 text-white fill-white" />
-              </div>
-              <span className="text-2xl font-black tracking-tighter uppercase">GymOS</span>
-            </div>
-            <div className="hidden lg:flex items-center gap-10 text-[10px] font-black uppercase tracking-[0.25em]">
-              <a href="/" className="text-slate-400 hover:text-slate-900">Command</a>
-              <a href="/members" className="text-slate-400 hover:text-slate-900">Members</a>
-              <a href="/equipment" className="text-blue-600 border-b-2 border-blue-600 pb-1">Hardware</a>
-            </div>
-          </div>
-          <div className="w-10 h-10 bg-slate-900 text-white flex items-center justify-center font-black text-xs">GY</div>
-        </div>
-      </nav>
+    <AppShell>
+      <PageHeader title="Equipment" description="Inventory health and open maintenance." />
 
-      <main className="max-w-7xl mx-auto px-6 py-16">
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-10 mb-16 border-b-4 border-slate-900 pb-12">
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <a href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:underline">
-                <ArrowLeft className="w-3 h-3" /> Dashboard
-              </a>
-              <span className="text-slate-300">|</span>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Asset Management</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 p-0 overflow-hidden">
+          <h2 className="font-display text-lg font-medium text-ink p-6 pb-0">Inventory</h2>
+          {loading ? (
+            <div className="py-12 flex justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-ink-soft" />
             </div>
-            <h1 className="text-7xl font-black tracking-tight uppercase leading-none mb-4">Hardware</h1>
-            <p className="text-slate-900 text-lg font-black uppercase tracking-widest">Maintenance & Wear Matrix</p>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          <div className="md:col-span-2 space-y-10">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-400 border-l-4 border-blue-600 pl-3">Inventory Status</h3>
-            <div className="grid grid-cols-1 gap-6">
-              {loading ? (
-                <Card className="border-2 border-slate-900 text-center py-12">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto" />
-                </Card>
-              ) : equipment.length === 0 ? (
-                <Card className="border-2 border-slate-900 text-center py-12 font-black uppercase tracking-widest text-slate-400">
-                  No equipment registered.
-                </Card>
-              ) : equipment.map((eq) => (
-                <Card key={eq.id} className="hover:bg-blue-50 transition-colors border-2 border-slate-900">
-                  <div className="flex items-center justify-between gap-6">
-                    <div className="flex items-center gap-6">
-                      <div className="p-4 bg-slate-50 border-2 border-slate-900">
-                        <Activity className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-black uppercase tracking-tight">{eq.name}</h4>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                          Service: {eq.lastServicedAt ? new Date(eq.lastServicedAt).toLocaleDateString() : "Never"}
-                        </p>
-                      </div>
+          ) : equipment.length === 0 ? (
+            <div className="p-6">
+              <EmptyState>No equipment registered yet.</EmptyState>
+            </div>
+          ) : (
+            <ul className="divide-y divide-line mt-4">
+              {equipment.map((eq) => (
+                <li key={eq.id} className="flex items-center justify-between px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-surface-muted flex items-center justify-center text-ink-soft">
+                      <Activity className="w-4.5 h-4.5" />
                     </div>
-                    <div className="flex items-center gap-12">
-                      <div className="hidden sm:block text-right">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Unit Health</p>
-                        <p className="text-xl font-black">{Math.round(eq.healthScore * 100)}%</p>
-                      </div>
-                      <Badge variant={eq.status === 'OPERATIONAL' ? 'success' : eq.status === 'WARNING' ? 'warning' : 'danger'}>
-                        {statusLabel(eq.status)}
-                      </Badge>
+                    <div>
+                      <p className="font-medium text-ink">{eq.name}</p>
+                      <p className="text-xs text-ink-soft">
+                        Serviced {eq.lastServicedAt ? new Date(eq.lastServicedAt).toLocaleDateString() : "never"}
+                      </p>
                     </div>
                   </div>
-                </Card>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-ink-soft hidden sm:block">{Math.round(eq.healthScore * 100)}% health</span>
+                    <Badge variant={eq.status === "OPERATIONAL" ? "good" : eq.status === "WARNING" ? "warn" : "bad"}>
+                      {statusLabel(eq.status)}
+                    </Badge>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="font-display text-lg font-medium text-ink mb-4">Maintenance queue</h2>
+          {priorityQueue.length === 0 ? (
+            <EmptyState>Nothing needs attention.</EmptyState>
+          ) : (
+            <div className="space-y-3">
+              {priorityQueue.map((eq) => (
+                <div key={eq.id} className="rounded-xl border border-line p-4">
+                  <p className="text-xs text-ink-soft mb-0.5">{statusLabel(eq.status)}</p>
+                  <p className="text-sm font-medium text-ink mb-3">
+                    {eq.name}
+                    {eq.partNeeded ? ` — ${eq.partNeeded}` : ""}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    className="w-full !py-2 text-xs"
+                    onClick={() => authorizeRepair(eq.id)}
+                    disabled={eq.status !== "OFFLINE" || submittingId === eq.id}
+                  >
+                    {submittingId === eq.id ? "Submitting…" : eq.status === "OFFLINE" ? "Authorize repair" : "Awaiting failure"}
+                  </Button>
+                </div>
               ))}
             </div>
-          </div>
-
-          <div className="space-y-10">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-400 border-l-4 border-blue-600 pl-3">Maintenance Queue</h3>
-            <Card className="border-4 border-slate-900 bg-slate-50">
-              <div className="flex items-center gap-3 mb-6 text-rose-600">
-                <AlertCircle className="w-6 h-6" />
-                <h4 className="text-xs font-black uppercase tracking-widest">Priority Actions</h4>
-              </div>
-              <div className="space-y-6">
-                {priorityQueue.length === 0 ? (
-                  <p className="text-xs font-black uppercase text-slate-400">No pending maintenance.</p>
-                ) : priorityQueue.map((eq) => (
-                  <div key={eq.id} className="p-4 bg-white border-2 border-slate-900">
-                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">{statusLabel(eq.status)}</p>
-                    <p className="text-xs font-black uppercase mb-3">{eq.name}{eq.partNeeded ? ` — ${eq.partNeeded}` : ""}</p>
-                    <button
-                      onClick={() => authorizeRepair(eq.id)}
-                      disabled={eq.status !== "OFFLINE" || submittingId === eq.id}
-                      className="w-full py-2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition-colors disabled:opacity-40"
-                    >
-                      {submittingId === eq.id ? "Submitting..." : eq.status === "OFFLINE" ? "Authorize Repair" : "Awaiting Failure"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        </div>
-      </main>
-    </div>
+          )}
+        </Card>
+      </div>
+    </AppShell>
   );
 }

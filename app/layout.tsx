@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const body = Inter({ subsets: ["latin"], variable: "--font-body" });
+const display = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
-  title: "GymOS Dashboard",
-  description: "Management dashboard for GymOS",
+  title: "GymOS",
+  description: "Front-desk and operations dashboard for GymOS",
 };
 
 export default function RootLayout({
@@ -15,8 +16,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" className={`${body.variable} ${display.variable}`}>
+      <body className="font-sans">{children}</body>
     </html>
   );
 }
