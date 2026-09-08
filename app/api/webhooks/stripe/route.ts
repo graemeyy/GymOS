@@ -81,6 +81,27 @@ export async function POST(req: Request) {
       }
       break;
     }
+
+    case 'invoice.payment_succeeded': {
+      const invoice = event.data.object as Stripe.Invoice;
+      const subscriptionId = invoice.subscription as string;
+      if (subscriptionId) {
+        const member = await prisma.member.findFirst({
+          where: { stripeSubscriptionId: subscriptionId },
+        });
+        if (member) {
+          await prisma.payout.create({
+            data: {
+              memberId: member.id,
+              amount: invoice.amount_paid,
+              currency: invoice.currency,
+              status: 'succeeded',
+            },
+          });
+        }
+      }
+      break;
+    }
   }
 
   return NextResponse.json({ received: true });

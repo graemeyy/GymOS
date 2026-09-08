@@ -1,18 +1,27 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
-  CreditCard, 
-  History, 
-  ArrowUpRight, 
-  Download, 
-  CheckCircle2, 
+import {
+  CreditCard,
+  History,
+  ArrowUpRight,
+  Download,
+  CheckCircle2,
   Zap,
   ArrowLeft,
   DollarSign,
   Calendar,
   ShieldCheck
 } from "lucide-react";
+import { formatCents } from "@/lib/pricing";
+
+interface Payout {
+  id: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+  member: { name: string | null; email: string; plan: string } | null;
+}
 
 const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
   <div className={"bg-white border-2 border-slate-900 rounded-none p-6 " + className}>
@@ -34,13 +43,26 @@ const Badge = ({ children, variant = "default" }: { children: React.ReactNode, v
 };
 
 export default function BillingPage() {
-  const [mounted, setMounted] = useState(false);
+  const [mrrCents, setMrrCents] = useState<number | null>(null);
+  const [activeMembers, setActiveMembers] = useState<number | null>(null);
+  const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setMounted(true);
+    Promise.all([
+      fetch("/api/dashboard/stats").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/payouts").then((r) => (r.ok ? r.json() : [])),
+    ])
+      .then(([stats, payoutData]) => {
+        if (stats) {
+          setMrrCents(stats.revenueCents);
+          setActiveMembers(stats.activeMembers);
+        }
+        setPayouts(Array.isArray(payoutData) ? payoutData : []);
+      })
+      .catch((err) => console.error("Failed to load billing data:", err))
+      .finally(() => setLoading(false));
   }, []);
-
-  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans pb-20 selection:bg-blue-600 selection:text-white">
@@ -76,11 +98,6 @@ export default function BillingPage() {
             <h1 className="text-7xl font-black tracking-tight uppercase leading-none mb-4">Financials</h1>
             <p className="text-slate-900 text-lg font-black uppercase tracking-widest">Revenue Ops & Subscription Matrix</p>
           </div>
-          <div className="flex gap-4">
-            <button className="bg-blue-600 text-white border-2 border-slate-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 hover:bg-blue-700 transition-all">
-              <CreditCard className="w-4 h-4" /> Export Payouts
-            </button>
-          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -89,14 +106,14 @@ export default function BillingPage() {
               <div className="flex justify-between items-start mb-8">
                 <div>
                   <h3 className="text-sm font-black uppercase tracking-widest mb-1">Monthly Recurring Revenue</h3>
-                  <p className="text-5xl font-black tracking-tighter">$42,850.00</p>
+                  <p className="text-5xl font-black tracking-tighter">
+                    {loading || mrrCents === null ? "—" : formatCents(mrrCents)}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                    {loading || activeMembers === null ? "" : `Across ${activeMembers} active members`}
+                  </p>
                 </div>
-                <Badge variant="success">Active Growth</Badge>
-              </div>
-              <div className="h-24 bg-slate-50 border-2 border-slate-900 flex items-end p-2 gap-1">
-                {[40, 70, 45, 90, 65, 80, 95, 75, 85, 100].map((h, i) => (
-                  <div key={i} className="flex-1 bg-blue-600 border border-slate-900" style={{ height: `${h}%` }} />
-                ))}
+                <Badge variant="success">Live</Badge>
               </div>
             </Card>
 
@@ -112,16 +129,16 @@ export default function BillingPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y-2 divide-slate-100">
-                  {[
-                    { name: "John Wick", plan: "Platinum", amount: "$149.00", status: "Succeeded" },
-                    { name: "Sarah Connor", plan: "Basic", amount: "$49.00", status: "Succeeded" },
-                    { name: "Ellen Ripley", plan: "Elite", amount: "$299.00", status: "Pending" },
-                  ].map((t, i) => (
-                    <tr key={i} className="hover:bg-blue-50 transition-colors">
-                      <td className="p-6 font-black uppercase text-xs">{t.name}</td>
-                      <td className="p-6"><Badge>{t.plan}</Badge></td>
-                      <td className="p-6 font-black text-xs">{t.amount}</td>
-                      <td className="p-6 text-right"><Badge variant={t.status === 'Succeeded' ? 'success' : 'default'}>{t.status}</Badge></td>
+                  {loading ? (
+                    <tr><td colSpan={4} className="p-12 text-center font-black uppercase tracking-widest text-xs text-slate-400">Loading...</td></tr>
+                  ) : payouts.length === 0 ? (
+                    <tr><td colSpan={4} className="p-12 text-center font-black uppercase tracking-widest text-xs text-slate-400">No transactions recorded yet.</td></tr>
+                  ) : payouts.map((p) => (
+                    <tr key={p.id} className="hover:bg-blue-50 transition-colors">
+                      <td className="p-6 font-black uppercase text-xs">{p.member?.name || p.member?.email || "Unknown"}</td>
+                      <td className="p-6"><Badge>{p.member?.plan || "—"}</Badge></td>
+                      <td className="p-6 font-black text-xs">{formatCents(p.amount)}</td>
+                      <td className="p-6 text-right"><Badge variant={p.status === 'succeeded' ? 'success' : 'default'}>{p.status}</Badge></td>
                     </tr>
                   ))}
                 </tbody>
@@ -135,24 +152,9 @@ export default function BillingPage() {
                 <ShieldCheck className="w-6 h-6" />
                 <h4 className="text-xs font-black uppercase tracking-[0.2em]">Churn Shield</h4>
               </div>
-              <p className="text-3xl font-black tracking-tight mb-4">84% Retention</p>
               <p className="text-[10px] font-bold text-slate-400 leading-relaxed uppercase tracking-wider">
-                Automated credit card recovery active. 12 failed payments recovered this period.
+                See the Risk Radar page for live retention scoring and the priority intervention list.
               </p>
-            </Card>
-
-            <Card className="border-2 border-slate-900">
-              <h4 className="text-xs font-black uppercase tracking-widest mb-6">Tax Compliance</h4>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-3 border-b-2 border-slate-100">
-                  <span className="text-[10px] font-black uppercase">Q2 Sales Tax</span>
-                  <button className="p-2 border-2 border-slate-900 hover:bg-blue-600 hover:text-white transition-colors"><Download className="w-3 h-3" /></button>
-                </div>
-                <div className="flex justify-between items-center py-3 border-b-2 border-slate-100">
-                  <span className="text-[10px] font-black uppercase">Annual Audit</span>
-                  <button className="p-2 border-2 border-slate-900 hover:bg-blue-600 hover:text-white transition-colors"><Download className="w-3 h-3" /></button>
-                </div>
-              </div>
             </Card>
           </div>
         </div>

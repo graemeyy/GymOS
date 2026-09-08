@@ -1,17 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
+import { useRouter } from "next/navigation";
+import {
   Zap,
   ArrowLeft,
-  Scan,
-  Monitor,
-  Activity,
-  ShieldCheck,
   Cpu,
-  RefreshCw,
   Terminal,
-  Server
+  Server,
+  LogOut
 } from "lucide-react";
 
 const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
@@ -29,11 +26,31 @@ const Badge = ({ children, variant = "active" }: { children: React.ReactNode, va
 };
 
 export default function IOTPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [events, setEvents] = useState<any[]>([]);
+
+  const fetchEvents = async () => {
+    try {
+      const res = await fetch("/api/check-in");
+      if (res.ok) setEvents(await res.json());
+    } catch (err) {
+      console.error("Failed to fetch gateway events:", err);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
+    fetchEvents();
+    const interval = setInterval(fetchEvents, 5000);
+    return () => clearInterval(interval);
   }, []);
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  };
 
   if (!mounted) return null;
 
@@ -54,7 +71,15 @@ export default function IOTPage() {
               <a href="/equipment" className="text-slate-400 hover:text-slate-900">Hardware</a>
             </div>
           </div>
-          <div className="w-10 h-10 bg-slate-900 text-white flex items-center justify-center font-black text-xs">GY</div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors"
+            >
+              <LogOut className="w-4 h-4" /> Sign Out
+            </button>
+            <div className="w-10 h-10 bg-slate-900 text-white flex items-center justify-center font-black text-xs">GY</div>
+          </div>
         </div>
       </nav>
 
@@ -71,11 +96,6 @@ export default function IOTPage() {
             <h1 className="text-7xl font-black tracking-tight uppercase leading-none mb-4">IoT Gateways</h1>
             <p className="text-slate-900 text-lg font-black uppercase tracking-widest">Entry Controller & Hardware Sync</p>
           </div>
-          <div className="flex gap-4">
-            <button className="bg-slate-900 text-white border-2 border-slate-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 hover:bg-blue-600 transition-all">
-              <RefreshCw className="w-4 h-4" /> Reset Controller
-            </button>
-          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -87,32 +107,46 @@ export default function IOTPage() {
                 <span className="text-[10px] font-black uppercase tracking-widest">Gateway Monitor v2.1</span>
               </div>
               <div className="space-y-3 text-xs">
-                <p><span className="text-slate-500">[08:42:11]</span> AUTH_SUCCESS: Member-0492 (Marcus Wright)</p>
-                <p><span className="text-slate-500">[08:45:32]</span> GATE_OPEN: Controller-01 (Main Entry)</p>
-                <p><span className="text-slate-500">[08:52:01]</span> SCAN_EVENT: Barcode-910293</p>
-                <p className="text-rose-500"><span className="text-slate-500">[08:52:01]</span> AUTH_FAILURE: Expired Subscription (Elena R.)</p>
-                <p><span className="text-slate-500">[09:01:24]</span> HEARTBEAT: Controller-02 (Weight Room) OK</p>
+                {events.length === 0 ? (
+                  <p className="text-slate-500">No gateway events recorded yet.</p>
+                ) : events.map((ev: any) => {
+                  const denied = ev.member?.status !== "ACTIVE";
+                  return (
+                    <p key={ev.id} className={denied ? "text-rose-500" : undefined}>
+                      <span className="text-slate-500">[{new Date(ev.timestamp).toLocaleTimeString()}]</span>{" "}
+                      {denied ? "AUTH_FAILURE" : "AUTH_SUCCESS"}: {ev.member?.name || ev.member?.email || "Unknown"} @ {ev.location}
+                    </p>
+                  );
+                })}
                 <p className="animate-pulse">_</p>
               </div>
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="border-2 border-slate-900">
-                <div className="flex justify-between items-start mb-6">
-                  <Cpu className="w-8 h-8 text-blue-600" />
-                  <Badge>Active</Badge>
-                </div>
-                <h4 className="text-lg font-black uppercase tracking-tight">Main Entry Controller</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Uptime: 142 Hours</p>
-              </Card>
-              <Card className="border-2 border-slate-900">
-                <div className="flex justify-between items-start mb-6">
-                  <Server className="w-8 h-8 text-slate-400" />
-                  <Badge variant="idle">Idle</Badge>
-                </div>
-                <h4 className="text-lg font-black uppercase tracking-tight">Secondary Gate-02</h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Uptime: 0 Hours</p>
-              </Card>
+              {(() => {
+                const mainEvents = events.filter((ev: any) => ev.location === "Main Entrance").length;
+                const otherEvents = events.length - mainEvents;
+                return (
+                  <>
+                    <Card className="border-2 border-slate-900">
+                      <div className="flex justify-between items-start mb-6">
+                        <Cpu className="w-8 h-8 text-blue-600" />
+                        <Badge variant={mainEvents > 0 ? "active" : "idle"}>{mainEvents > 0 ? "Active" : "Idle"}</Badge>
+                      </div>
+                      <h4 className="text-lg font-black uppercase tracking-tight">Main Entry Controller</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{mainEvents} scans (last 10)</p>
+                    </Card>
+                    <Card className="border-2 border-slate-900">
+                      <div className="flex justify-between items-start mb-6">
+                        <Server className="w-8 h-8 text-slate-400" />
+                        <Badge variant={otherEvents > 0 ? "active" : "idle"}>{otherEvents > 0 ? "Active" : "Idle"}</Badge>
+                      </div>
+                      <h4 className="text-lg font-black uppercase tracking-tight">Secondary Gateways</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{otherEvents} scans (last 10)</p>
+                    </Card>
+                  </>
+                );
+              })()}
             </div>
           </div>
 

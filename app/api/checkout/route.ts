@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { PLAN_PRICES } from '@/lib/pricing';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16' as any,
@@ -13,6 +14,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing memberId or planId' }, { status: 400 });
     }
 
+    const unitAmount = PLAN_PRICES[planId as keyof typeof PLAN_PRICES];
+    if (!unitAmount) {
+      return NextResponse.json({ error: 'Invalid planId' }, { status: 400 });
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -22,7 +28,7 @@ export async function POST(req: Request) {
             product_data: {
               name: `GymOS ${planId} Membership`,
             },
-            unit_amount: planId === 'PREMIUM' ? 4900 : 2900,
+            unit_amount: unitAmount,
             recurring: { interval: 'month' },
           },
           quantity: 1,

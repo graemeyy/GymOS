@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
+import {
   Zap,
   ArrowLeft,
   Wrench,
@@ -10,8 +10,19 @@ import {
   CheckCircle2,
   Settings,
   History,
-  Timer
+  Timer,
+  Loader2
 } from "lucide-react";
+
+interface Equipment {
+  id: string;
+  name: string;
+  status: "OPERATIONAL" | "WARNING" | "OFFLINE";
+  healthScore: number;
+  lastServicedAt: string | null;
+  partNeeded: string | null;
+  estimatedCost: number | null;
+}
 
 const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
   <div className={"bg-white border-2 border-slate-900 rounded-none p-6 " + className}>
@@ -33,14 +44,45 @@ const Badge = ({ children, variant = "default" }: { children: React.ReactNode, v
   );
 };
 
+function statusLabel(status: Equipment["status"]) {
+  if (status === "OPERATIONAL") return "Operational";
+  if (status === "WARNING") return "Warning";
+  return "Offline";
+}
+
 export default function EquipmentPage() {
-  const [mounted, setMounted] = useState(false);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  const fetchEquipment = async () => {
+    try {
+      const res = await fetch("/api/equipment");
+      if (res.ok) setEquipment(await res.json());
+    } catch (err) {
+      console.error("Failed to fetch equipment:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setMounted(true);
+    fetchEquipment();
   }, []);
 
-  if (!mounted) return null;
+  const authorizeRepair = async (id: string) => {
+    setSubmittingId(id);
+    try {
+      const res = await fetch(`/api/equipment/${id}/po`, { method: "POST" });
+      if (res.ok) await fetchEquipment();
+    } catch (err) {
+      console.error("Failed to authorize repair:", err);
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
+  const priorityQueue = equipment.filter((e) => e.status !== "OPERATIONAL");
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans pb-20 selection:bg-blue-600 selection:text-white">
@@ -76,24 +118,22 @@ export default function EquipmentPage() {
             <h1 className="text-7xl font-black tracking-tight uppercase leading-none mb-4">Hardware</h1>
             <p className="text-slate-900 text-lg font-black uppercase tracking-widest">Maintenance & Wear Matrix</p>
           </div>
-          <div className="flex gap-4">
-            <button className="bg-slate-900 text-white border-2 border-slate-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 hover:bg-blue-600 transition-all">
-              <Settings className="w-4 h-4" /> System Audit
-            </button>
-          </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           <div className="md:col-span-2 space-y-10">
             <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-400 border-l-4 border-blue-600 pl-3">Inventory Status</h3>
             <div className="grid grid-cols-1 gap-6">
-              {[
-                { name: "Power Rack Node-01", status: "Operational", health: 98, lastService: "2 Days Ago" },
-                { name: "Treadmill Array-B", status: "Warning", health: 64, lastService: "45 Days Ago" },
-                { name: "Cable Crossover S-02", status: "Operational", health: 88, lastService: "12 Days Ago" },
-                { name: "Dumbbell Cluster 5-50", status: "Operational", health: 100, lastService: "Never" },
-              ].map((eq, i) => (
-                <Card key={i} className="hover:bg-blue-50 transition-colors border-2 border-slate-900">
+              {loading ? (
+                <Card className="border-2 border-slate-900 text-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                </Card>
+              ) : equipment.length === 0 ? (
+                <Card className="border-2 border-slate-900 text-center py-12 font-black uppercase tracking-widest text-slate-400">
+                  No equipment registered.
+                </Card>
+              ) : equipment.map((eq) => (
+                <Card key={eq.id} className="hover:bg-blue-50 transition-colors border-2 border-slate-900">
                   <div className="flex items-center justify-between gap-6">
                     <div className="flex items-center gap-6">
                       <div className="p-4 bg-slate-50 border-2 border-slate-900">
@@ -101,15 +141,19 @@ export default function EquipmentPage() {
                       </div>
                       <div>
                         <h4 className="text-lg font-black uppercase tracking-tight">{eq.name}</h4>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Service: {eq.lastService}</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                          Service: {eq.lastServicedAt ? new Date(eq.lastServicedAt).toLocaleDateString() : "Never"}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-12">
                       <div className="hidden sm:block text-right">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Unit Health</p>
-                        <p className="text-xl font-black">{eq.health}%</p>
+                        <p className="text-xl font-black">{Math.round(eq.healthScore * 100)}%</p>
                       </div>
-                      <Badge variant={eq.status === 'Operational' ? 'success' : 'warning'}>{eq.status}</Badge>
+                      <Badge variant={eq.status === 'OPERATIONAL' ? 'success' : eq.status === 'WARNING' ? 'warning' : 'danger'}>
+                        {statusLabel(eq.status)}
+                      </Badge>
                     </div>
                   </div>
                 </Card>
@@ -125,16 +169,21 @@ export default function EquipmentPage() {
                 <h4 className="text-xs font-black uppercase tracking-widest">Priority Actions</h4>
               </div>
               <div className="space-y-6">
-                <div className="p-4 bg-white border-2 border-slate-900">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Asset-492</p>
-                  <p className="text-xs font-black uppercase mb-3">Treadmill B Belt Replacement</p>
-                  <button className="w-full py-2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition-colors">Authorize Repair</button>
-                </div>
-                <div className="p-4 bg-white border-2 border-slate-900">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Asset-102</p>
-                  <p className="text-xs font-black uppercase mb-3">Rack 01 Bolt Tightening</p>
-                  <button className="w-full py-2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition-colors">Mark Resolved</button>
-                </div>
+                {priorityQueue.length === 0 ? (
+                  <p className="text-xs font-black uppercase text-slate-400">No pending maintenance.</p>
+                ) : priorityQueue.map((eq) => (
+                  <div key={eq.id} className="p-4 bg-white border-2 border-slate-900">
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">{statusLabel(eq.status)}</p>
+                    <p className="text-xs font-black uppercase mb-3">{eq.name}{eq.partNeeded ? ` — ${eq.partNeeded}` : ""}</p>
+                    <button
+                      onClick={() => authorizeRepair(eq.id)}
+                      disabled={eq.status !== "OFFLINE" || submittingId === eq.id}
+                      className="w-full py-2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition-colors disabled:opacity-40"
+                    >
+                      {submittingId === eq.id ? "Submitting..." : eq.status === "OFFLINE" ? "Authorize Repair" : "Awaiting Failure"}
+                    </button>
+                  </div>
+                ))}
               </div>
             </Card>
           </div>
