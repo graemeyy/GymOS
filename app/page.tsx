@@ -1,18 +1,19 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
-  Users, 
-  Activity, 
-  DollarSign, 
-  AlertTriangle, 
-  ShieldCheck, 
-  Wrench, 
-  Plus, 
-  TrendingUp, 
+import { useRouter } from "next/navigation";
+import {
+  Users,
+  Activity,
+  DollarSign,
+  AlertTriangle,
+  ShieldCheck,
+  Wrench,
+  Plus,
+  TrendingUp,
   Bell,
   ScanLine,
-  UserCheck, 
+  UserCheck,
   Zap,
   Info,
   X,
@@ -25,8 +26,10 @@ import {
   BarChart3,
   Calendar,
   Settings,
-  RefreshCw
+  RefreshCw,
+  LogOut
 } from "lucide-react";
+import { formatCents } from "@/lib/pricing";
 
 // --- BRUTALIST UI PRIMITIVES ---
 const BrutalCard = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
@@ -155,51 +158,70 @@ const ChurnShieldTab = ({ members, loading, onRefresh }: { members: any[], loadi
   </div>
 );
 
-const MaintenanceTab = () => (
-  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-    <BrutalCard className="bg-[#0055ff] text-white border-slate-900">
-      <Wrench className="w-12 h-12 mb-6" />
-      <h2 className="text-4xl font-black uppercase italic mb-4">Maintenance Oracle</h2>
-      <p className="font-bold mb-8 opacity-90">IoT SENSORS DETECTING HARDWARE FATIGUE IN REAL-TIME. HARDWARE LIFECYCLE PREDICTION ACTIVE.</p>
-      <div className="space-y-4">
-        <div className="bg-white text-slate-900 p-6 border-[3px] border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-          <div className="flex justify-between items-center mb-4">
-            <span className="font-black uppercase tracking-widest text-xs">Node #04: Treadmill</span>
-            <BrutalBadge>Critical</BrutalBadge>
-          </div>
-          <p className="font-black text-xl italic mb-2 tracking-tighter">MOTOR THERMAL LIMIT REACHED</p>
-          <div className="w-full h-4 bg-slate-200 border-2 border-slate-900 rounded-none overflow-hidden">
-            <div className="h-full bg-red-600 w-[95%]" />
-          </div>
-        </div>
-      </div>
-    </BrutalCard>
+const MaintenanceTab = ({ equipment }: { equipment: any[] }) => {
+  const flagged = equipment.filter((e) => e.status !== "OPERATIONAL");
+  const nominal = equipment.filter((e) => e.status === "OPERATIONAL");
 
-    <BrutalCard>
-      <Cpu className="w-12 h-12 mb-6 text-[#0055ff]" />
-      <h2 className="text-4xl font-black uppercase italic mb-4">System Node Log</h2>
-      <div className="space-y-4">
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} className="p-4 border-2 border-slate-900 font-black flex justify-between items-center">
-            <span className="uppercase text-[10px] tracking-widest">Node_Sync_{i * 1234}</span>
-            <span className="text-[#0055ff]">ONLINE</span>
-          </div>
-        ))}
-      </div>
-    </BrutalCard>
-  </div>
-);
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <BrutalCard className="bg-[#0055ff] text-white border-slate-900">
+        <Wrench className="w-12 h-12 mb-6" />
+        <h2 className="text-4xl font-black uppercase italic mb-4">Maintenance Oracle</h2>
+        <p className="font-bold mb-8 opacity-90">LIVE EQUIPMENT HEALTH FROM THE HARDWARE REGISTRY.</p>
+        <div className="space-y-4">
+          {flagged.length === 0 ? (
+            <p className="font-black uppercase tracking-widest text-xs opacity-80">No hardware issues detected.</p>
+          ) : flagged.map((eq) => (
+            <div key={eq.id} className="bg-white text-slate-900 p-6 border-[3px] border-slate-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <div className="flex justify-between items-center mb-4">
+                <span className="font-black uppercase tracking-widest text-xs">{eq.name}</span>
+                <BrutalBadge>{eq.status === "OFFLINE" ? "Critical" : "Warning"}</BrutalBadge>
+              </div>
+              <p className="font-black text-xl italic mb-2 tracking-tighter">
+                {eq.partNeeded ? `PART NEEDED: ${eq.partNeeded.toUpperCase()}` : eq.status}
+              </p>
+              <div className="w-full h-4 bg-slate-200 border-2 border-slate-900 rounded-none overflow-hidden">
+                <div
+                  className={`h-full ${eq.status === "OFFLINE" ? "bg-red-600" : "bg-amber-500"}`}
+                  style={{ width: `${Math.round((1 - eq.healthScore) * 100)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </BrutalCard>
+
+      <BrutalCard>
+        <Cpu className="w-12 h-12 mb-6 text-[#0055ff]" />
+        <h2 className="text-4xl font-black uppercase italic mb-4">System Node Log</h2>
+        <div className="space-y-4">
+          {nominal.length === 0 ? (
+            <p className="font-black uppercase tracking-widest text-xs text-slate-400">No equipment registered.</p>
+          ) : nominal.map((eq) => (
+            <div key={eq.id} className="p-4 border-2 border-slate-900 font-black flex justify-between items-center">
+              <span className="uppercase text-[10px] tracking-widest">{eq.name}</span>
+              <span className="text-[#0055ff]">ONLINE</span>
+            </div>
+          ))}
+        </div>
+      </BrutalCard>
+    </div>
+  );
+};
 
 export default function GymOSBrutalist() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [mounted, setMounted] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
+  const [recentCheckIns, setRecentCheckIns] = useState<any[]>([]);
+  const [equipment, setEquipment] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    revenue: "$42.8K",
-    activeMembers: "1,284",
-    checkIns: "142",
-    alerts: "02"
+    revenue: "—",
+    activeMembers: "—",
+    checkIns: "—",
+    alerts: "—"
   });
 
   const fetchData = async () => {
@@ -209,14 +231,6 @@ export default function GymOSBrutalist() {
       if (res.ok) {
         const data = await res.json();
         setMembers(data);
-        
-        // Dynamic stats if possible
-        if (data.length > 0) {
-          setStats(prev => ({
-            ...prev,
-            activeMembers: data.filter((m: any) => m.status === 'ACTIVE').length.toString()
-          }));
-        }
       }
     } catch (err) {
       console.error("Failed to fetch node data:", err);
@@ -225,9 +239,53 @@ export default function GymOSBrutalist() {
     }
   };
 
+  const fetchStats = async () => {
+    try {
+      const res = await fetch("/api/dashboard/stats");
+      if (res.ok) {
+        const data = await res.json();
+        setStats({
+          revenue: formatCents(data.revenueCents),
+          activeMembers: data.activeMembers.toLocaleString(),
+          checkIns: data.checkInsToday.toLocaleString(),
+          alerts: data.alerts.toString().padStart(2, "0")
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch dashboard stats:", err);
+    }
+  };
+
+  const fetchRecentCheckIns = async () => {
+    try {
+      const res = await fetch("/api/check-in");
+      if (res.ok) setRecentCheckIns(await res.json());
+    } catch (err) {
+      console.error("Failed to fetch check-ins:", err);
+    }
+  };
+
+  const fetchEquipment = async () => {
+    try {
+      const res = await fetch("/api/equipment");
+      if (res.ok) setEquipment(await res.json());
+    } catch (err) {
+      console.error("Failed to fetch equipment:", err);
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  };
+
   useEffect(() => {
     setMounted(true);
     fetchData();
+    fetchStats();
+    fetchRecentCheckIns();
+    fetchEquipment();
   }, []);
 
   if (!mounted) return null;
@@ -256,6 +314,7 @@ export default function GymOSBrutalist() {
         <div className="flex gap-4">
            <BrutalButton variant="secondary"><Bell className="w-5 h-5" /></BrutalButton>
            <BrutalButton>Enroll New Node</BrutalButton>
+           <BrutalButton variant="secondary" onClick={handleLogout}><LogOut className="w-5 h-5" /></BrutalButton>
         </div>
       </header>
 
@@ -283,30 +342,29 @@ export default function GymOSBrutalist() {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           {activeTab === 'dashboard' && <DashboardTab stats={stats} />}
           {activeTab === 'churn' && (
-            <ChurnShieldTab 
-              members={members} 
-              loading={loading} 
-              onRefresh={fetchData} 
+            <ChurnShieldTab
+              members={members}
+              loading={loading}
+              onRefresh={() => { fetchData(); fetchStats(); }}
             />
           )}
-          {activeTab === 'maintenance' && <MaintenanceTab />}
+          {activeTab === 'maintenance' && <MaintenanceTab equipment={equipment} />}
           {activeTab === 'nodes' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <BrutalCard className="lg:col-span-2">
                 <h2 className="text-4xl font-black uppercase italic mb-8">Access Logistics</h2>
                 <div className="space-y-4">
-                  {[
-                    { user: "JOHN WICK", time: "08:12:00", type: "MEMBER", status: "AUTHORIZED" },
-                    { user: "SARAH CONNOR", time: "07:42:15", type: "MEMBER", status: "WARNING" },
-                    { user: "ELLEN RIPLEY", time: "07:15:30", type: "OFFICER", status: "AUTHORIZED" },
-                    { user: "TYLER DURDEN", time: "06:55:00", type: "GUEST", status: "DENIED" },
-                  ].map((log, i) => (
-                    <div key={i} className="flex justify-between items-center p-4 border-[3px] border-slate-900 font-black">
+                  {recentCheckIns.length === 0 ? (
+                    <p className="font-black uppercase tracking-widest text-xs text-slate-400">No check-ins recorded yet.</p>
+                  ) : recentCheckIns.map((ci: any) => (
+                    <div key={ci.id} className="flex justify-between items-center p-4 border-[3px] border-slate-900 font-black">
                       <div className="flex flex-col">
-                        <span className="text-xl italic tracking-tighter">{log.user}</span>
-                        <span className="text-[10px] tracking-[0.3em] text-[#0055ff]">{log.time} // {log.type}</span>
+                        <span className="text-xl italic tracking-tighter uppercase">{ci.member?.name || ci.member?.email || "Unknown"}</span>
+                        <span className="text-[10px] tracking-[0.3em] text-[#0055ff]">{new Date(ci.timestamp).toLocaleTimeString()} // MEMBER</span>
                       </div>
-                      <BrutalBadge variant={log.status === 'DENIED' ? 'white' : 'blue'}>{log.status}</BrutalBadge>
+                      <BrutalBadge variant={ci.member?.status === 'ACTIVE' ? 'blue' : 'white'}>
+                        {ci.member?.status === 'ACTIVE' ? 'AUTHORIZED' : ci.member?.status}
+                      </BrutalBadge>
                     </div>
                   ))}
                 </div>

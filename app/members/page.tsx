@@ -1,19 +1,21 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  MoreHorizontal, 
-  UserPlus, 
+import {
+  Plus,
+  Search,
+  Filter,
+  MoreHorizontal,
+  UserPlus,
   Zap,
   ArrowLeft,
   X,
   Edit2,
   Trash2,
-  Check
+  Check,
+  LogOut
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface Member {
   id: string;
@@ -44,6 +46,7 @@ const Badge = ({ children, variant = "default" }: { children: React.ReactNode, v
 };
 
 export default function MembersPage() {
+  const router = useRouter();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -104,6 +107,12 @@ export default function MembersPage() {
     setIsModalOpen(true);
   };
 
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  };
+
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans pb-20 selection:bg-blue-600 selection:text-white">
       <nav className="border-b-4 border-slate-900 bg-white sticky top-0 z-50">
@@ -121,7 +130,15 @@ export default function MembersPage() {
               <a href="/billing" className="text-slate-400 hover:text-slate-900 transition-colors">Financials</a>
             </div>
           </div>
-          <div className="w-10 h-10 bg-slate-900 text-white flex items-center justify-center font-black text-xs">GY</div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors"
+            >
+              <LogOut className="w-4 h-4" /> Sign Out
+            </button>
+            <div className="w-10 h-10 bg-slate-900 text-white flex items-center justify-center font-black text-xs">GY</div>
+          </div>
         </div>
       </nav>
 
@@ -139,7 +156,7 @@ export default function MembersPage() {
             <p className="text-slate-900 text-lg font-black uppercase tracking-widest">Global Athlete Database</p>
           </div>
           <div className="flex gap-4">
-            <button 
+            <button
               onClick={() => { setEditingMember(null); setFormData({ name: "", email: "", status: "ACTIVE", plan: "BASIC" }); setIsModalOpen(true); }}
               className="bg-blue-600 text-white border-2 border-slate-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 hover:bg-blue-700 transition-all active:translate-y-1"
             >

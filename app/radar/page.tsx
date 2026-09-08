@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { 
-  AlertTriangle, 
-  TrendingDown, 
-  Users, 
-  MessageSquare, 
+import {
+  AlertTriangle,
+  TrendingDown,
+  Users,
+  MessageSquare,
   Zap,
   ArrowLeft,
   Activity,
@@ -13,6 +13,17 @@ import {
   ChevronRight,
   Phone
 } from "lucide-react";
+import { PLAN_PRICES, formatCents } from "@/lib/pricing";
+
+interface Member {
+  id: string;
+  name: string | null;
+  email: string;
+  status: string;
+  plan: keyof typeof PLAN_PRICES;
+  retentionScore: number;
+  lastCheckIn: string | null;
+}
 
 const Card = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
   <div className={"bg-white border-2 border-slate-900 rounded-none p-6 " + className}>
@@ -33,14 +44,34 @@ const Badge = ({ children, variant = "default" }: { children: React.ReactNode, v
   );
 };
 
+function daysSince(date: string | null): number | null {
+  if (!date) return null;
+  return Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
+}
+
 export default function RiskRadarPage() {
-  const [mounted, setMounted] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setMounted(true);
+    fetch("/api/members")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setMembers(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Failed to fetch members:", err))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (!mounted) return null;
+  const active = members.filter((m) => m.status === "ACTIVE");
+  const highRisk = active.filter((m) => m.retentionScore < 40);
+  const ghosting = active.filter((m) => (daysSince(m.lastCheckIn) ?? Infinity) >= 14);
+  const avgChurnProbability = active.length
+    ? Math.round(active.reduce((sum, m) => sum + (100 - m.retentionScore), 0) / active.length)
+    : 0;
+  const ltvAtRiskCents = highRisk.reduce((sum, m) => sum + (PLAN_PRICES[m.plan] ?? 0), 0);
+
+  const priorityList = [...active]
+    .sort((a, b) => a.retentionScore - b.retentionScore)
+    .slice(0, 5);
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans pb-20 selection:bg-blue-600 selection:text-white">
@@ -76,61 +107,62 @@ export default function RiskRadarPage() {
             <h1 className="text-7xl font-black tracking-tight uppercase leading-none mb-4">Risk Radar</h1>
             <p className="text-slate-900 text-lg font-black uppercase tracking-widest">Predictive Churn Detection</p>
           </div>
-          <div className="flex gap-4">
-            <button className="bg-rose-600 text-white border-2 border-slate-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 hover:bg-rose-700 transition-all">
-              <ShieldAlert className="w-4 h-4" /> Run Churn Analysis
-            </button>
-          </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
           <Card className="border-2 border-slate-900">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">High Risk</p>
-            <p className="text-4xl font-black">12</p>
+            <p className="text-4xl font-black">{loading ? "—" : highRisk.length}</p>
           </Card>
           <Card className="border-2 border-slate-900">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Ghosting</p>
-            <p className="text-4xl font-black">28</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Ghosting (14d+)</p>
+            <p className="text-4xl font-black">{loading ? "—" : ghosting.length}</p>
           </Card>
           <Card className="border-2 border-slate-900">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Churn Probability</p>
-            <p className="text-4xl font-black text-rose-600">14%</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Avg Churn Probability</p>
+            <p className="text-4xl font-black text-rose-600">{loading ? "—" : `${avgChurnProbability}%`}</p>
           </Card>
           <Card className="border-2 border-slate-900">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">LTV at Risk</p>
-            <p className="text-4xl font-black">$3.2k</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">MRR at Risk</p>
+            <p className="text-4xl font-black">{loading ? "—" : formatCents(ltvAtRiskCents)}</p>
           </Card>
         </div>
 
         <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-400 border-l-4 border-blue-600 pl-3 mb-10">Priority Intervention List</h3>
         <div className="space-y-6">
-          {[
-            { name: "Tyler Durden", lastSeen: "24 Days Ago", score: 15, status: "Critical" },
-            { name: "Elena Rodriguez", lastSeen: "18 Days Ago", score: 32, status: "Warning" },
-            { name: "Marcus Wright", lastSeen: "12 Days Ago", score: 48, status: "Warning" },
-          ].map((r, i) => (
-            <Card key={i} className="flex flex-col md:flex-row items-center justify-between gap-10 border-2 border-slate-900 hover:bg-blue-50 transition-colors">
-              <div className="flex items-center gap-6 flex-1">
-                <div className="w-16 h-16 bg-slate-100 border-2 border-slate-900 flex items-center justify-center font-black text-xl">
-                  {r.name[0]}
+          {loading ? (
+            <p className="font-black uppercase tracking-widest text-xs text-slate-400">Scanning member data...</p>
+          ) : priorityList.length === 0 ? (
+            <p className="font-black uppercase tracking-widest text-xs text-slate-400">No active members to assess.</p>
+          ) : priorityList.map((m) => {
+            const status = m.retentionScore < 40 ? "Critical" : "Warning";
+            const lastSeenDays = daysSince(m.lastCheckIn);
+            return (
+              <Card key={m.id} className="flex flex-col md:flex-row items-center justify-between gap-10 border-2 border-slate-900 hover:bg-blue-50 transition-colors">
+                <div className="flex items-center gap-6 flex-1">
+                  <div className="w-16 h-16 bg-slate-100 border-2 border-slate-900 flex items-center justify-center font-black text-xl">
+                    {(m.name || m.email)[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-black uppercase tracking-tight">{m.name || m.email}</h4>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      Last Check-in: {lastSeenDays === null ? "Never" : `${lastSeenDays} Days Ago`}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-xl font-black uppercase tracking-tight">{r.name}</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Last Check-in: {r.lastSeen}</p>
+                <div className="flex items-center gap-12">
+                  <div className="text-center">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Risk Score</p>
+                    <p className={`text-2xl font-black ${m.retentionScore < 40 ? 'text-rose-600' : 'text-amber-500'}`}>{m.retentionScore}%</p>
+                  </div>
+                  <Badge variant={status === 'Critical' ? 'danger' : 'warning'}>{status}</Badge>
+                  <a href={`mailto:${m.email}`} className="bg-slate-900 text-white p-4 border-2 border-slate-900 hover:bg-blue-600 transition-colors">
+                    <Phone className="w-5 h-5" />
+                  </a>
                 </div>
-              </div>
-              <div className="flex items-center gap-12">
-                <div className="text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Risk Score</p>
-                  <p className={`text-2xl font-black ${r.score < 20 ? 'text-rose-600' : 'text-amber-500'}`}>{r.score}%</p>
-                </div>
-                <Badge variant={r.status === 'Critical' ? 'danger' : 'warning'}>{r.status}</Badge>
-                <button className="bg-slate-900 text-white p-4 border-2 border-slate-900 hover:bg-blue-600 transition-colors">
-                  <Phone className="w-5 h-5" />
-                </button>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       </main>
     </div>

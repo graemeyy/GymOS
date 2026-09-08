@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
   try {
+    const authHeader = request.headers.get("authorization");
+    if (authHeader !== `Bearer ${process.env.IOT_GATEWAY_SECRET}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { memberId, gatewayId } = await request.json();
 
     if (!memberId) {
