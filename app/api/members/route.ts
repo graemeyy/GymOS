@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { stripe } from "@/lib/stripe";
 import { getSession, requireRole } from "@/lib/auth";
 import { logAction } from "@/lib/audit";
 
@@ -83,7 +84,23 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Member ID is required" }, { status: 400 });
     }
 
-    const existing = await prisma.member.findUnique({ where: { id }, select: { name: true, email: true } });
+    const existing = await prisma.member.findUnique({
+      where: { id },
+      select: { name: true, email: true, stripeSubscriptionId: true },
+    });
+
+    if (existing?.stripeSubscriptionId) {
+      try {
+        await stripe.subscriptions.cancel(existing.stripeSubscriptionId);
+      } catch (stripeError) {
+        console.error("Failed to cancel Stripe subscription:", stripeError);
+        return NextResponse.json(
+          { error: "Failed to cancel the member's Stripe subscription; member was not deleted" },
+          { status: 502 }
+        );
+      }
+    }
+
     await prisma.member.delete({
       where: { id }
     });
