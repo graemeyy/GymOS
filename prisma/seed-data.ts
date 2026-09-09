@@ -11,6 +11,13 @@ function daysAgo(days: number, hours = 0, minutes = 0): Date {
   return new Date(Date.now() - (days * 24 * 60 + hours * 60 + minutes) * 60 * 1000);
 }
 
+function inDays(days: number, hour: number, minute = 0): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
+
 const MEMBERS = [
   { name: "Alex Rivera", email: "alex.rivera@example.com", plan: "PLATINUM", status: "ACTIVE", retentionScore: 96, lastCheckIn: daysAgo(0, 0, 2), keycardIssued: true, visitsPerWeek: 5 },
   { name: "Sarah Chen", email: "sarah.chen@example.com", plan: "PLATINUM", status: "ACTIVE", retentionScore: 91, lastCheckIn: daysAgo(0, 0, 15), keycardIssued: true, visitsPerWeek: 5 },
@@ -30,6 +37,14 @@ const MEMBERS = [
   { name: "Ryan O'Connell", email: "ryan.oconnell@example.com", plan: "BASIC", status: "ACTIVE", retentionScore: 58, lastCheckIn: daysAgo(7), keycardIssued: true, visitsPerWeek: 2 },
   { name: "Fatima Al-Sayed", email: "fatima.alsayed@example.com", plan: "PLATINUM", status: "ACTIVE", retentionScore: 71, lastCheckIn: daysAgo(1), keycardIssued: true, visitsPerWeek: 3 },
   { name: "Chris Taylor", email: "chris.taylor@example.com", plan: "PREMIUM", status: "PAST_DUE", retentionScore: 48, lastCheckIn: daysAgo(3), keycardIssued: true, visitsPerWeek: 2 },
+];
+
+const CLASSES = [
+  { name: "HIIT", instructor: "Jordan Blake", day: 0, hour: 9, durationMinutes: 45, capacity: 20 },
+  { name: "Spin", instructor: "Maria Alvarez", day: 0, hour: 17, durationMinutes: 45, capacity: 18 },
+  { name: "Powerlifting Fundamentals", instructor: "Sam Okoye", day: 1, hour: 18, durationMinutes: 60, capacity: 10 },
+  { name: "Yoga Flow", instructor: "Lena Park", day: 2, hour: 7, durationMinutes: 50, capacity: 15 },
+  { name: "HIIT", instructor: "Jordan Blake", day: 3, hour: 9, durationMinutes: 45, capacity: 20 },
 ];
 
 const EQUIPMENT = [
@@ -116,10 +131,32 @@ export async function seedDatabase(prisma: PrismaClient) {
     await prisma.equipment.create({ data: e as any });
   }
 
+  await prisma.classBooking.deleteMany({});
+  await prisma.class.deleteMany({});
+
+  const activeMembers = memberRecords.filter((m) => m.record.status === "ACTIVE").map((m) => m.record);
+  for (const c of CLASSES) {
+    const created = await prisma.class.create({
+      data: {
+        name: c.name,
+        instructor: c.instructor,
+        startTime: inDays(c.day, c.hour),
+        durationMinutes: c.durationMinutes,
+        capacity: c.capacity,
+      },
+    });
+    const attendeeCount = Math.min(activeMembers.length, 3 + Math.floor(Math.random() * 4));
+    const attendees = [...activeMembers].sort(() => Math.random() - 0.5).slice(0, attendeeCount);
+    for (const member of attendees) {
+      await prisma.classBooking.create({ data: { classId: created.id, memberId: member.id } });
+    }
+  }
+
   return {
     members: memberRecords.length,
     checkIns: checkInCount,
     payouts: payoutCount,
     equipment: EQUIPMENT.length,
+    classes: CLASSES.length,
   };
 }
