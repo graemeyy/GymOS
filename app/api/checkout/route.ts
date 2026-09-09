@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { PLAN_PRICES } from '@/lib/pricing';
+import { prisma } from '@/lib/prisma';
+import { getPlanPrices, PLAN_PRICES } from '@/lib/pricing';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16' as any,
@@ -10,14 +11,12 @@ export async function POST(req: Request) {
   try {
     const { memberId, planId, email } = await req.json();
 
-    if (!memberId || !planId) {
-      return NextResponse.json({ error: 'Missing memberId or planId' }, { status: 400 });
+    if (!memberId || !planId || !(planId in PLAN_PRICES)) {
+      return NextResponse.json({ error: 'Missing memberId or invalid planId' }, { status: 400 });
     }
 
-    const unitAmount = PLAN_PRICES[planId as keyof typeof PLAN_PRICES];
-    if (!unitAmount) {
-      return NextResponse.json({ error: 'Invalid planId' }, { status: 400 });
-    }
+    const planPrices = await getPlanPrices(prisma);
+    const unitAmount = planPrices[planId as keyof typeof PLAN_PRICES];
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],

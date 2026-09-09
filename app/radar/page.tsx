@@ -23,13 +23,19 @@ function daysSince(date: string | null): number | null {
 
 export default function RetentionPage() {
   const [members, setMembers] = useState<Member[]>([]);
+  const [planPrices, setPlanPrices] = useState<Record<string, number>>(PLAN_PRICES);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/members")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setMembers(Array.isArray(data) ? data : []))
-      .catch((err) => console.error("Failed to fetch members:", err))
+    Promise.all([
+      fetch("/api/members").then((res) => (res.ok ? res.json() : [])),
+      fetch("/api/settings/plan-prices").then((res) => (res.ok ? res.json() : PLAN_PRICES)),
+    ])
+      .then(([memberData, prices]) => {
+        setMembers(Array.isArray(memberData) ? memberData : []);
+        setPlanPrices(prices);
+      })
+      .catch((err) => console.error("Failed to fetch retention data:", err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -39,7 +45,7 @@ export default function RetentionPage() {
   const avgChurnProbability = active.length
     ? Math.round(active.reduce((sum, m) => sum + (100 - m.retentionScore), 0) / active.length)
     : 0;
-  const mrrAtRiskCents = highRisk.reduce((sum, m) => sum + (PLAN_PRICES[m.plan] ?? 0), 0);
+  const mrrAtRiskCents = highRisk.reduce((sum, m) => sum + (planPrices[m.plan] ?? 0), 0);
 
   const priorityList = [...active].sort((a, b) => a.retentionScore - b.retentionScore).slice(0, 8);
 

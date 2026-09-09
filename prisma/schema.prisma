@@ -44,6 +44,7 @@ model Member {
   updatedAt        DateTime  @updatedAt
   checkIns         CheckIn[]
   payouts          Payout[]
+  classBookings    ClassBooking[]
 }
 
 model CheckIn {
@@ -94,4 +95,39 @@ model AgentAction {
   metadata    Json?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+model Class {
+  id              String         @id @default(cuid())
+  name            String
+  instructor      String?
+  startTime       DateTime
+  durationMinutes Int            @default(45)
+  capacity        Int            @default(20)
+  createdAt       DateTime       @default(now())
+  bookings        ClassBooking[]
+}
+
+model ClassBooking {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([classId, memberId])
+}
+
+model PlanPrice {
+  plan      Plan     @id
+  priceCents Int
+  updatedAt DateTime @updatedAt
+}
+
+model GymProfile {
+  id       String  @id @default("singleton")
+  gymName  String  @default("GymOS")
+  address  String?
+  timezone String  @default("America/New_York")
 }

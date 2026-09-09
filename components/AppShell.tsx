@@ -10,6 +10,8 @@ import {
   Dumbbell,
   ScanFace,
   ShieldAlert,
+  CalendarDays,
+  Settings as SettingsIcon,
   Menu,
   X,
   Zap,
@@ -18,10 +20,12 @@ import {
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/members", label: "Members", icon: Users },
+  { href: "/classes", label: "Classes", icon: CalendarDays },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/equipment", label: "Equipment", icon: Dumbbell },
   { href: "/iot", label: "Access control", icon: ScanFace },
   { href: "/radar", label: "Retention", icon: ShieldAlert },
+  { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
 function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
