@@ -18,6 +18,8 @@ export async function POST(req: Request) {
     const planPrices = await getPlanPrices(prisma);
     const unitAmount = planPrices[planId as keyof typeof PLAN_PRICES];
 
+    const member = await prisma.member.findUnique({ where: { id: memberId } });
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -34,9 +36,11 @@ export async function POST(req: Request) {
         },
       ],
       mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing`,
-      customer_email: email,
+      ...(member?.stripeCustomerId
+        ? { customer: member.stripeCustomerId }
+        : { customer_email: email }),
       metadata: {
         memberId,
         plan: planId,

@@ -38,6 +38,11 @@ export async function POST(request: Request) {
       }
     });
 
+    await prisma.member.update({
+      where: { id: member.id },
+      data: { lastCheckIn: new Date() }
+    });
+
     // Update retention score logic based on frequency could go here
 
     return NextResponse.json({ 
