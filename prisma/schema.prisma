@@ -131,3 +131,32 @@ model GymProfile {
   address  String?
   timezone String  @default("America/New_York")
 }
+
+enum StaffRole {
+  OWNER
+  MANAGER
+  FRONT_DESK
+}
+
+model Staff {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         StaffRole @default(FRONT_DESK)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  auditLogs    AuditLog[]
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  staffId    String?
+  staff      Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  staffName  String
+  action     String
+  targetType String
+  targetId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+}

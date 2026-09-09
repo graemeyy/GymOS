@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 
 export async function POST(req: Request) {
   try {
@@ -48,6 +50,14 @@ export async function POST(req: Request) {
     await prisma.member.update({
       where: { id: member.id },
       data: { lastCheckIn: new Date() }
+    });
+
+    const session = await getSession(req);
+    await logAction(prisma, session, {
+      action: "member.checked_in",
+      targetType: "Member",
+      targetId: member.id,
+      details: { name: member.name, email: member.email },
     });
 
     return NextResponse.json({

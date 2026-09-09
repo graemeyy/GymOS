@@ -1,29 +1,24 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "crypto";
+import { prisma } from "@/lib/prisma";
+import { verifyPassword } from "@/lib/password";
 import { createSessionToken, SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/session";
 
-function safeEqual(a: string, b: string): boolean {
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
-}
-
 export async function POST(request: Request) {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) {
-    return NextResponse.json({ error: "Admin login is not configured" }, { status: 500 });
-  }
-
   const body = await request.json().catch(() => null);
-  const password = body?.password;
+  const email = typeof body?.email === "string" ? body.email.toLowerCase().trim() : "";
+  const password = typeof body?.password === "string" ? body.password : "";
 
-  if (typeof password !== "string" || !safeEqual(password, adminPassword)) {
-    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+  if (!email || !password) {
+    return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
   }
 
-  const token = await createSessionToken();
-  const response = NextResponse.json({ success: true });
+  const staff = await prisma.staff.findUnique({ where: { email } });
+  if (!staff || !(await verifyPassword(password, staff.passwordHash))) {
+    return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+  }
+
+  const token = await createSessionToken({ staffId: staff.id, name: staff.name, role: staff.role });
+  const response = NextResponse.json({ success: true, name: staff.name, role: staff.role });
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

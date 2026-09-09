@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Activity, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { useSession } from "@/components/SessionProvider";
 import { Card, PageHeader, Badge, Button, EmptyState } from "@/components/ui";
 
 interface Equipment {
@@ -22,6 +23,8 @@ function statusLabel(status: Equipment["status"]) {
 }
 
 export default function EquipmentPage() {
+  const { hasRole } = useSession();
+  const canManage = hasRole("MANAGER");
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
@@ -110,14 +113,18 @@ export default function EquipmentPage() {
                     {eq.name}
                     {eq.partNeeded ? ` — ${eq.partNeeded}` : ""}
                   </p>
-                  <Button
-                    variant="secondary"
-                    className="w-full !py-2 text-xs"
-                    onClick={() => authorizeRepair(eq.id)}
-                    disabled={eq.status !== "OFFLINE" || submittingId === eq.id}
-                  >
-                    {submittingId === eq.id ? "Submitting…" : eq.status === "OFFLINE" ? "Authorize repair" : "Awaiting failure"}
-                  </Button>
+                  {canManage ? (
+                    <Button
+                      variant="secondary"
+                      className="w-full !py-2 text-xs"
+                      onClick={() => authorizeRepair(eq.id)}
+                      disabled={eq.status !== "OFFLINE" || submittingId === eq.id}
+                    >
+                      {submittingId === eq.id ? "Submitting…" : eq.status === "OFFLINE" ? "Authorize repair" : "Awaiting failure"}
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-ink-soft text-center">Managers can authorize repairs.</p>
+                  )}
                 </div>
               ))}
             </div>

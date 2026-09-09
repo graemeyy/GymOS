@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -15,7 +15,10 @@ import {
   Menu,
   X,
   Zap,
+  LogOut,
 } from "lucide-react";
+import { SessionProvider, useSession } from "@/components/SessionProvider";
+import { ROLE_LABELS } from "@/lib/roles";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -51,7 +54,36 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function StaffFooter() {
+  const router = useRouter();
+  const { session } = useSession();
+
+  const handleSignOut = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  };
+
+  if (!session) return null;
+
+  return (
+    <div className="mt-auto pt-5 border-t border-line flex items-center justify-between gap-2">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-ink truncate">{session.name}</p>
+        <p className="text-xs text-ink-soft">{ROLE_LABELS[session.role]}</p>
+      </div>
+      <button
+        onClick={handleSignOut}
+        aria-label="Sign out"
+        className="p-2 rounded-lg text-ink-soft hover:bg-surface-muted hover:text-ink shrink-0"
+      >
+        <LogOut className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -86,6 +118,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </button>
             </div>
             <NavLinks pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+            <StaffFooter />
           </div>
         </div>
       )}
@@ -99,11 +132,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="font-display text-lg font-medium text-ink">GymOS</span>
         </Link>
         <NavLinks pathname={pathname} />
+        <StaffFooter />
       </aside>
 
       <main className="flex-1 min-w-0">
         <div className="max-w-6xl mx-auto px-5 py-8 lg:px-10 lg:py-10">{children}</div>
       </main>
     </div>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <SessionProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </SessionProvider>
   );
 }

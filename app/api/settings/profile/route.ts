@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession, requireRole } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -14,6 +16,9 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const denied = await requireRole(request, "MANAGER");
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { gymName, address, timezone } = body;
@@ -27,6 +32,10 @@ export async function PUT(request: Request) {
       update: { gymName, address: address || null, timezone: timezone || "America/New_York" },
       create: { id: "singleton", gymName, address: address || null, timezone: timezone || "America/New_York" },
     });
+
+    const session = await getSession(request);
+    await logAction(prisma, session, { action: "profile.updated", targetType: "GymProfile", details: { gymName, address, timezone } });
+
     return NextResponse.json(profile);
   } catch (error) {
     console.error("Profile update error:", error);

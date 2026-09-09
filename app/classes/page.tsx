@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, X, UserPlus, Trash2, Clock } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { useSession } from "@/components/SessionProvider";
 import { Card, PageHeader, Badge, Button, EmptyState } from "@/components/ui";
 
 interface Booking {
@@ -40,6 +41,8 @@ function formatWhen(iso: string) {
 }
 
 export default function ClassesPage() {
+  const { hasRole } = useSession();
+  const canManage = hasRole("MANAGER");
   const [classes, setClasses] = useState<GymClass[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,9 +134,11 @@ export default function ClassesPage() {
         title="Classes"
         description="Upcoming sessions and who's booked in."
         action={
-          <Button onClick={() => { setError(null); setIsModalOpen(true); }}>
-            <Plus className="w-4 h-4" /> Add class
-          </Button>
+          canManage ? (
+            <Button onClick={() => { setError(null); setIsModalOpen(true); }}>
+              <Plus className="w-4 h-4" /> Add class
+            </Button>
+          ) : undefined
         }
       />
 
@@ -155,13 +160,15 @@ export default function ClassesPage() {
                     <h2 className="font-display text-lg font-medium text-ink">{cls.name}</h2>
                     <p className="text-sm text-ink-soft">{cls.instructor ? `with ${cls.instructor}` : "No instructor assigned"}</p>
                   </div>
-                  <button
-                    onClick={() => handleCancelClass(cls.id)}
-                    aria-label={`Cancel ${cls.name}`}
-                    className="p-2 rounded-lg text-ink-soft hover:bg-bad-soft hover:text-bad"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {canManage && (
+                    <button
+                      onClick={() => handleCancelClass(cls.id)}
+                      aria-label={`Cancel ${cls.name}`}
+                      className="p-2 rounded-lg text-ink-soft hover:bg-bad-soft hover:text-bad"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-ink-soft mb-4">
                   <Clock className="w-3.5 h-3.5" />
@@ -228,7 +235,7 @@ export default function ClassesPage() {
         </div>
       )}
 
-      {isModalOpen && (
+      {isModalOpen && canManage && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-ink/30">
           <Card className="w-full max-w-md relative">
             <button

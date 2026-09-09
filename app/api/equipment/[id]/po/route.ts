@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
+import { getSession, requireRole } from '@/lib/auth';
+import { logAction } from '@/lib/audit';
 
 const prisma = new PrismaClient();
 
@@ -7,6 +9,9 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  const denied = await requireRole(request, 'MANAGER');
+  if (denied) return denied;
+
   try {
     const { id } = params;
     const equipment = await prisma.equipment.findUnique({ where: { id } });
@@ -32,6 +37,14 @@ export async function POST(
           cost: equipment.estimatedCost,
         },
       },
+    });
+
+    const session = await getSession(request);
+    await logAction(prisma, session, {
+      action: 'equipment.po_created',
+      targetType: 'Equipment',
+      targetId: id,
+      details: { name: equipment.name, partNeeded: equipment.partNeeded, estimatedCost: equipment.estimatedCost },
     });
 
     return NextResponse.json({ message: 'Purchase order drafted', action });
