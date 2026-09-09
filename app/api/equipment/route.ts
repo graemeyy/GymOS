@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
+import { getSession, requireRole } from '@/lib/auth';
+import { logAction } from '@/lib/audit';
 
 const prisma = new PrismaClient();
 
@@ -15,6 +17,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireRole(request, 'MANAGER');
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const equipment = await prisma.equipment.create({
@@ -28,6 +33,10 @@ export async function POST(request: Request) {
         predictedFailureDate: body.predictedFailureDate ? new Date(body.predictedFailureDate) : null,
       },
     });
+
+    const session = await getSession(request);
+    await logAction(prisma, session, { action: 'equipment.created', targetType: 'Equipment', targetId: equipment.id, details: { name: equipment.name } });
+
     return NextResponse.json(equipment);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create equipment' }, { status: 500 });

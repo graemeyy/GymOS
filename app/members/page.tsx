@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Search, UserPlus, X, Edit2, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { useSession } from "@/components/SessionProvider";
 import { Card, PageHeader, Button, Badge, EmptyState } from "@/components/ui";
 
 interface Member {
@@ -15,6 +16,8 @@ interface Member {
 }
 
 export default function MembersPage() {
+  const { hasRole } = useSession();
+  const canManage = hasRole("MANAGER");
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -125,7 +128,7 @@ export default function MembersPage() {
                 <th className="font-medium px-6 py-3">Member</th>
                 <th className="font-medium px-6 py-3">Status</th>
                 <th className="font-medium px-6 py-3">Plan</th>
-                <th className="font-medium px-6 py-3 text-right">Actions</th>
+                {canManage && <th className="font-medium px-6 py-3 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -148,24 +151,26 @@ export default function MembersPage() {
                   <td className="px-6 py-4">
                     <Badge>{member.plan}</Badge>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-end gap-1">
-                      <button
-                        onClick={() => openEdit(member)}
-                        aria-label={`Edit ${member.name}`}
-                        className="p-2 rounded-lg text-ink-soft hover:bg-surface-muted hover:text-ink"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(member.id)}
-                        aria-label={`Remove ${member.name}`}
-                        className="p-2 rounded-lg text-ink-soft hover:bg-bad-soft hover:text-bad"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+                  {canManage && (
+                    <td className="px-6 py-4">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          onClick={() => openEdit(member)}
+                          aria-label={`Edit ${member.name}`}
+                          className="p-2 rounded-lg text-ink-soft hover:bg-surface-muted hover:text-ink"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(member.id)}
+                          aria-label={`Remove ${member.name}`}
+                          className="p-2 rounded-lg text-ink-soft hover:bg-bad-soft hover:text-bad"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

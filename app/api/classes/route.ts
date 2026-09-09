@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession, requireRole } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -20,6 +22,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireRole(request, "MANAGER");
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { name, instructor, startTime, durationMinutes, capacity } = body;
@@ -37,6 +42,15 @@ export async function POST(request: Request) {
         capacity: capacity ? Number(capacity) : undefined,
       },
     });
+
+    const session = await getSession(request);
+    await logAction(prisma, session, {
+      action: "class.created",
+      targetType: "Class",
+      targetId: cls.id,
+      details: { name: cls.name, startTime: cls.startTime },
+    });
+
     return NextResponse.json(cls, { status: 201 });
   } catch (error) {
     console.error("Class create error:", error);

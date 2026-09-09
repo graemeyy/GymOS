@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession, requireRole } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -13,6 +15,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = await requireRole(request, "FRONT_DESK");
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { name, email, status, plan } = body;
@@ -30,6 +35,9 @@ export async function POST(request: Request) {
       }
     });
 
+    const session = await getSession(request);
+    await logAction(prisma, session, { action: "member.created", targetType: "Member", targetId: member.id, details: { name, email, plan: member.plan } });
+
     return NextResponse.json(member, { status: 201 });
   } catch (error) {
     console.error("Create member error:", error);
@@ -38,6 +46,9 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const denied = await requireRole(request, "MANAGER");
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { id, name, email, status, plan } = body;
@@ -51,6 +62,9 @@ export async function PUT(request: Request) {
       data: { name, email, status, plan }
     });
 
+    const session = await getSession(request);
+    await logAction(prisma, session, { action: "member.updated", targetType: "Member", targetId: member.id, details: { name, email, status, plan } });
+
     return NextResponse.json(member);
   } catch (error) {
     return NextResponse.json({ error: "Failed to update member" }, { status: 500 });
@@ -58,6 +72,9 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const denied = await requireRole(request, "MANAGER");
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
@@ -66,9 +83,13 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Member ID is required" }, { status: 400 });
     }
 
+    const existing = await prisma.member.findUnique({ where: { id }, select: { name: true, email: true } });
     await prisma.member.delete({
       where: { id }
     });
+
+    const session = await getSession(request);
+    await logAction(prisma, session, { action: "member.deleted", targetType: "Member", targetId: id, details: existing ?? undefined });
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Zap, Lock, Loader2 } from "lucide-react";
 
@@ -15,9 +15,18 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/bootstrap")
+      .then((r) => r.json())
+      .then((data) => setNeedsSetup(!!data.needsSetup))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,14 +36,14 @@ function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error || "Login failed");
         return;
       }
-      const destination = searchParams.get("from") || "/members";
+      const destination = searchParams.get("from") || "/";
       router.push(destination);
       router.refresh();
     } catch {
@@ -53,16 +62,31 @@ function LoginForm() {
           </div>
           <span className="font-display font-medium text-ink">GymOS</span>
         </div>
-        <h1 className="font-display text-xl font-medium text-ink mb-6 flex items-center gap-2">
+        <h1 className="font-display text-xl font-medium text-ink mb-2 flex items-center gap-2">
           <Lock className="w-4.5 h-4.5 text-ink-soft" /> Staff sign in
         </h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {needsSetup && (
+          <p className="text-sm text-ink-soft mb-6">
+            No staff accounts exist yet. <a href="/setup" className="text-ember font-medium hover:text-ember-dark">Create the owner account →</a>
+          </p>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-ink">Email</label>
+            <input
+              required
+              type="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-chalk border border-line rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ember/30"
+            />
+          </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-ink">Password</label>
             <input
               required
               type="password"
-              autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-chalk border border-line rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ember/30"

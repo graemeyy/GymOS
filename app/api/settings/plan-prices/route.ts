@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getPlanPrices, PLAN_PRICES } from "@/lib/pricing";
+import { getSession, requireRole } from "@/lib/auth";
+import { logAction } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -13,9 +15,13 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const denied = await requireRole(request, "OWNER");
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const plans = Object.keys(PLAN_PRICES) as (keyof typeof PLAN_PRICES)[];
+    const changed: Record<string, number> = {};
 
     for (const plan of plans) {
       const value = body[plan];
@@ -29,7 +35,11 @@ export async function PUT(request: Request) {
         update: { priceCents },
         create: { plan, priceCents },
       });
+      changed[plan] = priceCents;
     }
+
+    const session = await getSession(request);
+    await logAction(prisma, session, { action: "pricing.updated", targetType: "PlanPrice", details: changed });
 
     const prices = await getPlanPrices(prisma);
     return NextResponse.json(prices);
