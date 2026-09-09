@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, UserPlus, X, Edit2, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Search, UserPlus, X, Edit2, Trash2, Eye, Download } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { useSession } from "@/components/SessionProvider";
 import { Card, PageHeader, Button, Badge, EmptyState } from "@/components/ui";
+import { downloadCsv } from "@/lib/csv";
 
 interface Member {
   id: string;
@@ -90,15 +92,34 @@ export default function MembersPage() {
     return !q || m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q);
   });
 
+  const exportMembersCsv = (rows: Member[]) => {
+    downloadCsv(
+      "members.csv",
+      rows,
+      [
+        { header: "Name", value: (m) => m.name },
+        { header: "Email", value: (m) => m.email },
+        { header: "Status", value: (m) => m.status },
+        { header: "Plan", value: (m) => m.plan },
+        { header: "Member since", value: (m) => new Date(m.createdAt).toLocaleDateString() },
+      ]
+    );
+  };
+
   return (
     <AppShell>
       <PageHeader
         title="Members"
         description="Everyone with an active or past membership."
         action={
-          <Button onClick={openNew}>
-            <UserPlus className="w-4 h-4" /> Add member
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => exportMembersCsv(filtered)}>
+              <Download className="w-4 h-4" /> Export CSV
+            </Button>
+            <Button onClick={openNew}>
+              <UserPlus className="w-4 h-4" /> Add member
+            </Button>
+          </div>
         }
       />
 
@@ -128,7 +149,7 @@ export default function MembersPage() {
                 <th className="font-medium px-6 py-3">Member</th>
                 <th className="font-medium px-6 py-3">Status</th>
                 <th className="font-medium px-6 py-3">Plan</th>
-                {canManage && <th className="font-medium px-6 py-3 text-right">Actions</th>}
+                <th className="font-medium px-6 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -151,26 +172,35 @@ export default function MembersPage() {
                   <td className="px-6 py-4">
                     <Badge>{member.plan}</Badge>
                   </td>
-                  {canManage && (
-                    <td className="px-6 py-4">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => openEdit(member)}
-                          aria-label={`Edit ${member.name}`}
-                          className="p-2 rounded-lg text-ink-soft hover:bg-surface-muted hover:text-ink"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(member.id)}
-                          aria-label={`Remove ${member.name}`}
-                          className="p-2 rounded-lg text-ink-soft hover:bg-bad-soft hover:text-bad"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  )}
+                  <td className="px-6 py-4">
+                    <div className="flex justify-end gap-1">
+                      <Link
+                        href={`/members/${member.id}`}
+                        aria-label={`View ${member.name}`}
+                        className="p-2 rounded-lg text-ink-soft hover:bg-surface-muted hover:text-ink"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Link>
+                      {canManage && (
+                        <>
+                          <button
+                            onClick={() => openEdit(member)}
+                            aria-label={`Edit ${member.name}`}
+                            className="p-2 rounded-lg text-ink-soft hover:bg-surface-muted hover:text-ink"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(member.id)}
+                            aria-label={`Remove ${member.name}`}
+                            className="p-2 rounded-lg text-ink-soft hover:bg-bad-soft hover:text-bad"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

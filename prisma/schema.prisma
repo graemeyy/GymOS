@@ -45,6 +45,7 @@ model Member {
   checkIns         CheckIn[]
   payouts          Payout[]
   classBookings    ClassBooking[]
+  classWaitlist    ClassWaitlist[]
 }
 
 model CheckIn {
@@ -106,9 +107,21 @@ model Class {
   capacity        Int            @default(20)
   createdAt       DateTime       @default(now())
   bookings        ClassBooking[]
+  waitlist        ClassWaitlist[]
 }
 
 model ClassBooking {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([classId, memberId])
+}
+
+model ClassWaitlist {
   id        String   @id @default(cuid())
   classId   String
   class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
