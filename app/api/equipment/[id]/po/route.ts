@@ -22,6 +22,17 @@ export async function POST(
       return NextResponse.json({ error: 'Purchase orders can only be generated for offline equipment' }, { status: 400 });
     }
 
+    const existingPO = await prisma.agentAction.findFirst({
+      where: {
+        category: 'MAINTENANCE',
+        status: 'PENDING',
+        metadata: { path: ['equipmentId'], equals: id },
+      },
+    });
+    if (existingPO) {
+      return NextResponse.json({ message: 'Purchase order already pending', action: existingPO });
+    }
+
     // Generate a purchase order action
     const action = await prisma.agentAction.create({
       data: {
