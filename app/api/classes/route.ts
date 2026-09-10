@@ -12,6 +12,10 @@ export async function GET() {
         bookings: {
           include: { member: { select: { id: true, name: true, email: true } } },
         },
+        waitlist: {
+          orderBy: { createdAt: "asc" },
+          include: { member: { select: { id: true, name: true, email: true } } },
+        },
       },
     });
     return NextResponse.json(classes);

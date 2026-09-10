@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { DollarSign } from "lucide-react";
+import { DollarSign, Download } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { Card, PageHeader, StatTile, Badge, EmptyState, LinkButton } from "@/components/ui";
+import { Card, PageHeader, StatTile, Badge, EmptyState, LinkButton, Button } from "@/components/ui";
 import { formatCents } from "@/lib/pricing";
+import { downloadCsv } from "@/lib/csv";
 
 interface Payout {
   id: string;
@@ -36,9 +37,27 @@ export default function BillingPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const exportCsv = () => {
+    downloadCsv("billing.csv", payouts, [
+      { header: "Member", value: (p) => p.member?.name || p.member?.email || "Unknown" },
+      { header: "Plan", value: (p) => p.member?.plan || "" },
+      { header: "Amount", value: (p) => (p.amount / 100).toFixed(2) },
+      { header: "Status", value: (p) => p.status },
+      { header: "Date", value: (p) => new Date(p.createdAt).toLocaleDateString() },
+    ]);
+  };
+
   return (
     <AppShell>
-      <PageHeader title="Billing" description="Recurring revenue and recent payments." />
+      <PageHeader
+        title="Billing"
+        description="Recurring revenue and recent payments."
+        action={
+          <Button variant="secondary" onClick={exportCsv} disabled={payouts.length === 0}>
+            <Download className="w-4 h-4" /> Export CSV
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         <StatTile

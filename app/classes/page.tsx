@@ -1,12 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, X, UserPlus, Trash2, Clock } from "lucide-react";
+import { Plus, X, UserPlus, Trash2, Clock, ListPlus, ArrowUpCircle } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { useSession } from "@/components/SessionProvider";
 import { Card, PageHeader, Badge, Button, EmptyState } from "@/components/ui";
 
 interface Booking {
+  id: string;
+  memberId: string;
+  member: { id: string; name: string | null; email: string };
+}
+
+interface WaitlistEntry {
   id: string;
   memberId: string;
   member: { id: string; name: string | null; email: string };
@@ -20,6 +26,7 @@ interface GymClass {
   durationMinutes: number;
   capacity: number;
   bookings: Booking[];
+  waitlist: WaitlistEntry[];
 }
 
 interface Member {
@@ -128,6 +135,41 @@ export default function ClassesPage() {
     if (res.ok) fetchAll();
   };
 
+  const handleJoinWaitlist = async (classId: string) => {
+    if (!selectedMemberId) return;
+    const res = await fetch(`/api/classes/${classId}/waitlist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId: selectedMemberId }),
+    });
+    if (res.ok) {
+      setBookingFor(null);
+      setSelectedMemberId("");
+      fetchAll();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Failed to add member to waitlist");
+    }
+  };
+
+  const handleLeaveWaitlist = async (classId: string, memberId: string) => {
+    const res = await fetch(`/api/classes/${classId}/waitlist?memberId=${memberId}`, { method: "DELETE" });
+    if (res.ok) fetchAll();
+  };
+
+  const handlePromote = async (classId: string, memberId: string) => {
+    const res = await fetch(`/api/classes/${classId}/waitlist/promote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId }),
+    });
+    if (res.ok) fetchAll();
+    else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Failed to promote member");
+    }
+  };
+
   return (
     <AppShell>
       <PageHeader
@@ -151,7 +193,11 @@ export default function ClassesPage() {
           {classes.map((cls) => {
             const spotsLeft = cls.capacity - cls.bookings.length;
             const bookedIds = new Set(cls.bookings.map((b) => b.memberId));
-            const availableMembers = members.filter((m) => m.status === "ACTIVE" && !bookedIds.has(m.id));
+            const waitlistedIds = new Set(cls.waitlist.map((w) => w.memberId));
+            const availableMembers = members.filter(
+              (m) => m.status === "ACTIVE" && !bookedIds.has(m.id) && !waitlistedIds.has(m.id)
+            );
+            const isFull = spotsLeft <= 0;
 
             return (
               <Card key={cls.id}>
@@ -200,6 +246,37 @@ export default function ClassesPage() {
                   </ul>
                 )}
 
+                {cls.waitlist.length > 0 && (
+                  <div className="mb-4">
+                    <span className="text-sm font-medium text-ink">Waitlist</span>
+                    <ul className="space-y-1.5 mt-2">
+                      {cls.waitlist.map((w, i) => (
+                        <li key={w.id} className="flex items-center justify-between text-sm">
+                          <span className="text-ink">
+                            <span className="text-ink-soft">{i + 1}.</span> {w.member.name || w.member.email}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            {!isFull && (
+                              <button
+                                onClick={() => handlePromote(cls.id, w.memberId)}
+                                className="flex items-center gap-1 text-xs text-ember hover:text-ember-dark"
+                              >
+                                <ArrowUpCircle className="w-3.5 h-3.5" /> Promote
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleLeaveWaitlist(cls.id, w.memberId)}
+                              className="text-xs text-ink-soft hover:text-bad"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {bookingFor === cls.id ? (
                   <div className="flex gap-2">
                     <select
@@ -212,8 +289,13 @@ export default function ClassesPage() {
                         <option key={m.id} value={m.id}>{m.name || m.email}</option>
                       ))}
                     </select>
-                    <Button variant="secondary" className="!px-3" onClick={() => handleBook(cls.id)} disabled={!selectedMemberId}>
-                      Book
+                    <Button
+                      variant="secondary"
+                      className="!px-3"
+                      onClick={() => (isFull ? handleJoinWaitlist(cls.id) : handleBook(cls.id))}
+                      disabled={!selectedMemberId}
+                    >
+                      {isFull ? "Waitlist" : "Book"}
                     </Button>
                     <button onClick={() => { setBookingFor(null); setSelectedMemberId(""); }} className="p-2 text-ink-soft hover:text-ink">
                       <X className="w-4 h-4" />
@@ -224,9 +306,10 @@ export default function ClassesPage() {
                     variant="secondary"
                     className="w-full !py-2 text-xs"
                     onClick={() => setBookingFor(cls.id)}
-                    disabled={spotsLeft <= 0 || availableMembers.length === 0}
+                    disabled={availableMembers.length === 0}
                   >
-                    <UserPlus className="w-3.5 h-3.5" /> Book a member
+                    {isFull ? <ListPlus className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
+                    {isFull ? "Join waitlist" : "Book a member"}
                   </Button>
                 )}
               </Card>

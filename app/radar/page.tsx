@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Mail, ShieldAlert, Clock, TrendingDown, DollarSign } from "lucide-react";
+import { Mail, ShieldAlert, Clock, TrendingDown, DollarSign, Download } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { Card, PageHeader, StatTile, Badge, EmptyState } from "@/components/ui";
+import { Card, PageHeader, StatTile, Badge, EmptyState, Button } from "@/components/ui";
 import { PLAN_PRICES, formatCents } from "@/lib/pricing";
+import { downloadCsv } from "@/lib/csv";
 
 interface Member {
   id: string;
@@ -47,11 +48,31 @@ export default function RetentionPage() {
     : 0;
   const mrrAtRiskCents = highRisk.reduce((sum, m) => sum + (planPrices[m.plan] ?? 0), 0);
 
-  const priorityList = [...active].sort((a, b) => a.retentionScore - b.retentionScore).slice(0, 8);
+  const sortedByRisk = [...active].sort((a, b) => a.retentionScore - b.retentionScore);
+  const priorityList = sortedByRisk.slice(0, 8);
+
+  const exportCsv = () => {
+    downloadCsv("retention.csv", sortedByRisk, [
+      { header: "Name", value: (m) => m.name || "" },
+      { header: "Email", value: (m) => m.email },
+      { header: "Status", value: (m) => m.status },
+      { header: "Plan", value: (m) => m.plan },
+      { header: "Retention score", value: (m) => m.retentionScore },
+      { header: "Days since last visit", value: (m) => daysSince(m.lastCheckIn) ?? "Never" },
+    ]);
+  };
 
   return (
     <AppShell>
-      <PageHeader title="Retention" description="Members most likely to cancel, ranked by risk." />
+      <PageHeader
+        title="Retention"
+        description="Members most likely to cancel, ranked by risk."
+        action={
+          <Button variant="secondary" onClick={exportCsv} disabled={sortedByRisk.length === 0}>
+            <Download className="w-4 h-4" /> Export CSV
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatTile icon={ShieldAlert} label="High risk" value={loading ? "—" : highRisk.length.toString()} tone={highRisk.length ? "bad" : "neutral"} />
