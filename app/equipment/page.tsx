@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Activity, Loader2 } from "lucide-react";
+import { Activity, Loader2, ClipboardList, Check, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { useSession } from "@/components/SessionProvider";
 import { Card, PageHeader, Badge, Button, EmptyState } from "@/components/ui";
@@ -16,6 +16,15 @@ interface Equipment {
   estimatedCost: number | null;
 }
 
+interface AgentAction {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt: string;
+}
+
 function statusLabel(status: Equipment["status"]) {
   if (status === "OPERATIONAL") return "Operational";
   if (status === "WARNING") return "Warning";
@@ -26,13 +35,19 @@ export default function EquipmentPage() {
   const { hasRole } = useSession();
   const canManage = hasRole("MANAGER");
   const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [actions, setActions] = useState<AgentAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
 
-  const fetchEquipment = async () => {
+  const fetchAll = async () => {
     try {
-      const res = await fetch("/api/equipment");
-      if (res.ok) setEquipment(await res.json());
+      const [equipmentRes, actionsRes] = await Promise.all([
+        fetch("/api/equipment"),
+        fetch("/api/agent-actions"),
+      ]);
+      if (equipmentRes.ok) setEquipment(await equipmentRes.json());
+      if (actionsRes.ok) setActions(await actionsRes.json());
     } catch (err) {
       console.error("Failed to fetch equipment:", err);
     } finally {
@@ -41,14 +56,14 @@ export default function EquipmentPage() {
   };
 
   useEffect(() => {
-    fetchEquipment();
+    fetchAll();
   }, []);
 
   const authorizeRepair = async (id: string) => {
     setSubmittingId(id);
     try {
       const res = await fetch(`/api/equipment/${id}/po`, { method: "POST" });
-      if (res.ok) await fetchEquipment();
+      if (res.ok) await fetchAll();
     } catch (err) {
       console.error("Failed to authorize repair:", err);
     } finally {
@@ -56,7 +71,24 @@ export default function EquipmentPage() {
     }
   };
 
+  const decideAction = async (id: string, status: "APPROVED" | "REJECTED") => {
+    setDecidingId(id);
+    try {
+      const res = await fetch("/api/agent-actions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (res.ok) await fetchAll();
+    } catch (err) {
+      console.error("Failed to update purchase order:", err);
+    } finally {
+      setDecidingId(null);
+    }
+  };
+
   const priorityQueue = equipment.filter((e) => e.status !== "OPERATIONAL");
+  const pendingActions = actions.filter((a) => a.status === "PENDING");
 
   return (
     <AppShell>
@@ -131,6 +163,53 @@ export default function EquipmentPage() {
           )}
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <div className="flex items-center gap-2 mb-4">
+          <ClipboardList className="w-4.5 h-4.5 text-ink-soft" />
+          <h2 className="font-display text-lg font-medium text-ink">Purchase orders</h2>
+        </div>
+        {pendingActions.length === 0 ? (
+          <EmptyState>No purchase orders awaiting a decision.</EmptyState>
+        ) : (
+          <ul className="divide-y divide-line -mx-6">
+            {pendingActions.map((action) => (
+              <li key={action.id} className="flex items-center justify-between gap-4 px-6 py-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-sm font-medium text-ink">{action.title}</p>
+                    <Badge>{action.category}</Badge>
+                  </div>
+                  <p className="text-xs text-ink-soft">{action.description}</p>
+                  <p className="text-xs text-ink-soft mt-1">{new Date(action.createdAt).toLocaleDateString()}</p>
+                </div>
+                {canManage ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => decideAction(action.id, "APPROVED")}
+                      disabled={decidingId === action.id}
+                      aria-label={`Approve ${action.title}`}
+                      className="p-2 rounded-lg text-good hover:bg-good-soft disabled:opacity-40"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => decideAction(action.id, "REJECTED")}
+                      disabled={decidingId === action.id}
+                      aria-label={`Reject ${action.title}`}
+                      className="p-2 rounded-lg text-bad hover:bg-bad-soft disabled:opacity-40"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-ink-soft shrink-0">Managers can approve or reject</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </AppShell>
   );
 }

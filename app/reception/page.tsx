@@ -9,6 +9,19 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function membershipMessage(status: string): string {
+  switch (status) {
+    case "PAST_DUE":
+      return "Payment overdue";
+    case "PAUSED":
+      return "Membership paused";
+    case "CANCELED":
+      return "Membership canceled";
+    default:
+      return "Up to date";
+  }
+}
+
 export default function ReceptionDashboard() {
   const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -166,7 +179,7 @@ export default function ReceptionDashboard() {
                       <AlertCircle className={cn("w-4 h-4", lastScanned.alerts.inactive && "text-bad")} />
                       <p className="text-xs font-medium">Membership</p>
                     </div>
-                    <p className="text-sm text-ink">{lastScanned.alerts.inactive ? "Payment overdue" : "Up to date"}</p>
+                    <p className="text-sm text-ink">{membershipMessage(lastScanned.member.status)}</p>
                   </div>
                   <div className="bg-surface rounded-xl border border-line p-4">
                     <div className="flex items-center gap-2 mb-1.5 text-ink-soft">
