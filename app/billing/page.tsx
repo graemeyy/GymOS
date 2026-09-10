@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { DollarSign, Download } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { useSession } from "@/components/SessionProvider";
 import { Card, PageHeader, StatTile, Badge, EmptyState, LinkButton, Button } from "@/components/ui";
 import { formatCents } from "@/lib/pricing";
 import { downloadCsv } from "@/lib/csv";
@@ -16,26 +17,32 @@ interface Payout {
 }
 
 export default function BillingPage() {
+  const { session } = useSession();
   const [mrrCents, setMrrCents] = useState<number | null>(null);
   const [activeMembers, setActiveMembers] = useState<number | null>(null);
   const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [hideRevenue, setHideRevenue] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/dashboard/stats").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/payouts").then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/settings/features").then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([stats, payoutData]) => {
+      .then(([stats, payoutData, features]) => {
         if (stats) {
           setMrrCents(stats.revenueCents);
           setActiveMembers(stats.activeMembers);
         }
         setPayouts(Array.isArray(payoutData) ? payoutData : []);
+        setHideRevenue(!!features?.hideRevenueFromFrontDesk);
       })
       .catch((err) => console.error("Failed to load billing data:", err))
       .finally(() => setLoading(false));
   }, []);
+
+  const maskRevenue = hideRevenue && session?.role === "FRONT_DESK";
 
   const exportCsv = () => {
     downloadCsv("billing.csv", payouts, [
@@ -63,7 +70,7 @@ export default function BillingPage() {
         <StatTile
           icon={DollarSign}
           label="Monthly recurring revenue"
-          value={loading || mrrCents === null ? "—" : formatCents(mrrCents)}
+          value={loading || mrrCents === null ? "—" : maskRevenue ? "•••••" : formatCents(mrrCents)}
         />
         <StatTile
           icon={DollarSign}

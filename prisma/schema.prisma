@@ -155,6 +155,24 @@ model GymProfile {
   timezone String  @default("America/New_York")
 }
 
+model GymSettings {
+  id                       String  @id @default("singleton")
+  requireKeycardForEntry   Boolean @default(false)
+  hideRevenueFromFrontDesk Boolean @default(false)
+}
+
+model InventoryItem {
+  id            String   @id @default(cuid())
+  name          String
+  category      String?
+  sku           String?  @unique
+  quantity      Int      @default(0)
+  reorderLevel  Int      @default(0)
+  unitCostCents Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 enum StaffRole {
   OWNER
   MANAGER

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
+import { SessionProvider } from "@/components/SessionProvider";
 import "./globals.css";
 
 const body = Inter({ subsets: ["latin"], variable: "--font-body" });
@@ -17,7 +18,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${body.variable} ${display.variable}`}>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        <SessionProvider>{children}</SessionProvider>
+      </body>
     </html>
   );
 }

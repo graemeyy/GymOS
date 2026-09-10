@@ -24,9 +24,17 @@ export async function POST(request: Request) {
     }
 
     if (member.status !== "ACTIVE") {
-      return NextResponse.json({ 
-        granted: false, 
-        reason: "Subscription status: " + member.status 
+      return NextResponse.json({
+        granted: false,
+        reason: "Subscription status: " + member.status
+      });
+    }
+
+    const settings = await prisma.gymSettings.findUnique({ where: { id: "singleton" } });
+    if (settings?.requireKeycardForEntry && !member.keycardIssued) {
+      return NextResponse.json({
+        granted: false,
+        reason: "No keycard issued",
       });
     }
 
