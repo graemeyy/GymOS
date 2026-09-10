@@ -18,6 +18,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
           where: { class: { startTime: { gte: new Date() } } },
           include: { class: { select: { id: true, name: true, startTime: true } } },
         },
+        referredBy: { select: { id: true, name: true, email: true } },
+        referrals: { select: { id: true, name: true, email: true, createdAt: true } },
       },
     });
 

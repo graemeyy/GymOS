@@ -60,6 +60,38 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 }
 
+const VALID_STATUSES = ["BOOKED", "ATTENDED", "NO_SHOW"];
+
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  const denied = await requireRole(request, "FRONT_DESK");
+  if (denied) return denied;
+
+  try {
+    const { memberId, status } = await request.json();
+    if (!memberId || !VALID_STATUSES.includes(status)) {
+      return NextResponse.json({ error: "Member and a valid status are required" }, { status: 400 });
+    }
+
+    const booking = await prisma.classBooking.update({
+      where: { classId_memberId: { classId: params.id, memberId } },
+      data: { status },
+    });
+
+    const session = await getSession(request);
+    await logAction(prisma, session, {
+      action: "class.attendance_marked",
+      targetType: "Class",
+      targetId: params.id,
+      details: { memberId, status },
+    });
+
+    return NextResponse.json(booking);
+  } catch (error) {
+    console.error("Class attendance update error:", error);
+    return NextResponse.json({ error: "Failed to update attendance" }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   const denied = await requireRole(request, "FRONT_DESK");
   if (denied) return denied;

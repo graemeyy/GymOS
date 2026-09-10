@@ -40,6 +40,9 @@ model Member {
   lastCheckIn      DateTime?
   retentionScore   Int       @default(100)
   notes            String?
+  referredById     String?
+  referredBy       Member?   @relation("MemberReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals        Member[]  @relation("MemberReferrals")
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   checkIns         CheckIn[]
@@ -110,13 +113,20 @@ model Class {
   waitlist        ClassWaitlist[]
 }
 
+enum BookingStatus {
+  BOOKED
+  ATTENDED
+  NO_SHOW
+}
+
 model ClassBooking {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   classId   String
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class     Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
   memberId  String
-  member    Member   @relation(fields: [memberId], references: [id])
-  createdAt DateTime @default(now())
+  member    Member        @relation(fields: [memberId], references: [id])
+  status    BookingStatus @default(BOOKED)
+  createdAt DateTime      @default(now())
 
   @@unique([classId, memberId])
 }
@@ -160,6 +170,17 @@ model Staff {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   auditLogs    AuditLog[]
+  shifts       Shift[]
+}
+
+model Shift {
+  id        String   @id @default(cuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  startTime DateTime
+  endTime   DateTime
+  notes     String?
+  createdAt DateTime @default(now())
 }
 
 model AuditLog {

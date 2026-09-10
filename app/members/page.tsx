@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, UserPlus, X, Edit2, Trash2, Eye, Download } from "lucide-react";
+import { Search, UserPlus, X, Edit2, Trash2, Eye, Download, Award } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { useSession } from "@/components/SessionProvider";
 import { Card, PageHeader, Button, Badge, EmptyState } from "@/components/ui";
@@ -15,6 +15,7 @@ interface Member {
   status: string;
   plan: string;
   createdAt: string;
+  referredById: string | null;
 }
 
 export default function MembersPage() {
@@ -25,7 +26,7 @@ export default function MembersPage() {
   const [query, setQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
-  const [formData, setFormData] = useState({ name: "", email: "", status: "ACTIVE", plan: "BASIC" });
+  const [formData, setFormData] = useState({ name: "", email: "", status: "ACTIVE", plan: "BASIC", referredById: "" });
 
   const fetchMembers = async () => {
     try {
@@ -45,8 +46,9 @@ export default function MembersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = { ...formData, referredById: formData.referredById || null };
     const method = editingMember ? "PUT" : "POST";
-    const body = editingMember ? { ...formData, id: editingMember.id } : formData;
+    const body = editingMember ? { ...payload, id: editingMember.id } : payload;
 
     try {
       const res = await fetch("/api/members", {
@@ -57,7 +59,7 @@ export default function MembersPage() {
       if (res.ok) {
         setIsModalOpen(false);
         setEditingMember(null);
-        setFormData({ name: "", email: "", status: "ACTIVE", plan: "BASIC" });
+        setFormData({ name: "", email: "", status: "ACTIVE", plan: "BASIC", referredById: "" });
         fetchMembers();
       }
     } catch (err) {
@@ -77,13 +79,19 @@ export default function MembersPage() {
 
   const openEdit = (member: Member) => {
     setEditingMember(member);
-    setFormData({ name: member.name, email: member.email, status: member.status, plan: member.plan });
+    setFormData({
+      name: member.name,
+      email: member.email,
+      status: member.status,
+      plan: member.plan,
+      referredById: member.referredById || "",
+    });
     setIsModalOpen(true);
   };
 
   const openNew = () => {
     setEditingMember(null);
-    setFormData({ name: "", email: "", status: "ACTIVE", plan: "BASIC" });
+    setFormData({ name: "", email: "", status: "ACTIVE", plan: "BASIC", referredById: "" });
     setIsModalOpen(true);
   };
 
@@ -91,6 +99,17 @@ export default function MembersPage() {
     const q = query.toLowerCase();
     return !q || m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q);
   });
+
+  const memberById = new Map(members.map((m) => [m.id, m]));
+  const referralCounts = new Map<string, number>();
+  for (const m of members) {
+    if (m.referredById) referralCounts.set(m.referredById, (referralCounts.get(m.referredById) || 0) + 1);
+  }
+  const topReferrers = Array.from(referralCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id, count]) => ({ member: memberById.get(id), count }))
+    .filter((r) => r.member);
 
   const exportMembersCsv = (rows: Member[]) => {
     downloadCsv(
@@ -102,6 +121,7 @@ export default function MembersPage() {
         { header: "Status", value: (m) => m.status },
         { header: "Plan", value: (m) => m.plan },
         { header: "Member since", value: (m) => new Date(m.createdAt).toLocaleDateString() },
+        { header: "Referred by", value: (m) => (m.referredById ? memberById.get(m.referredById)?.name || memberById.get(m.referredById)?.email || "" : "") },
       ]
     );
   };
@@ -122,6 +142,28 @@ export default function MembersPage() {
           </div>
         }
       />
+
+      {topReferrers.length > 0 && (
+        <Card className="mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Award className="w-4.5 h-4.5 text-ink-soft" />
+            <h2 className="font-display text-lg font-medium text-ink">Top referrers</h2>
+          </div>
+          <ul className="flex flex-wrap gap-3">
+            {topReferrers.map(({ member, count }) => (
+              <li key={member!.id}>
+                <Link
+                  href={`/members/${member!.id}`}
+                  className="flex items-center gap-2 rounded-xl border border-line px-3.5 py-2 text-sm hover:bg-surface-muted"
+                >
+                  <span className="font-medium text-ink">{member!.name || member!.email}</span>
+                  <Badge>{count} {count === 1 ? "referral" : "referrals"}</Badge>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card className="p-0 overflow-hidden">
         <div className="p-4 border-b border-line">
@@ -270,6 +312,21 @@ export default function MembersPage() {
                     <option value="PAST_DUE">Past due</option>
                   </select>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-ink">Referred by</label>
+                <select
+                  value={formData.referredById}
+                  onChange={(e) => setFormData({ ...formData, referredById: e.target.value })}
+                  className="w-full bg-chalk border border-line rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ember/30"
+                >
+                  <option value="">No referral</option>
+                  {members
+                    .filter((m) => m.id !== editingMember?.id)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>{m.name || m.email}</option>
+                    ))}
+                </select>
               </div>
               <Button type="submit" className="w-full mt-2">
                 {editingMember ? "Save changes" : "Add member"}

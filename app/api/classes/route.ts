@@ -6,7 +6,9 @@ import { logAction } from "@/lib/audit";
 export async function GET() {
   try {
     const classes = await prisma.class.findMany({
-      where: { startTime: { gte: new Date(Date.now() - 60 * 60 * 1000) } },
+      // 24h lookback (rather than 1h) so a class that just ended stays
+      // visible long enough for staff to mark attendance on its roster.
+      where: { startTime: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
       orderBy: { startTime: "asc" },
       include: {
         bookings: {

@@ -18,6 +18,12 @@ export async function GET(request: Request) {
             timestamp: { gte: thirtyDaysAgo },
           },
         },
+        classBookings: {
+          where: {
+            status: "NO_SHOW",
+            class: { startTime: { gte: thirtyDaysAgo } },
+          },
+        },
       },
     });
 
@@ -39,6 +45,12 @@ export async function GET(request: Request) {
       if (count >= 12) score += 50;
       else if (count >= 8) score += 35;
       else if (count >= 4) score += 15;
+
+      // 3. Class no-show penalty (booking a class and not showing up is a
+      // stronger churn signal than simply not booking one at all)
+      const noShows = member.classBookings.length;
+      score -= Math.min(noShows * 5, 20);
+      score = Math.max(score, 0);
 
       return prisma.member.update({
         where: { id: member.id },
