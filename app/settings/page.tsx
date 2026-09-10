@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Building2, DollarSign, Check, Users, ScrollText, Plus, X, Trash2 } from "lucide-react";
+import { Building2, DollarSign, Check, Users, ScrollText, Plus, X, Trash2, ToggleLeft } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { useSession } from "@/components/SessionProvider";
-import { Card, PageHeader, Button, EmptyState, Badge } from "@/components/ui";
+import { Card, PageHeader, Button, EmptyState, Badge, Toggle } from "@/components/ui";
 import { PLAN_PRICES } from "@/lib/pricing";
 import { ROLE_LABELS, type StaffRoleName } from "@/lib/roles";
 
@@ -219,6 +219,96 @@ function PricingCard({ canEdit }: { canEdit: boolean }) {
             <p className="text-xs text-ink-soft">Only owners can change membership pricing.</p>
           )}
         </form>
+      )}
+    </Card>
+  );
+}
+
+function FeatureTogglesCard({ canEdit }: { canEdit: boolean }) {
+  const [settings, setSettings] = useState({ requireKeycardForEntry: false, hideRevenueFromFrontDesk: false });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings/features")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) {
+          setSettings({
+            requireKeycardForEntry: !!data.requireKeycardForEntry,
+            hideRevenueFromFrontDesk: !!data.hideRevenueFromFrontDesk,
+          });
+        }
+      })
+      .catch((err) => console.error("Failed to load feature settings:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const updateSetting = async (key: keyof typeof settings, value: boolean) => {
+    const next = { ...settings, [key]: value };
+    setSettings(next);
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await fetch("/api/settings/features", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-5">
+        <ToggleLeft className="w-4.5 h-4.5 text-ink-soft" />
+        <h2 className="font-display text-lg font-medium text-ink">Feature toggles</h2>
+      </div>
+      {loading ? (
+        <p className="text-sm text-ink-soft">Loading…</p>
+      ) : (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-ink">Require keycard for entry</p>
+              <p className="text-xs text-ink-soft mt-0.5">Deny access-control check-ins for members without a keycard issued, even if active.</p>
+            </div>
+            <Toggle
+              checked={settings.requireKeycardForEntry}
+              onChange={(v) => updateSetting("requireKeycardForEntry", v)}
+              disabled={!canEdit || saving}
+              label="Require keycard for entry"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-ink">Hide revenue from front desk</p>
+              <p className="text-xs text-ink-soft mt-0.5">Mask revenue figures on the dashboard and billing pages for front desk staff.</p>
+            </div>
+            <Toggle
+              checked={settings.hideRevenueFromFrontDesk}
+              onChange={(v) => updateSetting("hideRevenueFromFrontDesk", v)}
+              disabled={!canEdit || saving}
+              label="Hide revenue from front desk"
+            />
+          </div>
+          {canEdit ? (
+            saved && (
+              <p className="flex items-center gap-1.5 text-xs text-good">
+                <Check className="w-3.5 h-3.5" /> Saved
+              </p>
+            )
+          ) : (
+            <p className="text-xs text-ink-soft">Only owners can change feature toggles.</p>
+          )}
+        </div>
       )}
     </Card>
   );
@@ -480,6 +570,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <GymProfileCard canEdit={hasRole("MANAGER")} />
           <PricingCard canEdit={hasRole("OWNER")} />
+          <FeatureTogglesCard canEdit={hasRole("OWNER")} />
           {hasRole("OWNER") && <StaffCard />}
           {hasRole("MANAGER") && <AuditLogCard />}
         </div>

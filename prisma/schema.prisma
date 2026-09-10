@@ -155,6 +155,12 @@ model GymProfile {
   timezone String  @default("America/New_York")
 }
 
+model GymSettings {
+  id                       String  @id @default("singleton")
+  requireKeycardForEntry   Boolean @default(false)
+  hideRevenueFromFrontDesk Boolean @default(false)
+}
+
 enum StaffRole {
   OWNER
   MANAGER

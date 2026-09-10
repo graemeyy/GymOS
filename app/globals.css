@@ -2,6 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Color tokens as "R G B" triplets so Tailwind's opacity modifiers
+   (e.g. bg-ember/30) keep working via rgb(var(--x) / <alpha-value>). */
+:root {
+  --color-chalk: 245 243 238;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 237 234 226;
+  --color-ink: 38 36 31;
+  --color-ink-soft: 111 106 97;
+  --color-line: 226 220 207;
+  --color-ember: 193 83 31;
+  --color-ember-soft: 241 221 206;
+  --color-ember-dark: 154 66 24;
+  --color-good: 63 122 82;
+  --color-good-soft: 225 237 227;
+  --color-warn: 176 124 34;
+  --color-warn-soft: 243 231 210;
+  --color-bad: 178 59 50;
+  --color-bad-soft: 243 222 219;
+}
+
+[data-theme="dark"] {
+  --color-chalk: 28 26 22;
+  --color-surface: 36 33 25;
+  --color-surface-muted: 46 42 34;
+  --color-ink: 241 238 231;
+  --color-ink-soft: 168 161 150;
+  --color-line: 58 54 44;
+  --color-ember: 226 121 74;
+  --color-ember-soft: 61 42 30;
+  --color-ember-dark: 244 180 140;
+  --color-good: 111 191 134;
+  --color-good-soft: 30 51 36;
+  --color-warn: 224 172 76;
+  --color-warn-soft: 58 46 23;
+  --color-bad: 225 104 93;
+  --color-bad-soft: 58 33 30;
+}
+
 @layer base {
   body {
     @apply bg-chalk text-ink antialiased;
@@ -12,7 +50,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid #C1531F;
+    outline: 2px solid rgb(var(--color-ember));
     outline-offset: 2px;
   }
 }

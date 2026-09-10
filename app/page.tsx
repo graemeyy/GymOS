@@ -3,13 +3,16 @@
 import React, { useEffect, useState } from "react";
 import { DollarSign, Users, Activity, AlertTriangle, UserCheck, Wrench, ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { useSession } from "@/components/SessionProvider";
 import { Card, PageHeader, StatTile, Badge, LinkButton, EmptyState } from "@/components/ui";
 import { formatCents } from "@/lib/pricing";
 
 export default function DashboardPage() {
+  const { session } = useSession();
   const [stats, setStats] = useState<{ revenueCents: number; activeMembers: number; checkInsToday: number; alerts: number } | null>(null);
   const [checkIns, setCheckIns] = useState<any[]>([]);
   const [equipment, setEquipment] = useState<any[]>([]);
+  const [hideRevenue, setHideRevenue] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,17 +20,20 @@ export default function DashboardPage() {
       fetch("/api/dashboard/stats").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/check-in").then((r) => (r.ok ? r.json() : [])),
       fetch("/api/equipment").then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/settings/features").then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([s, c, e]) => {
+      .then(([s, c, e, features]) => {
         setStats(s);
         setCheckIns(Array.isArray(c) ? c : []);
         setEquipment(Array.isArray(e) ? e : []);
+        setHideRevenue(!!features?.hideRevenueFromFrontDesk);
       })
       .catch((err) => console.error("Failed to load dashboard:", err))
       .finally(() => setLoading(false));
   }, []);
 
   const flaggedEquipment = equipment.filter((e) => e.status !== "OPERATIONAL");
+  const maskRevenue = hideRevenue && session?.role === "FRONT_DESK";
 
   return (
     <AppShell>
@@ -37,7 +43,7 @@ export default function DashboardPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatTile icon={DollarSign} label="Monthly revenue" value={loading || !stats ? "—" : formatCents(stats.revenueCents)} />
+        <StatTile icon={DollarSign} label="Monthly revenue" value={loading || !stats ? "—" : maskRevenue ? "•••••" : formatCents(stats.revenueCents)} />
         <StatTile icon={Users} label="Active members" value={loading || !stats ? "—" : stats.activeMembers.toLocaleString()} />
         <StatTile icon={Activity} label="Check-ins today" value={loading || !stats ? "—" : stats.checkInsToday.toLocaleString()} />
         <StatTile

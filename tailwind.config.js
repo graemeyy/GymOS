@@ -8,28 +8,28 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        chalk: "#F5F3EE",
-        surface: "#FFFFFF",
-        "surface-muted": "#EDEAE2",
-        ink: "#26241F",
-        "ink-soft": "#6F6A61",
-        line: "#E2DCCF",
+        chalk: "rgb(var(--color-chalk) / <alpha-value>)",
+        surface: "rgb(var(--color-surface) / <alpha-value>)",
+        "surface-muted": "rgb(var(--color-surface-muted) / <alpha-value>)",
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
+        "ink-soft": "rgb(var(--color-ink-soft) / <alpha-value>)",
+        line: "rgb(var(--color-line) / <alpha-value>)",
         ember: {
-          DEFAULT: "#C1531F",
-          soft: "#F1DDCE",
-          dark: "#9A4218",
+          DEFAULT: "rgb(var(--color-ember) / <alpha-value>)",
+          soft: "rgb(var(--color-ember-soft) / <alpha-value>)",
+          dark: "rgb(var(--color-ember-dark) / <alpha-value>)",
         },
         good: {
-          DEFAULT: "#3F7A52",
-          soft: "#E1EDE3",
+          DEFAULT: "rgb(var(--color-good) / <alpha-value>)",
+          soft: "rgb(var(--color-good-soft) / <alpha-value>)",
         },
         warn: {
-          DEFAULT: "#B07C22",
-          soft: "#F3E7D2",
+          DEFAULT: "rgb(var(--color-warn) / <alpha-value>)",
+          soft: "rgb(var(--color-warn-soft) / <alpha-value>)",
         },
         bad: {
-          DEFAULT: "#B23B32",
-          soft: "#F3DEDB",
+          DEFAULT: "rgb(var(--color-bad) / <alpha-value>)",
+          soft: "rgb(var(--color-bad-soft) / <alpha-value>)",
         },
       },
       fontFamily: {
