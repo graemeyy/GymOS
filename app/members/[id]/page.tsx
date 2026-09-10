@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, CalendarDays, Clock, CreditCard, KeyRound, ShieldAlert, ListPlus } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, CalendarDays, Clock, CreditCard, KeyRound, ShieldAlert, ListPlus, UserPlus } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Card, PageHeader, Badge, StatTile, EmptyState, LinkButton } from "@/components/ui";
 import { formatCents } from "@/lib/pricing";
@@ -30,6 +31,13 @@ interface WaitlistEntry {
   class: { id: string; name: string; startTime: string };
 }
 
+interface ReferredMember {
+  id: string;
+  name: string | null;
+  email: string;
+  createdAt: string;
+}
+
 interface MemberDetail {
   id: string;
   name: string | null;
@@ -44,6 +52,8 @@ interface MemberDetail {
   payouts: Payout[];
   classBookings: ClassBooking[];
   classWaitlist: WaitlistEntry[];
+  referredBy: { id: string; name: string | null; email: string } | null;
+  referrals: ReferredMember[];
 }
 
 function formatDate(iso: string) {
@@ -114,7 +124,7 @@ export default function MemberDetailPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <StatTile
           icon={ShieldAlert}
           label="Retention score"
@@ -133,6 +143,11 @@ export default function MemberDetailPage() {
           tone={member.keycardIssued ? "good" : "neutral"}
         />
         <StatTile icon={CalendarDays} label="Member since" value={formatDate(member.createdAt)} />
+        <StatTile
+          icon={UserPlus}
+          label="Referred by"
+          value={member.referredBy ? (member.referredBy.name || member.referredBy.email) : "No referral"}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -193,6 +208,25 @@ export default function MemberDetailPage() {
             </ul>
           )}
         </Card>
+
+        {member.referrals.length > 0 && (
+          <Card>
+            <div className="flex items-center gap-2 mb-4">
+              <UserPlus className="w-4.5 h-4.5 text-ink-soft" />
+              <h2 className="font-display text-lg font-medium text-ink">Referred members</h2>
+            </div>
+            <ul className="divide-y divide-line -mx-6">
+              {member.referrals.map((r) => (
+                <li key={r.id} className="flex items-center justify-between px-6 py-3">
+                  <Link href={`/members/${r.id}`} className="text-sm font-medium text-ink hover:text-ember">
+                    {r.name || r.email}
+                  </Link>
+                  <span className="text-xs text-ink-soft">{formatDate(r.createdAt)}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         <Card className="lg:col-span-2">
           <div className="flex items-center gap-2 mb-4">

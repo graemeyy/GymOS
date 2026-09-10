@@ -9,6 +9,7 @@ import { Card, PageHeader, Badge, Button, EmptyState } from "@/components/ui";
 interface Booking {
   id: string;
   memberId: string;
+  status: "BOOKED" | "ATTENDED" | "NO_SHOW";
   member: { id: string; name: string | null; email: string };
 }
 
@@ -135,6 +136,15 @@ export default function ClassesPage() {
     if (res.ok) fetchAll();
   };
 
+  const handleMarkAttendance = async (classId: string, memberId: string, status: "ATTENDED" | "NO_SHOW") => {
+    const res = await fetch(`/api/classes/${classId}/book`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId, status }),
+    });
+    if (res.ok) fetchAll();
+  };
+
   const handleJoinWaitlist = async (classId: string) => {
     if (!selectedMemberId) return;
     const res = await fetch(`/api/classes/${classId}/waitlist`, {
@@ -198,6 +208,7 @@ export default function ClassesPage() {
               (m) => m.status === "ACTIVE" && !bookedIds.has(m.id) && !waitlistedIds.has(m.id)
             );
             const isFull = spotsLeft <= 0;
+            const hasStarted = new Date(cls.startTime).getTime() <= Date.now();
 
             return (
               <Card key={cls.id}>
@@ -235,12 +246,32 @@ export default function ClassesPage() {
                     {cls.bookings.map((b) => (
                       <li key={b.id} className="flex items-center justify-between text-sm">
                         <span className="text-ink">{b.member.name || b.member.email}</span>
-                        <button
-                          onClick={() => handleUnbook(cls.id, b.memberId)}
-                          className="text-xs text-ink-soft hover:text-bad"
-                        >
-                          Remove
-                        </button>
+                        <div className="flex items-center gap-2.5">
+                          {hasStarted && b.status === "BOOKED" && (
+                            <>
+                              <button
+                                onClick={() => handleMarkAttendance(cls.id, b.memberId, "ATTENDED")}
+                                className="text-xs text-good hover:underline"
+                              >
+                                Attended
+                              </button>
+                              <button
+                                onClick={() => handleMarkAttendance(cls.id, b.memberId, "NO_SHOW")}
+                                className="text-xs text-bad hover:underline"
+                              >
+                                No-show
+                              </button>
+                            </>
+                          )}
+                          {b.status === "ATTENDED" && <Badge variant="good">Attended</Badge>}
+                          {b.status === "NO_SHOW" && <Badge variant="bad">No-show</Badge>}
+                          <button
+                            onClick={() => handleUnbook(cls.id, b.memberId)}
+                            className="text-xs text-ink-soft hover:text-bad"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
