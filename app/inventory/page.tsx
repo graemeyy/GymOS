@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Search, Plus, X, Edit2, Trash2, Download, Package, AlertTriangle, Minus } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { useSession } from "@/components/SessionProvider";
@@ -32,6 +32,7 @@ export default function InventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -190,12 +191,28 @@ export default function InventoryPage() {
           <div className="relative max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-soft" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search by name, category, or SKU"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-chalk border border-line rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ember/30"
+              className="w-full bg-chalk border border-line rounded-xl pl-9 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ember/30"
             />
+            {/* Visually 32x32 so it sits inside the 38px-tall input, but the
+                before: pseudo-element widens the tap target to 44x44. */}
+            {query.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  searchInputRef.current?.focus();
+                }}
+                aria-label="Clear search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-lg text-ink-soft hover:bg-surface-muted hover:text-ink focus:outline-none focus:ring-2 focus:ring-ember/30 before:absolute before:-inset-1.5 before:content-['']"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
