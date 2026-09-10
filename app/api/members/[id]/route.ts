@@ -13,6 +13,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
           where: { class: { startTime: { gte: new Date() } } },
           include: { class: { select: { id: true, name: true, startTime: true, instructor: true } } },
         },
+        classWaitlist: {
+          orderBy: { class: { startTime: "asc" } },
+          where: { class: { startTime: { gte: new Date() } } },
+          include: { class: { select: { id: true, name: true, startTime: true } } },
+        },
       },
     });
 

@@ -72,6 +72,8 @@ export async function PUT(request: Request) {
   }
 }
 
+class StripeCancelError extends Error {}
+
 export async function DELETE(request: Request) {
   const denied = await requireRole(request, "MANAGER");
   if (denied) return denied;
@@ -89,27 +91,51 @@ export async function DELETE(request: Request) {
       select: { name: true, email: true, stripeSubscriptionId: true },
     });
 
-    if (existing?.stripeSubscriptionId) {
-      try {
-        await stripe.subscriptions.cancel(existing.stripeSubscriptionId);
-      } catch (stripeError) {
-        console.error("Failed to cancel Stripe subscription:", stripeError);
+    if (!existing) {
+      return NextResponse.json({ error: "Member not found" }, { status: 404 });
+    }
+
+    try {
+      // The Stripe cancel call runs inside the transaction, after clearing
+      // this member's dependent rows but before deleting the member itself.
+      // If it fails, the whole transaction (including the dependent-row
+      // deletes) rolls back, so we never end up with a canceled
+      // subscription attached to a member row that failed to delete.
+      await prisma.$transaction(async (tx) => {
+        await tx.checkIn.deleteMany({ where: { memberId: id } });
+        await tx.payout.deleteMany({ where: { memberId: id } });
+        await tx.classBooking.deleteMany({ where: { memberId: id } });
+        await tx.classWaitlist.deleteMany({ where: { memberId: id } });
+
+        if (existing.stripeSubscriptionId) {
+          try {
+            await stripe.subscriptions.cancel(existing.stripeSubscriptionId);
+          } catch (stripeError) {
+            throw new StripeCancelError(
+              stripeError instanceof Error ? stripeError.message : "Stripe cancel failed"
+            );
+          }
+        }
+
+        await tx.member.delete({ where: { id } });
+      });
+    } catch (err) {
+      if (err instanceof StripeCancelError) {
+        console.error("Failed to cancel Stripe subscription:", err);
         return NextResponse.json(
           { error: "Failed to cancel the member's Stripe subscription; member was not deleted" },
           { status: 502 }
         );
       }
+      throw err;
     }
 
-    await prisma.member.delete({
-      where: { id }
-    });
-
     const session = await getSession(request);
-    await logAction(prisma, session, { action: "member.deleted", targetType: "Member", targetId: id, details: existing ?? undefined });
+    await logAction(prisma, session, { action: "member.deleted", targetType: "Member", targetId: id, details: existing });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Member delete error:", error);
     return NextResponse.json({ error: "Failed to delete member" }, { status: 500 });
   }
 }

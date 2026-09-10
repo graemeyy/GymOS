@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, CalendarDays, Clock, CreditCard, KeyRound, ShieldAlert } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock, CreditCard, KeyRound, ShieldAlert, ListPlus } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Card, PageHeader, Badge, StatTile, EmptyState, LinkButton } from "@/components/ui";
 import { formatCents } from "@/lib/pricing";
@@ -25,6 +25,11 @@ interface ClassBooking {
   class: { id: string; name: string; startTime: string; instructor: string | null };
 }
 
+interface WaitlistEntry {
+  id: string;
+  class: { id: string; name: string; startTime: string };
+}
+
 interface MemberDetail {
   id: string;
   name: string | null;
@@ -38,6 +43,7 @@ interface MemberDetail {
   checkIns: CheckIn[];
   payouts: Payout[];
   classBookings: ClassBooking[];
+  classWaitlist: WaitlistEntry[];
 }
 
 function formatDate(iso: string) {
@@ -151,6 +157,23 @@ export default function MemberDetailPage() {
             </ul>
           )}
         </Card>
+
+        {member.classWaitlist.length > 0 && (
+          <Card>
+            <div className="flex items-center gap-2 mb-4">
+              <ListPlus className="w-4.5 h-4.5 text-ink-soft" />
+              <h2 className="font-display text-lg font-medium text-ink">Waitlisted for</h2>
+            </div>
+            <ul className="divide-y divide-line -mx-6">
+              {member.classWaitlist.map((w) => (
+                <li key={w.id} className="flex items-center justify-between px-6 py-3">
+                  <p className="text-sm font-medium text-ink">{w.class.name}</p>
+                  <span className="text-xs text-ink-soft">{formatDateTime(w.class.startTime)}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         <Card>
           <div className="flex items-center gap-2 mb-4">
