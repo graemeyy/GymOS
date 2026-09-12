@@ -123,24 +123,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-chalk lg:flex">
-      {/* Mobile top bar */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-line bg-surface lg:hidden">
+      {/* Mobile top bar. The theme toggle lives in the drawer only, so the
+          menu button leads here; -ml-2 cancels its padding to keep the icon
+          optically flush with the px-5 page gutter. */}
+      <div className="flex items-center gap-2 px-5 py-4 border-b border-line bg-surface lg:hidden">
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="p-2 -ml-2 text-ink-soft hover:text-ink"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
         <Link href="/" className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-ember flex items-center justify-center">
             <Zap className="w-4 h-4 text-white" />
           </div>
           <span className="font-display font-medium text-ink">GymOS</span>
         </Link>
-        <div className="flex items-center gap-1">
-          <ThemeToggle />
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="p-2 text-ink-soft hover:text-ink"
-            aria-label="Open menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-        </div>
       </div>
 
       {/* Mobile drawer */}
