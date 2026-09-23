@@ -212,3 +212,13 @@ model AuditLog {
   details    Json?
   createdAt  DateTime @default(now())
 }
+
+// Stripe delivers webhooks at-least-once: a slow, failing or timed-out
+// response gets the same event redelivered, even if the work already ran.
+// Each event id is recorded here in the same transaction as its handler, so a
+// redelivery hits the primary key and is skipped instead of writing twice.
+model ProcessedWebhookEvent {
+  id        String   @id
+  type      String
+  createdAt DateTime @default(now())
+}
