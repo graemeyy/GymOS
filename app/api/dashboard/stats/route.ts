@@ -1,30 +1,31 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getPlanPrices } from "@/lib/pricing";
+import { staffRoute, json } from "@/lib/http/route";
+import { can } from "@/lib/auth/permissions";
+import { hideRevenueFromFrontDesk } from "@/lib/auth/session";
+import { monthlyEquivalentCents } from "@/lib/money";
+import { startOfTodayIn } from "@/lib/dates";
+import { gym } from "@/lib/config";
 
-export async function GET() {
-  try {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const [activeMembers, equipmentAlerts, atRiskMembers, checkInsToday, planPrices] = await Promise.all([
-      prisma.member.findMany({ where: { status: "ACTIVE" }, select: { plan: true } }),
-      prisma.equipment.count({ where: { status: { in: ["WARNING", "OFFLINE"] } } }),
-      prisma.member.count({ where: { status: "ACTIVE", retentionScore: { lt: 40 } } }),
-      prisma.checkIn.count({ where: { timestamp: { gte: startOfDay } } }),
-      getPlanPrices(prisma),
-    ]);
-
-    const revenueCents = activeMembers.reduce((sum, m) => sum + (planPrices[m.plan] ?? 0), 0);
-
-    return NextResponse.json({
-      revenueCents,
-      activeMembers: activeMembers.length,
-      checkInsToday,
-      alerts: equipmentAlerts + atRiskMembers,
-    });
-  } catch (error) {
-    console.error("Dashboard stats error:", error);
-    return NextResponse.json({ error: "Failed to load dashboard stats" }, { status: 500 });
-  }
-}
+export const GET = staffRoute({ permission: "dashboard:view" }, async ({ db, staff }) => {
+  const startOfDay = startOfTodayIn(gym.business.timezone);
+  const [active, equipmentAlerts, atRisk, checkInsToday, pastDue] = await Promise.all([
+    db.member.findMany({ where: { status: "ACTIVE", archivedAt: null }, select: { membershipPlan: { select: { priceCents: true, interval: true } } } }),
+    db.equipment.count({ where: { status: { in: ["WARNING", "OFFLINE"] } } }),
+    db.member.count({ where: { status: "ACTIVE", archivedAt: null, retentionScore: { lt: 40 } } }),
+    db.checkIn.count({ where: { timestamp: { gte: startOfDay } } }),
+    db.member.count({ where: { status: "PAST_DUE", archivedAt: null } }),
+  ]);
+  const showRevenue = can(staff.role, "revenue:view", { hideRevenueFromFrontDesk: await hideRevenueFromFrontDesk(db) });
+  // Estimated from each active member's current plan price, as a monthly figure.
+  const mrrCents = active.reduce(
+    (sum, m) => sum + (m.membershipPlan ? monthlyEquivalentCents(m.membershipPlan.priceCents, m.membershipPlan.interval) : 0),
+    0
+  );
+  return json({
+    activeMembers: active.length,
+    checkInsToday,
+    pastDue,
+    atRisk,
+    equipmentAlerts,
+    mrrCents: showRevenue ? mrrCents : null,
+  });
+});

@@ -1,62 +1,26 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getSession, requireRole } from "@/lib/auth";
+import { z } from "zod";
+import { staffRoute, json, zEmail, zName, zPassword } from "@/lib/http/route";
+import { ApiError } from "@/lib/http/errors";
 import { logAction } from "@/lib/audit";
-import { hashPassword } from "@/lib/password";
-import type { StaffRoleName } from "@/lib/roles";
+import { hashPassword } from "@/lib/auth/password";
+import { STAFF_ROLES } from "@/lib/auth/permissions";
 
-const VALID_ROLES: StaffRoleName[] = ["OWNER", "MANAGER", "FRONT_DESK"];
+const select = { id: true, name: true, email: true, role: true, createdAt: true } as const;
 
-export async function GET(request: Request) {
-  const denied = await requireRole(request, "MANAGER");
-  if (denied) return denied;
+export const GET = staffRoute({ permission: "staff:read" }, async ({ db }) => {
+  return json(await db.staff.findMany({ orderBy: { createdAt: "asc" }, select }));
+});
 
-  const staff = await prisma.staff.findMany({
-    orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
-  });
-  return NextResponse.json(staff);
-}
+const Body = z.object({ name: zName, email: zEmail, password: zPassword, role: z.enum(STAFF_ROLES) });
 
-export async function POST(request: Request) {
-  const denied = await requireRole(request, "OWNER");
-  if (denied) return denied;
-
-  try {
-    const body = await request.json();
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
-    const email = typeof body?.email === "string" ? body.email.toLowerCase().trim() : "";
-    const password = typeof body?.password === "string" ? body.password : "";
-    const role = body?.role as StaffRoleName;
-
-    if (!name || !email || password.length < 8 || !VALID_ROLES.includes(role)) {
-      return NextResponse.json(
-        { error: "Name, email, a valid role, and a password of at least 8 characters are required" },
-        { status: 400 }
-      );
-    }
-
-    const existing = await prisma.staff.findUnique({ where: { email } });
-    if (existing) {
-      return NextResponse.json({ error: "A staff account with that email already exists" }, { status: 409 });
-    }
-
-    const staff = await prisma.staff.create({
-      data: { name, email, role, passwordHash: await hashPassword(password) },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
-    });
-
-    const session = await getSession(request);
-    await logAction(prisma, session, {
-      action: "staff.created",
-      targetType: "Staff",
-      targetId: staff.id,
-      details: { name, email, role },
-    });
-
-    return NextResponse.json(staff, { status: 201 });
-  } catch (error) {
-    console.error("Staff create error:", error);
-    return NextResponse.json({ error: "Failed to create staff account" }, { status: 500 });
+export const POST = staffRoute({ permission: "staff:manage", body: Body }, async ({ body, db, staff }) => {
+  if (await db.staff.findUnique({ where: { email: body.email } })) {
+    throw new ApiError("conflict", "A staff account with that email already exists.", { email: "Already in use" });
   }
-}
+  const created = await db.staff.create({
+    data: { name: body.name, email: body.email, role: body.role, passwordHash: await hashPassword(body.password) },
+    select,
+  });
+  await logAction(db, staff, { action: "staff.created", targetType: "Staff", targetId: created.id, details: { name: body.name, email: body.email, role: body.role } });
+  return json(created, 201);
+});

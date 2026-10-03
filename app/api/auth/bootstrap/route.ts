@@ -1,44 +1,29 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/password";
+import { z } from "zod";
+import { publicRoute, json, zEmail, zName, zPassword } from "@/lib/http/route";
+import { ApiError } from "@/lib/http/errors";
+import { hashPassword } from "@/lib/auth/password";
 import { logAction } from "@/lib/audit";
+import { RATE_LIMITS } from "@/lib/rate-limit";
 
-// Only ever creates the very first staff account, as OWNER. Once any staff
-// account exists, this permanently refuses — it is not a general "create
-// staff" endpoint (that's POST /api/staff, which requires an OWNER session).
-export async function GET() {
-  const count = await prisma.staff.count();
-  return NextResponse.json({ needsSetup: count === 0 });
-}
+export const GET = publicRoute({}, async ({ db }) => json({ needsSetup: (await db.staff.count()) === 0 }));
 
-export async function POST(request: Request) {
-  const existing = await prisma.staff.count();
-  if (existing > 0) {
-    return NextResponse.json({ error: "Setup has already been completed" }, { status: 409 });
-  }
+const Body = z.object({ name: zName, email: zEmail, password: zPassword });
 
-  const body = await request.json().catch(() => null);
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
-  const email = typeof body?.email === "string" ? body.email.toLowerCase().trim() : "";
-  const password = typeof body?.password === "string" ? body.password : "";
-
-  if (!name || !email || password.length < 8) {
-    return NextResponse.json(
-      { error: "Name, email, and a password of at least 8 characters are required" },
-      { status: 400 }
-    );
-  }
-
-  const staff = await prisma.staff.create({
-    data: { name, email, passwordHash: await hashPassword(password), role: "OWNER" },
+// Creates the very first staff account, as OWNER, and then refuses forever.
+// An advisory lock serialises two simultaneous first-run requests.
+export const POST = publicRoute({ body: Body, rateLimit: RATE_LIMITS.bootstrap }, async ({ body, db }) => {
+  const passwordHash = await hashPassword(body.password);
+  const staff = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(424242)`;
+    if ((await tx.staff.count()) > 0) throw new ApiError("conflict", "Setup has already been completed.");
+    const created = await tx.staff.create({ data: { name: body.name, email: body.email, passwordHash, role: "OWNER" } });
+    await logAction(tx, { kind: "staff", id: created.id, name: created.name, role: "OWNER" }, {
+      action: "staff.created",
+      targetType: "Staff",
+      targetId: created.id,
+      details: { role: "OWNER", note: "Initial setup" },
+    });
+    return created;
   });
-
-  await logAction(prisma, { staffId: staff.id, name: staff.name, role: "OWNER", exp: 0 }, {
-    action: "staff.created",
-    targetType: "Staff",
-    targetId: staff.id,
-    details: { role: "OWNER", note: "Initial setup" },
-  });
-
-  return NextResponse.json({ success: true });
-}
+  return json({ id: staff.id }, 201);
+});

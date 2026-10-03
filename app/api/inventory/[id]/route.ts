@@ -1,124 +1,42 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getSession, requireRole } from "@/lib/auth";
+import { z } from "zod";
+import { staffRoute, json } from "@/lib/http/route";
+import { ApiError } from "@/lib/http/errors";
 import { logAction } from "@/lib/audit";
+import { InventoryBody } from "@/lib/inventory/schema";
 
-// Stock adjustments are a front-desk action (selling a drink, restocking a
-// shelf); editing the item record itself is a manager action.
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const denied = await requireRole(request, "FRONT_DESK");
-  if (denied) return denied;
+const AdjustBody = z.object({ delta: z.number().int().min(-10_000).max(10_000).refine((d) => d !== 0, "Must not be zero") });
 
-  try {
-    const { delta } = await request.json();
-    const change = Math.round(Number(delta));
-
-    if (!Number.isFinite(change) || change === 0) {
-      return NextResponse.json({ error: "A non-zero delta is required" }, { status: 400 });
-    }
-
-    // Guarded atomic update: the `quantity` condition makes the read and the
-    // write one operation, so concurrent adjustments can't oversell stock.
-    const result = await prisma.inventoryItem.updateMany({
-      where: { id: params.id, quantity: { gte: change < 0 ? -change : 0 } },
-      data: { quantity: { increment: change } },
-    });
-
-    if (result.count === 0) {
-      const exists = await prisma.inventoryItem.findUnique({ where: { id: params.id } });
-      if (!exists) {
-        return NextResponse.json({ error: "Item not found" }, { status: 404 });
-      }
-      return NextResponse.json({ error: "Not enough stock on hand" }, { status: 400 });
-    }
-
-    const item = await prisma.inventoryItem.findUnique({ where: { id: params.id } });
-
-    const session = await getSession(request);
-    await logAction(prisma, session, {
-      action: "inventory.adjusted",
-      targetType: "InventoryItem",
-      targetId: params.id,
-      details: { name: item?.name, delta: change, quantity: item?.quantity },
-    });
-
-    return NextResponse.json(item);
-  } catch (error) {
-    console.error("Inventory adjust error:", error);
-    return NextResponse.json({ error: "Failed to adjust stock" }, { status: 500 });
+// Stock adjustments are a front-desk action; editing the item is a manager's.
+export const PATCH = staffRoute({ permission: "inventory:adjust", body: AdjustBody }, async ({ params, body, db, staff }) => {
+  // The quantity condition makes check-and-write one atomic statement.
+  const result = await db.inventoryItem.updateMany({
+    where: { id: params.id, quantity: { gte: body.delta < 0 ? -body.delta : 0 } },
+    data: { quantity: { increment: body.delta } },
+  });
+  if (result.count === 0) {
+    const exists = await db.inventoryItem.findUnique({ where: { id: params.id }, select: { id: true } });
+    throw exists ? new ApiError("conflict", "Not enough stock on hand.") : new ApiError("not_found", "Item not found.");
   }
-}
+  const item = await db.inventoryItem.findUniqueOrThrow({ where: { id: params.id } });
+  await logAction(db, staff, { action: "inventory.adjusted", targetType: "InventoryItem", targetId: params.id, details: { name: item.name, delta: body.delta, quantity: item.quantity } });
+  return json(item);
+});
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
-  const denied = await requireRole(request, "MANAGER");
-  if (denied) return denied;
-
-  try {
-    const body = await request.json();
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
-    const sku = typeof body?.sku === "string" ? body.sku.trim() : "";
-
-    if (!name) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
-    }
-
-    if (sku) {
-      const clash = await prisma.inventoryItem.findUnique({ where: { sku } });
-      if (clash && clash.id !== params.id) {
-        return NextResponse.json({ error: "An item with that SKU already exists" }, { status: 409 });
-      }
-    }
-
-    const item = await prisma.inventoryItem.update({
-      where: { id: params.id },
-      data: {
-        name,
-        category: body.category?.trim() || null,
-        sku: sku || null,
-        quantity: Number.isFinite(Number(body.quantity)) ? Math.max(0, Math.round(Number(body.quantity))) : undefined,
-        reorderLevel: Number.isFinite(Number(body.reorderLevel)) ? Math.max(0, Math.round(Number(body.reorderLevel))) : undefined,
-        unitCostCents: body.unitCostCents != null ? Math.max(0, Math.round(Number(body.unitCostCents))) : null,
-      },
-    });
-
-    const session = await getSession(request);
-    await logAction(prisma, session, {
-      action: "inventory.updated",
-      targetType: "InventoryItem",
-      targetId: item.id,
-      details: { name: item.name, quantity: item.quantity, reorderLevel: item.reorderLevel },
-    });
-
-    return NextResponse.json(item);
-  } catch (error) {
-    console.error("Inventory update error:", error);
-    return NextResponse.json({ error: "Failed to update item" }, { status: 500 });
+export const PUT = staffRoute({ permission: "inventory:manage", body: InventoryBody }, async ({ params, body, db, staff }) => {
+  const sku = body.sku || null;
+  if (sku) {
+    const clash = await db.inventoryItem.findUnique({ where: { sku } });
+    if (clash && clash.id !== params.id) throw new ApiError("conflict", "An item with that SKU already exists.", { sku: "Already in use" });
   }
-}
+  const item = await db.inventoryItem.update({ where: { id: params.id }, data: { ...body, sku, category: body.category || null } });
+  await logAction(db, staff, { action: "inventory.updated", targetType: "InventoryItem", targetId: item.id, details: { name: item.name, quantity: item.quantity } });
+  return json(item);
+});
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const denied = await requireRole(request, "MANAGER");
-  if (denied) return denied;
-
-  try {
-    const existing = await prisma.inventoryItem.findUnique({ where: { id: params.id } });
-    if (!existing) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
-    }
-
-    await prisma.inventoryItem.delete({ where: { id: params.id } });
-
-    const session = await getSession(request);
-    await logAction(prisma, session, {
-      action: "inventory.deleted",
-      targetType: "InventoryItem",
-      targetId: params.id,
-      details: { name: existing.name, quantity: existing.quantity },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Inventory delete error:", error);
-    return NextResponse.json({ error: "Failed to delete item" }, { status: 500 });
-  }
-}
+export const DELETE = staffRoute({ permission: "inventory:manage" }, async ({ params, db, staff }) => {
+  const existing = await db.inventoryItem.findUnique({ where: { id: params.id } });
+  if (!existing) throw new ApiError("not_found", "Item not found.");
+  await db.inventoryItem.delete({ where: { id: params.id } });
+  await logAction(db, staff, { action: "inventory.deleted", targetType: "InventoryItem", targetId: params.id, details: { name: existing.name, quantity: existing.quantity } });
+  return json({ ok: true });
+});

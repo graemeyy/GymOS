@@ -1,61 +1,29 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getSession, requireRole } from "@/lib/auth";
+import { z } from "zod";
+import { staffRoute, json, zId } from "@/lib/http/route";
+import { ApiError } from "@/lib/http/errors";
 import { logAction } from "@/lib/audit";
 
-export async function GET() {
-  try {
-    const shifts = await prisma.shift.findMany({
-      where: { startTime: { gte: new Date(Date.now() - 60 * 60 * 1000) } },
-      orderBy: { startTime: "asc" },
-      include: { staff: { select: { id: true, name: true, role: true } } },
-    });
-    return NextResponse.json(shifts);
-  } catch (error) {
-    console.error("Shifts fetch error:", error);
-    return NextResponse.json({ error: "Failed to fetch shifts" }, { status: 500 });
-  }
-}
+export const GET = staffRoute({ permission: "shifts:read" }, async ({ db }) => {
+  const shifts = await db.shift.findMany({
+    where: { startTime: { gte: new Date(Date.now() - 60 * 60 * 1000) } },
+    orderBy: { startTime: "asc" },
+    include: { staff: { select: { id: true, name: true, role: true } } },
+  });
+  return json(shifts);
+});
 
-export async function POST(request: Request) {
-  const denied = await requireRole(request, "MANAGER");
-  if (denied) return denied;
+const Body = z
+  .object({ staffId: zId, startTime: z.coerce.date(), endTime: z.coerce.date(), notes: z.string().trim().max(500).nullable().optional() })
+  .refine((b) => b.endTime > b.startTime, { message: "End time must be after start time", path: ["endTime"] })
+  .refine((b) => b.endTime.getTime() - b.startTime.getTime() <= 16 * 60 * 60 * 1000, { message: "A shift can't be longer than 16 hours", path: ["endTime"] });
 
-  try {
-    const body = await request.json();
-    const { staffId, startTime, endTime, notes } = body;
-
-    if (!staffId || !startTime || !endTime) {
-      return NextResponse.json({ error: "Staff member, start time, and end time are required" }, { status: 400 });
-    }
-
-    const start = new Date(startTime);
-    const end = new Date(endTime);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
-      return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
-    }
-
-    const staff = await prisma.staff.findUnique({ where: { id: staffId }, select: { name: true } });
-    if (!staff) {
-      return NextResponse.json({ error: "Staff member not found" }, { status: 404 });
-    }
-
-    const shift = await prisma.shift.create({
-      data: { staffId, startTime: start, endTime: end, notes: notes || null },
-      include: { staff: { select: { id: true, name: true, role: true } } },
-    });
-
-    const session = await getSession(request);
-    await logAction(prisma, session, {
-      action: "shift.created",
-      targetType: "Shift",
-      targetId: shift.id,
-      details: { staffName: staff.name, startTime: start, endTime: end },
-    });
-
-    return NextResponse.json(shift, { status: 201 });
-  } catch (error) {
-    console.error("Shift create error:", error);
-    return NextResponse.json({ error: "Failed to create shift" }, { status: 500 });
-  }
-}
+export const POST = staffRoute({ permission: "shifts:manage", body: Body }, async ({ body, db, staff }) => {
+  const member = await db.staff.findUnique({ where: { id: body.staffId }, select: { name: true } });
+  if (!member) throw new ApiError("not_found", "Staff member not found.");
+  const shift = await db.shift.create({
+    data: { ...body, notes: body.notes || null },
+    include: { staff: { select: { id: true, name: true, role: true } } },
+  });
+  await logAction(db, staff, { action: "shift.created", targetType: "Shift", targetId: shift.id, details: { staffName: member.name, startTime: body.startTime.toISOString() } });
+  return json(shift, 201);
+});

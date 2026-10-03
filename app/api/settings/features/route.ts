@@ -1,45 +1,18 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getSession, requireRole } from "@/lib/auth";
+import { z } from "zod";
+import { staffRoute, json } from "@/lib/http/route";
 import { logAction } from "@/lib/audit";
 
-export async function GET() {
-  try {
-    const settings = await prisma.gymSettings.findUnique({ where: { id: "singleton" } });
-    return NextResponse.json(
-      settings || { id: "singleton", requireKeycardForEntry: false, hideRevenueFromFrontDesk: false }
-    );
-  } catch (error) {
-    console.error("Feature settings fetch error:", error);
-    return NextResponse.json({ error: "Failed to fetch feature settings" }, { status: 500 });
-  }
-}
+const DEFAULTS = { requireKeycardForEntry: false, hideRevenueFromFrontDesk: false };
 
-export async function PUT(request: Request) {
-  const denied = await requireRole(request, "OWNER");
-  if (denied) return denied;
+export const GET = staffRoute({ permission: "dashboard:view" }, async ({ db }) => {
+  const settings = await db.gymSettings.findUnique({ where: { id: "singleton" } });
+  return json({ ...DEFAULTS, ...(settings ?? {}) });
+});
 
-  try {
-    const body = await request.json();
-    const requireKeycardForEntry = !!body.requireKeycardForEntry;
-    const hideRevenueFromFrontDesk = !!body.hideRevenueFromFrontDesk;
+const Body = z.object({ requireKeycardForEntry: z.boolean(), hideRevenueFromFrontDesk: z.boolean() });
 
-    const settings = await prisma.gymSettings.upsert({
-      where: { id: "singleton" },
-      update: { requireKeycardForEntry, hideRevenueFromFrontDesk },
-      create: { id: "singleton", requireKeycardForEntry, hideRevenueFromFrontDesk },
-    });
-
-    const session = await getSession(request);
-    await logAction(prisma, session, {
-      action: "settings.features_updated",
-      targetType: "GymSettings",
-      details: { requireKeycardForEntry, hideRevenueFromFrontDesk },
-    });
-
-    return NextResponse.json(settings);
-  } catch (error) {
-    console.error("Feature settings update error:", error);
-    return NextResponse.json({ error: "Failed to update feature settings" }, { status: 500 });
-  }
-}
+export const PUT = staffRoute({ permission: "settings:manage", body: Body }, async ({ body, db, staff }) => {
+  const settings = await db.gymSettings.upsert({ where: { id: "singleton" }, update: body, create: { id: "singleton", ...body } });
+  await logAction(db, staff, { action: "settings.features_updated", targetType: "GymSettings", details: body });
+  return json(settings);
+});
