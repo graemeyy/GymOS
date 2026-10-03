@@ -1,4 +1,6 @@
-// Deployment Trigger: Linking Vercel Postgres and DATABASE_URL verified.
+// GymOS data model. Money is stored as integer cents in AUD. Prices are
+// GST-inclusive; GST is derived (1/11 of an inclusive amount) and stored on
+// payment records so reports don't depend on today's rate.
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,6 +10,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Legacy fixed plan list. Kept so older rows and a rollback still work;
+// new code reads Member.planId -> MembershipPlan instead.
 enum Plan {
   BASIC
   PREMIUM
@@ -15,6 +19,7 @@ enum Plan {
   ELITE
 }
 
+// Database identifiers keep their original spelling; the UI says "Cancelled".
 enum Status {
   ACTIVE
   PAUSED
@@ -28,27 +33,57 @@ enum EquipmentStatus {
   OFFLINE
 }
 
+enum BillingInterval {
+  WEEK
+  FORTNIGHT
+  MONTH
+  YEAR
+}
+
+model MembershipPlan {
+  id            String          @id @default(cuid())
+  slug          String          @unique
+  name          String
+  description   String?
+  priceCents    Int
+  interval      BillingInterval @default(MONTH)
+  stripePriceId String?         @unique
+  active        Boolean         @default(true)
+  sortOrder     Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  members       Member[]
+}
+
 model Member {
-  id               String    @id @default(cuid())
-  email            String    @unique
-  name             String?
-  stripeCustomerId String?   @unique
-  stripeSubscriptionId String? @unique
-  plan             Plan      @default(BASIC)
-  status           Status    @default(ACTIVE)
-  keycardIssued    Boolean   @default(false)
-  lastCheckIn      DateTime?
-  retentionScore   Int       @default(100)
-  notes            String?
-  referredById     String?
-  referredBy       Member?   @relation("MemberReferrals", fields: [referredById], references: [id], onDelete: SetNull)
-  referrals        Member[]  @relation("MemberReferrals")
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  checkIns         CheckIn[]
-  payouts          Payout[]
-  classBookings    ClassBooking[]
-  classWaitlist    ClassWaitlist[]
+  id                   String          @id @default(cuid())
+  email                String          @unique
+  name                 String?
+  stripeCustomerId     String?         @unique
+  stripeSubscriptionId String?         @unique
+  plan                 Plan            @default(BASIC)
+  planId               String?
+  membershipPlan       MembershipPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  status               Status          @default(ACTIVE)
+  keycardIssued        Boolean         @default(false)
+  lastCheckIn          DateTime?
+  retentionScore       Int             @default(100)
+  notes                String?
+  passwordHash         String?
+  sessionVersion       Int             @default(0)
+  archivedAt           DateTime?
+  referredById         String?
+  referredBy           Member?         @relation("MemberReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals            Member[]        @relation("MemberReferrals")
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  checkIns             CheckIn[]
+  payments             Payment[]
+  classBookings        ClassBooking[]
+  classWaitlist        ClassWaitlist[]
+
+  @@index([status])
+  @@index([planId])
 }
 
 model CheckIn {
@@ -57,31 +92,43 @@ model CheckIn {
   member    Member   @relation(fields: [memberId], references: [id])
   location  String   @default("Main Entrance")
   timestamp DateTime @default(now())
+
+  @@index([memberId, timestamp])
+  @@index([timestamp])
 }
 
-model Payout {
-  id        String   @id @default(cuid())
-  memberId  String
-  member    Member   @relation(fields: [memberId], references: [id])
-  amount    Int
-  currency  String   @default("usd")
-  status    String
-  createdAt DateTime @default(now())
+// Money received from a member. The table is still called "Payout" in the
+// database (the original, misleading name); @@map keeps that without a rename.
+model Payment {
+  id              String   @id @default(cuid())
+  memberId        String
+  member          Member   @relation(fields: [memberId], references: [id])
+  amount          Int
+  gstCents        Int      @default(0)
+  currency        String   @default("aud")
+  status          String
+  stripeInvoiceId String?  @unique
+  description     String?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([memberId, createdAt])
+  @@map("Payout")
 }
 
 model Equipment {
-  id                  String          @id @default(cuid())
-  name                String
-  serialNumber        String?         @unique
-  status              EquipmentStatus @default(OPERATIONAL)
-  healthScore         Float           @default(1.0)
-  failureProbability  Float           @default(0.0)
-  lastServicedAt      DateTime?
+  id                   String          @id @default(cuid())
+  name                 String
+  serialNumber         String?         @unique
+  status               EquipmentStatus @default(OPERATIONAL)
+  healthScore          Float           @default(1.0)
+  failureProbability   Float           @default(0.0)
+  lastServicedAt       DateTime?
   predictedFailureDate DateTime?
-  partNeeded          String?
-  estimatedCost       Int?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @default(now()) @updatedAt
+  partNeeded           String?
+  estimatedCost        Int?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @default(now()) @updatedAt
 }
 
 enum ActionStatus {
@@ -90,6 +137,7 @@ enum ActionStatus {
   REJECTED
 }
 
+// Approval queue. Currently used for equipment purchase orders.
 model AgentAction {
   id          String       @id @default(cuid())
   title       String
@@ -102,15 +150,17 @@ model AgentAction {
 }
 
 model Class {
-  id              String         @id @default(cuid())
+  id              String          @id @default(cuid())
   name            String
   instructor      String?
   startTime       DateTime
-  durationMinutes Int            @default(45)
-  capacity        Int            @default(20)
-  createdAt       DateTime       @default(now())
+  durationMinutes Int             @default(45)
+  capacity        Int             @default(20)
+  createdAt       DateTime        @default(now())
   bookings        ClassBooking[]
   waitlist        ClassWaitlist[]
+
+  @@index([startTime])
 }
 
 enum BookingStatus {
@@ -129,6 +179,7 @@ model ClassBooking {
   createdAt DateTime      @default(now())
 
   @@unique([classId, memberId])
+  @@index([memberId])
 }
 
 model ClassWaitlist {
@@ -142,12 +193,14 @@ model ClassWaitlist {
   @@unique([classId, memberId])
 }
 
+// Legacy: monthly price per enum plan. Superseded by MembershipPlan.priceCents.
 model PlanPrice {
-  plan      Plan     @id
+  plan       Plan     @id
   priceCents Int
-  updatedAt DateTime @updatedAt
+  updatedAt  DateTime @updatedAt
 }
 
+// Legacy: gym details now live in config/gym.config.json.
 model GymProfile {
   id       String  @id @default("singleton")
   gymName  String  @default("GymOS")
@@ -177,18 +230,20 @@ enum StaffRole {
   OWNER
   MANAGER
   FRONT_DESK
+  TRAINER
 }
 
 model Staff {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String
-  passwordHash String
-  role         StaffRole @default(FRONT_DESK)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  auditLogs    AuditLog[]
-  shifts       Shift[]
+  id             String     @id @default(cuid())
+  email          String     @unique
+  name           String
+  passwordHash   String
+  role           StaffRole  @default(FRONT_DESK)
+  sessionVersion Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  auditLogs      AuditLog[]
+  shifts         Shift[]
 }
 
 model Shift {
@@ -199,6 +254,8 @@ model Shift {
   endTime   DateTime
   notes     String?
   createdAt DateTime @default(now())
+
+  @@index([startTime])
 }
 
 model AuditLog {
@@ -211,4 +268,20 @@ model AuditLog {
   targetId   String?
   details    Json?
   createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Stripe event IDs already processed, so webhook retries are no-ops.
+model StripeEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
+}
+
+// Fixed-window rate limit counters, shared across serverless instances.
+model RateLimit {
+  key         String   @id
+  windowStart DateTime
+  count       Int      @default(0)
 }
