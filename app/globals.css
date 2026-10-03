@@ -2,56 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Color tokens as "R G B" triplets so Tailwind's opacity modifiers
-   (e.g. bg-ember/30) keep working via rgb(var(--x) / <alpha-value>). */
+/* Design tokens. Values are "R G B" so Tailwind opacity modifiers work.
+   Palette: "plate blue" (competition 20 kg bumper) for actions, "plate
+   yellow" (15 kg) for the one highlight, plate red for errors, cool concrete
+   neutrals. Contrast pairs are listed in docs/DESIGN.md. */
 :root {
-  --color-chalk: 245 243 238;
-  --color-surface: 255 255 255;
-  --color-surface-muted: 237 234 226;
-  --color-ink: 38 36 31;
-  --color-ink-soft: 111 106 97;
-  --color-line: 226 220 207;
-  --color-ember: 193 83 31;
-  --color-ember-soft: 241 221 206;
-  --color-ember-dark: 154 66 24;
-  --color-good: 63 122 82;
-  --color-good-soft: 225 237 227;
-  --color-warn: 176 124 34;
-  --color-warn-soft: 243 231 210;
-  --color-bad: 178 59 50;
-  --color-bad-soft: 243 222 219;
+  color-scheme: light;
+  --floor: 239 241 239;
+  --surface: 255 255 255;
+  --sunken: 227 231 231;
+  --ink: 21 25 28;
+  --ink-soft: 86 95 102;
+  --line: 213 218 220;
+  --line-strong: 160 169 174;
+  --plate: 31 90 166;
+  --plate-hover: 24 72 135;
+  --plate-tint: 222 232 246;
+  --plate-ink: 255 255 255;
+  --chalk: 242 194 48;
+  --chalk-tint: 252 241 204;
+  --good: 39 107 67;
+  --good-tint: 223 240 229;
+  --warn: 122 91 0;
+  --warn-tint: 250 238 200;
+  --bad: 169 38 33;
+  --bad-tint: 250 226 224;
+  --scrim: 21 25 28;
+  --shadow: 21 25 28;
+  --board: 21 25 28;
+  --board-ink: 239 241 239;
+  --board-soft: 176 186 192;
 }
 
-[data-theme="dark"] {
-  --color-chalk: 28 26 22;
-  --color-surface: 36 33 25;
-  --color-surface-muted: 46 42 34;
-  --color-ink: 241 238 231;
-  --color-ink-soft: 168 161 150;
-  --color-line: 58 54 44;
-  --color-ember: 226 121 74;
-  --color-ember-soft: 61 42 30;
-  --color-ember-dark: 244 180 140;
-  --color-good: 111 191 134;
-  --color-good-soft: 30 51 36;
-  --color-warn: 224 172 76;
-  --color-warn-soft: 58 46 23;
-  --color-bad: 225 104 93;
-  --color-bad-soft: 58 33 30;
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --floor: 18 22 25;
+  --surface: 26 31 35;
+  --sunken: 33 40 45;
+  --ink: 232 236 238;
+  --ink-soft: 154 165 172;
+  --line: 47 55 61;
+  --line-strong: 84 96 104;
+  --plate: 127 170 240;
+  --plate-hover: 160 192 245;
+  --plate-tint: 30 44 66;
+  --plate-ink: 18 22 25;
+  --chalk: 242 194 48;
+  --chalk-tint: 58 48 18;
+  --good: 111 203 147;
+  --good-tint: 24 48 34;
+  --warn: 240 200 90;
+  --warn-tint: 56 46 16;
+  --bad: 240 122 114;
+  --bad-tint: 62 30 28;
+  --scrim: 0 0 0;
+  --shadow: 0 0 0;
+  --board: 9 12 14;
+  --board-ink: 232 236 238;
+  --board-soft: 154 165 172;
 }
 
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    @apply bg-chalk text-ink antialiased;
+    @apply bg-floor font-sans text-base text-ink antialiased;
+    font-feature-settings: "kern";
+  }
+
+  h1, h2, h3 {
+    @apply font-display font-semibold text-ink;
+    letter-spacing: 0.005em;
+  }
+
+  /* Money and counts line up in tables and the scoreboard. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 
   ::selection {
-    @apply bg-ember-soft text-ember-dark;
+    @apply bg-chalk text-ink;
   }
 
   :focus-visible {
-    outline: 2px solid rgb(var(--color-ember));
+    outline: 3px solid rgb(var(--plate));
     outline-offset: 2px;
+  }
+
+  [hidden] {
+    display: none !important;
   }
 }
 
@@ -60,5 +101,6 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

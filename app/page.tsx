@@ -1,126 +1,114 @@
-"use client";
+import Link from "next/link";
+import { gym, formatAddress } from "@/lib/config";
+import { listPlans, benefitsForSlug } from "@/lib/plans";
+import { formatAud, INTERVAL_LABELS } from "@/lib/money";
+import { Wordmark } from "@/components/ui/logo";
+import { LinkButton } from "@/components/ui/primitives";
 
-import React, { useEffect, useState } from "react";
-import { DollarSign, Users, Activity, AlertTriangle, UserCheck, Wrench, ArrowRight } from "lucide-react";
-import { AppShell } from "@/components/AppShell";
-import { useSession } from "@/components/SessionProvider";
-import { Card, PageHeader, StatTile, Badge, LinkButton, EmptyState } from "@/components/ui";
-import { formatCents } from "@/lib/pricing";
+export const dynamic = "force-dynamic";
 
-export default function DashboardPage() {
-  const { session } = useSession();
-  const [stats, setStats] = useState<{ revenueCents: number; activeMembers: number; checkInsToday: number; alerts: number } | null>(null);
-  const [checkIns, setCheckIns] = useState<any[]>([]);
-  const [equipment, setEquipment] = useState<any[]>([]);
-  const [hideRevenue, setHideRevenue] = useState(false);
-  const [loading, setLoading] = useState(true);
+const DAY_NAMES = { mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" } as const;
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/dashboard/stats").then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/check-in").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/equipment").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/settings/features").then((r) => (r.ok ? r.json() : null)),
-    ])
-      .then(([s, c, e, features]) => {
-        setStats(s);
-        setCheckIns(Array.isArray(c) ? c : []);
-        setEquipment(Array.isArray(e) ? e : []);
-        setHideRevenue(!!features?.hideRevenueFromFrontDesk);
-      })
-      .catch((err) => console.error("Failed to load dashboard:", err))
-      .finally(() => setLoading(false));
-  }, []);
+function to12h(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  const suffix = h >= 12 ? "pm" : "am";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return m === 0 ? `${hour}${suffix}` : `${hour}:${String(m).padStart(2, "0")}${suffix}`;
+}
 
-  const flaggedEquipment = equipment.filter((e) => e.status !== "OPERATIONAL");
-  const maskRevenue = hideRevenue && session?.role === "FRONT_DESK";
+async function loadPlans() {
+  try {
+    return await listPlans();
+  } catch {
+    // Database unavailable: fall back to the plans in config so the page renders.
+    return gym.plans.map((p, i) => ({ id: p.slug, slug: p.slug, name: p.name, description: p.description, priceCents: p.priceCents, interval: p.interval, active: true, sortOrder: i }));
+  }
+}
 
+export default async function HomePage() {
+  const plans = await loadPlans();
   return (
-    <AppShell>
-      <PageHeader
-        title="Dashboard"
-        description="Today's overview across members, equipment, and check-ins."
-      />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatTile icon={DollarSign} label="Monthly revenue" value={loading || !stats ? "—" : maskRevenue ? "•••••" : formatCents(stats.revenueCents)} />
-        <StatTile icon={Users} label="Active members" value={loading || !stats ? "—" : stats.activeMembers.toLocaleString()} />
-        <StatTile icon={Activity} label="Check-ins today" value={loading || !stats ? "—" : stats.checkInsToday.toLocaleString()} />
-        <StatTile
-          icon={AlertTriangle}
-          label="Needs attention"
-          value={loading || !stats ? "—" : stats.alerts.toString()}
-          tone={stats && stats.alerts > 0 ? "warn" : "neutral"}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-lg font-medium text-ink">Recent check-ins</h2>
-            <LinkButton href="/members" variant="ghost" className="!px-2 !py-1 text-xs">
-              View members <ArrowRight className="w-3.5 h-3.5" />
+    <div className="min-h-dvh">
+      <header className="border-b border-line bg-surface">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
+          <Link href="/" className="rounded">
+            <Wordmark />
+          </Link>
+          <nav aria-label="Account" className="flex items-center gap-2">
+            <LinkButton href="/login" variant="ghost">
+              Member sign in
             </LinkButton>
-          </div>
-          {loading ? (
-            <p className="text-sm text-ink-soft">Loading…</p>
-          ) : checkIns.length === 0 ? (
-            <EmptyState>No check-ins recorded yet.</EmptyState>
-          ) : (
-            <ul className="divide-y divide-line">
-              {checkIns.slice(0, 6).map((ci: any) => (
-                <li key={ci.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-surface-muted flex items-center justify-center text-ink-soft">
-                      <UserCheck className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-ink">{ci.member?.name || ci.member?.email || "Unknown"}</p>
-                      <p className="text-xs text-ink-soft">{new Date(ci.timestamp).toLocaleTimeString()}</p>
-                    </div>
-                  </div>
-                  <Badge variant={ci.member?.status === "ACTIVE" ? "good" : "neutral"}>
-                    {ci.member?.status === "ACTIVE" ? "Active" : ci.member?.status}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+          </nav>
+        </div>
+      </header>
 
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-lg font-medium text-ink">Equipment status</h2>
-            <LinkButton href="/equipment" variant="ghost" className="!px-2 !py-1 text-xs">
-              View all <ArrowRight className="w-3.5 h-3.5" />
-            </LinkButton>
-          </div>
-          {loading ? (
-            <p className="text-sm text-ink-soft">Loading…</p>
-          ) : flaggedEquipment.length === 0 ? (
-            <EmptyState>Everything's operational.</EmptyState>
-          ) : (
-            <ul className="divide-y divide-line">
-              {flaggedEquipment.slice(0, 6).map((eq: any) => (
-                <li key={eq.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-surface-muted flex items-center justify-center text-ink-soft">
-                      <Wrench className="w-4 h-4" />
+      <main>
+        <section className="mx-auto max-w-5xl px-4 pb-12 pt-12 sm:pt-16">
+          <h1 className="max-w-3xl text-4xl sm:text-5xl">{gym.brand.name}</h1>
+          <p className="mt-3 max-w-prose text-lg text-ink-soft">{gym.brand.tagline}. {formatAddress()}.</p>
+        </section>
+
+        <section aria-labelledby="plans-heading" className="border-y border-line bg-surface">
+          <div className="mx-auto max-w-5xl px-4 py-10">
+            <h2 id="plans-heading" className="text-2xl">Memberships</h2>
+            <p className="mt-1 text-ink-soft">Prices include GST. Cancel with {gym.policies.cancellation.noticeDays} days&apos; notice.</p>
+            {/* A price board: one plan per row, price on the right, like the
+                whiteboard behind a gym's front desk. Works for any number of plans. */}
+            <ul className="mt-6 divide-y divide-line border-y border-line">
+              {plans.map((plan) => {
+                const benefits = benefitsForSlug(plan.slug);
+                const perks = [
+                  benefits.classCreditsPerCycle === null
+                    ? "Unlimited classes"
+                    : benefits.classCreditsPerCycle > 0
+                      ? `${benefits.classCreditsPerCycle} classes per ${INTERVAL_LABELS[plan.interval].noun}`
+                      : null,
+                  benefits.guestPassesPerCycle > 0 ? `${benefits.guestPassesPerCycle} guest pass per ${INTERVAL_LABELS[plan.interval].noun}` : null,
+                  benefits.shopDiscountPercent > 0 ? `${benefits.shopDiscountPercent}% off in the shop` : null,
+                ].filter(Boolean);
+                return (
+                  <li key={plan.id} className="grid gap-2 py-5 sm:grid-cols-[1fr_auto] sm:gap-8">
+                    <div className="max-w-prose">
+                      <h3 className="text-xl">{plan.name}</h3>
+                      {plan.description ? <p className="mt-1 text-ink">{plan.description}</p> : null}
+                      {perks.length ? <p className="mt-1 text-sm text-ink-soft">{perks.join(". ")}.</p> : null}
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-ink">{eq.name}</p>
-                      {eq.partNeeded && <p className="text-xs text-ink-soft">{eq.partNeeded}</p>}
-                    </div>
-                  </div>
-                  <Badge variant={eq.status === "OFFLINE" ? "bad" : "warn"}>
-                    {eq.status === "OFFLINE" ? "Offline" : "Warning"}
-                  </Badge>
-                </li>
-              ))}
+                    <p className="sm:text-right">
+                      <span className="tabular font-display text-4xl font-bold leading-none">{formatAud(plan.priceCents)}</span>
+                      <span className="block text-sm text-ink-soft">per {INTERVAL_LABELS[plan.interval].noun}</span>
+                    </p>
+                  </li>
+                );
+              })}
             </ul>
-          )}
-        </Card>
-      </div>
-    </AppShell>
+          </div>
+        </section>
+
+        <section aria-labelledby="hours-heading" className="mx-auto max-w-5xl px-4 py-10">
+          <h2 id="hours-heading" className="text-2xl">Opening hours</h2>
+          <dl className="mt-4 grid max-w-md grid-cols-[auto_1fr] gap-x-8 gap-y-1">
+            {gym.hours.map((h) => (
+              <div key={h.day} className="contents">
+                <dt className="text-ink-soft">{DAY_NAMES[h.day]}</dt>
+                <dd className="tabular">
+                  {to12h(h.open)} to {to12h(h.close)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </main>
+
+      <footer className="border-t border-line">
+        <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-6 text-sm text-ink-soft sm:flex-row sm:justify-between">
+          <span>
+            {gym.business.legalName}, ABN {gym.business.abn}
+          </span>
+          <Link href="/admin/login" className="underline underline-offset-2">
+            Staff sign in
+          </Link>
+        </div>
+      </footer>
+    </div>
   );
 }
