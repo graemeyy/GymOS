@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Camera } from "lucide-react";
+import { QrScannerDialog } from "@/components/admin/qr-scanner";
 import Link from "next/link";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { fmtTime } from "@/lib/client/format";
@@ -12,6 +14,8 @@ import { cn } from "@/lib/client/cn";
 interface Result {
   granted: boolean;
   reason: string | null;
+  warning: string | null;
+  method: "MANUAL" | "QR";
   member: { id: string; name: string | null; status: MemberStatus; plan: string | null; retentionScore: number; keycardIssued: boolean };
 }
 interface RecentRow {
@@ -30,18 +34,17 @@ export default function CheckInPage() {
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const recent = useResource<RecentRow[]>("/api/check-in");
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!value.trim()) return;
+  const checkIn = useCallback(async (query: string) => {
     setBusy(true);
     setError(null);
     try {
-      const data = await api<Result>("/api/check-in", { body: { query: value.trim() } });
+      const data = await api<Result>("/api/check-in", { body: { query } });
       setResult(data);
       setValue("");
       void recent.reload();
@@ -52,18 +55,39 @@ export default function CheckInPage() {
       setBusy(false);
       inputRef.current?.focus();
     }
+  }, [recent]);
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (value.trim()) void checkIn(value.trim());
   };
+
+  const onScan = useCallback(
+    (pass: string) => {
+      setCameraOpen(false);
+      void checkIn(pass);
+    },
+    [checkIn]
+  );
 
   return (
     <>
-      <PageHeader title="Check-in" description="Scan a member's card or type their email." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
+      <PageHeader
+        title="Check-in"
+        description="Scan a member's QR pass, or type their email."
+        actions={
+          <Button variant="secondary" onClick={() => setCameraOpen(true)}>
+            <Camera className="h-4 w-4" aria-hidden="true" /> Scan with camera
+          </Button>
+        }
+      />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_22rem]">
         <div className="space-y-6">
           <Panel className="p-4 sm:p-5">
             <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex-1 space-y-1.5">
                 <label htmlFor="checkin-input" className="block text-sm font-medium">
-                  Member ID or email
+                  Pass, member ID or email
                 </label>
                 <input
                   id="checkin-input"
@@ -103,6 +127,7 @@ export default function CheckInPage() {
                 <StatusTag tone={STATUS_TONE[result.member.status]}>{STATUS_TEXT[result.member.status]}</StatusTag>
                 {result.member.plan ? <span className="text-ink-soft">{result.member.plan}</span> : null}
               </div>
+              {result.warning ? <p className="mt-2 font-medium text-ink">{result.warning}</p> : null}
               {!result.member.keycardIssued ? <p className="mt-2 text-sm text-ink">No keycard issued yet.</p> : null}
               {result.member.retentionScore < 40 ? <p className="mt-1 text-sm text-ink">Hasn&apos;t been in much lately. A quick hello helps.</p> : null}
             </section>
@@ -131,6 +156,7 @@ export default function CheckInPage() {
           </AsyncBlock>
         </Panel>
       </div>
+      <QrScannerDialog open={cameraOpen} onClose={() => setCameraOpen(false)} onScan={onScan} />
     </>
   );
 }

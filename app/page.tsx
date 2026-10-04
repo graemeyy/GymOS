@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { gym, formatAddress } from "@/lib/config";
-import { listPlans, benefitsForSlug } from "@/lib/plans";
+import { listPlans, benefitsOf } from "@/lib/plans";
 import { formatAud, INTERVAL_LABELS } from "@/lib/money";
 import { Wordmark } from "@/components/ui/logo";
 import { LinkButton } from "@/components/ui/primitives";
@@ -21,7 +21,7 @@ async function loadPlans() {
     return await listPlans();
   } catch {
     // Database unavailable: fall back to the plans in config so the page renders.
-    return gym.plans.map((p, i) => ({ id: p.slug, slug: p.slug, name: p.name, description: p.description, priceCents: p.priceCents, interval: p.interval, active: true, sortOrder: i }));
+    return gym.plans.map((p, i) => ({ id: p.slug, slug: p.slug, name: p.name, description: p.description, priceCents: p.priceCents, interval: p.interval, active: true, sortOrder: i, ...p.benefits }));
   }
 }
 
@@ -56,7 +56,7 @@ export default async function HomePage() {
                 whiteboard behind a gym's front desk. Works for any number of plans. */}
             <ul className="mt-6 divide-y divide-line border-y border-line">
               {plans.map((plan) => {
-                const benefits = benefitsForSlug(plan.slug);
+                const benefits = benefitsOf(plan);
                 const perks = [
                   benefits.classCreditsPerCycle === null
                     ? "Unlimited classes"
