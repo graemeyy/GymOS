@@ -118,6 +118,7 @@ Tooling at review time: lint, type-check, 682 unit and integration tests, the bu
 | R-67 | `prisma/migrations/20261004000000_phase2_owner_features/migration.sql:54` | Adding `invoiceNumber` as `SERIAL NOT NULL` rewrote the table under a lock and numbered existing payments in physical order, not by date. | Open: already shipped; recorded in DECISIONS (D-079) with the rule for future columns |
 | R-68 | `scripts/deploy-migrations.js:28-33` | The baseline fallback marks only the first prototype migration as applied; a database made with `db push` from a later prototype would fail on the second. | Open: can't be verified without the real database; the owner should check `_prisma_migrations` before the first deploy (final report) |
 | R-69 | `.github/workflows/ci.yml` | CI doesn't check for schema drift, run `prisma validate`, or test the down migrations. | PR 4 (drift and validate), PR 5 (down-migration round trip) |
+| R-108 | `lib/audit-query.ts:11-12`, `lib/announcement-schema.ts:10` | Plain dates are read in the server's time zone (UTC in production), not the gym's. The audit log's date filter misses most of a day in Sydney, and an announcement "shown until" a date disappears at 10 or 11am that day. Found while fixing R-93. | PR 4 |
 
 ## Low
 

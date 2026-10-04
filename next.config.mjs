@@ -1,5 +1,10 @@
 const isDev = process.env.NODE_ENV !== "production";
 
+// Identifies this build to the service worker, so each deploy gets a fresh
+// cache and the previous build's files are evicted (R-58). The commit SHA
+// when the host provides one, otherwise the build time.
+const buildId = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || String(Date.now());
+
 // Stripe Checkout and the customer portal are full-page redirects, so the app
 // itself only needs to talk to its own origin.
 const csp = [
@@ -32,6 +37,7 @@ const movedStaffPages = ["members", "classes", "shifts", "billing", "equipment",
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  env: { NEXT_PUBLIC_BUILD_ID: buildId },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

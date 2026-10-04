@@ -50,10 +50,12 @@ export default function MemberClassesPage() {
   }, [week]);
   const timetable = useResource<Timetable>(`/api/me/classes?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`);
   const toast = useToast();
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // One entry per pending class: a single busy ID let a second booking
+  // re-enable the first while it was still being sent (R-61).
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
 
   const act = async (cls: ClassRow, method: "POST" | "DELETE", kind: "booking" | "waitlist") => {
-    setBusyId(cls.id);
+    setBusyIds((ids) => new Set(ids).add(cls.id));
     try {
       const res = await api<{ late?: boolean; creditReturned?: boolean }>(`/api/me/classes/${cls.id}/${kind}`, { method });
       if (kind === "booking" && method === "POST") toast(`Booked: ${cls.name} at ${fmtTime(cls.startTime)}.`);
@@ -63,7 +65,11 @@ export default function MemberClassesPage() {
     } catch (e) {
       toast(e instanceof ApiClientError ? e.message : "That didn't work. Try again.", "bad");
     } finally {
-      setBusyId(null);
+      setBusyIds((ids) => {
+        const next = new Set(ids);
+        next.delete(cls.id);
+        return next;
+      });
     }
   };
 
@@ -123,7 +129,7 @@ export default function MemberClassesPage() {
                         <div className="flex items-center gap-3 pl-[5.75rem] sm:justify-end sm:pl-0">
                           {c.booked ? <StatusTag tone="good">Booked</StatusTag> : null}
                           {c.waitlistPosition ? <StatusTag tone="warn">{`Waitlist #${c.waitlistPosition}`}</StatusTag> : null}
-                          <ClassAction cls={c} busy={busyId === c.id} onAct={act} />
+                          <ClassAction cls={c} busy={busyIds.has(c.id)} onAct={act} />
                         </div>
                       </li>
                     ))}

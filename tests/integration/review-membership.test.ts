@@ -370,3 +370,17 @@ describe("R-87 a booked plan change with no history entry", () => {
     expect((await prisma.member.findUniqueOrThrow({ where: { id: m.id } })).planId).toBe(offPeak.id);
   });
 });
+
+describe("R-16 announcement emails", () => {
+  it("two publish requests at once email each member once", async () => {
+    const { captureEmailsForTests, capturedEmails } = await import("@/lib/email");
+    const publish = await import("@/app/api/announcements/[id]/publish/route");
+    captureEmailsForTests(true);
+    const owner = { staff: await createStaff("OWNER") };
+    await createMember({ email: "reader@example.com" });
+    const a = await prisma.announcement.create({ data: { title: "Holiday hours", body: "Closed Monday.", audience: "ALL_ACTIVE" } });
+    await Promise.all([1, 2].map(async () => call(publish.POST, await makeRequest("POST", "/x", { as: owner, body: { email: true } }), { id: a.id })));
+    expect(capturedEmails().filter((e) => e.to === "reader@example.com")).toHaveLength(1);
+    captureEmailsForTests(false);
+  });
+});

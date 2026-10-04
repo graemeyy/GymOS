@@ -57,8 +57,8 @@ export default function RetentionPage() {
       <Scoreboard
         label="Retention summary"
         items={[
-          { label: "Likely to leave", value: members.data ? String(atRisk.length) : null, tone: "alert" },
-          { label: "No visit in 14+ days", value: members.data ? String(quiet.length) : null, tone: "alert" },
+          { label: "Likely to leave", value: members.data ? String(atRisk.length) : null, tone: atRisk.length > 0 ? "alert" : "neutral" },
+          { label: "No visit in 14+ days", value: members.data ? String(quiet.length) : null, tone: quiet.length > 0 ? "alert" : "neutral" },
           { label: "Active members", value: members.data ? String(rows.length) : null },
           { label: "Average score", value: rows.length ? String(Math.round(rows.reduce((s, m) => s + m.retentionScore, 0) / rows.length)) : members.data ? "0" : null },
         ]}

@@ -35,6 +35,7 @@ export default function StockPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<Item | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const openForm = (item: Item | null) => {
     setEditing(item);
@@ -82,6 +83,7 @@ export default function StockPage() {
 
   const confirmDelete = async () => {
     if (!deleting) return;
+    setDeleteBusy(true);
     try {
       await api(`/api/inventory/${deleting.id}`, { method: "DELETE" });
       toast("Item removed");
@@ -89,6 +91,7 @@ export default function StockPage() {
     } catch (e) {
       toast(e instanceof ApiClientError ? e.message : "Couldn't remove the item.", "bad");
     } finally {
+      setDeleteBusy(false);
       setDeleting(null);
     }
   };
@@ -203,7 +206,7 @@ export default function StockPage() {
           {message ? <FormMessage>{message}</FormMessage> : null}
         </form>
       </Dialog>
-      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={confirmDelete} title={`Remove ${deleting?.name ?? "item"}?`} confirmLabel="Remove item" body="This deletes the stock record. It can't be undone." />
+      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={confirmDelete} busy={deleteBusy} title={`Remove ${deleting?.name ?? "item"}?`} confirmLabel="Remove item" body="This deletes the stock record. It can't be undone." />
     </>
   );
 }

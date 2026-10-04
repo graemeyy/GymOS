@@ -7,7 +7,7 @@ import type { Permission } from "@/lib/auth/permissions";
 import { enforceRateLimit, clientIp, type RateLimitRule } from "@/lib/rate-limit";
 import { ApiError, type ApiErrorBody } from "./errors";
 import { gym } from "@/lib/config";
-import { zonedTimeToUtc } from "@/lib/dates";
+import { addCalendarDays, zonedTimeToUtc } from "@/lib/dates";
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -184,5 +184,16 @@ export const zGymDate = z.union([
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .transform((d) => zonedTimeToUtc(d, "00:00", gym.business.timezone)),
+  z.iso.datetime({ offset: true }).transform((s) => new Date(s)),
+]);
+
+// The exclusive end of a gym-local day: a plain YYYY-MM-DD becomes the next
+// day's gym-local midnight, so "to 3 October" includes all of 3 October in
+// the gym's time zone, not the server's (R-108).
+export const zGymDateEnd = z.union([
+  z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .transform((d) => zonedTimeToUtc(addCalendarDays(d, 1), "00:00", gym.business.timezone)),
   z.iso.datetime({ offset: true }).transform((s) => new Date(s)),
 ]);

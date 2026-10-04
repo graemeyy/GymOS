@@ -2,7 +2,9 @@
 // - Pages: network first, and the offline page when there's no connection.
 // - Built assets (/_next/static) never change once built: cache first.
 // - API responses and staff pages are never cached (personal, must be current).
-const VERSION = "gymos-v1";
+// One cache per build: the page registers /sw.js?v=<build ID>, and activate
+// deletes every other cache, so old builds' files don't pile up (R-58).
+const VERSION = `gymos-${new URL(self.location.href).searchParams.get("v") || "v1"}`;
 const OFFLINE_URL = "/offline";
 const PRECACHE = [OFFLINE_URL, "/pwa-icon/192"];
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useResource } from "@/lib/client/api";
 import { fmtDate } from "@/lib/client/format";
 import { Panel, PanelHeader } from "@/components/ui/primitives";
@@ -24,8 +25,14 @@ const TEXT: Record<string, (d: Record<string, unknown>) => string> = {
   CANCELLED: (d) => `Cancelled${d.reason ? `: ${d.reason}` : ""}`,
 };
 
-export function HistoryPanel({ memberId }: { memberId: string }) {
+// `version` goes up when the membership changes elsewhere on the page, so
+// this panel reloads instead of showing stale history (R-55).
+export function HistoryPanel({ memberId, version = 0 }: { memberId: string; version?: number }) {
   const events = useResource<Event[]>(`/api/members/${memberId}/events`);
+  const { reload } = events;
+  useEffect(() => {
+    if (version > 0) void reload();
+  }, [version, reload]);
   return (
     <Panel aria-labelledby="history-heading">
       <PanelHeader id="history-heading" title="Membership history" />

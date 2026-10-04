@@ -21,6 +21,11 @@ interface StaffRow {
   role: StaffRoleName;
 }
 
+interface FeatureSettings {
+  requireKeycardForEntry: boolean;
+  hideRevenueFromFrontDesk: boolean;
+}
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid gap-1 px-4 py-3 sm:grid-cols-[12rem_1fr]">
@@ -56,7 +61,7 @@ function GymDetails() {
         </Row>
         <Row label="Pausing">
           {p.pause.allowMemberSelfPause ? "Members can pause themselves" : "Staff pause memberships"}, {p.pause.minDays} to {p.pause.maxDays} days, up to {p.pause.maxPausesPerYear} times a year
-          {p.pause.feeCents ? `, ${formatAud(p.pause.feeCents)} fee` : ", no fee"}
+          {p.pause.feeCents ? `, ${formatAud(p.pause.feeCents)} fee (not charged automatically yet: collect it at the desk)` : ", no fee"}
         </Row>
         <Row label="Failed payments">
           Reminders on days {p.failedPayments.reminderDays.join(", ")}, access suspended after {p.failedPayments.suspendAccessAfterDays} days
@@ -154,14 +159,20 @@ function ChangePassword() {
 
 function FeatureSwitches({ canEdit }: { canEdit: boolean }) {
   const toast = useToast();
-  const settings = useResource<{ requireKeycardForEntry: boolean; hideRevenueFromFrontDesk: boolean }>("/api/settings/features");
-  const save = async (next: { requireKeycardForEntry: boolean; hideRevenueFromFrontDesk: boolean }) => {
+  const settings = useResource<FeatureSettings>("/api/settings/features");
+  const [saving, setSaving] = useState(false);
+  // Sends only the changed field and locks the switches until it's saved, so
+  // quick toggles can't overwrite each other (R-51).
+  const save = async (change: Partial<FeatureSettings>) => {
+    setSaving(true);
     try {
-      await api("/api/settings/features", { method: "PUT", body: next });
+      await api("/api/settings/features", { method: "PUT", body: change });
       toast("Setting saved");
-      void settings.reload();
+      await settings.reload();
     } catch (e) {
       toast(e instanceof ApiClientError ? e.message : "Couldn't save the setting.", "bad");
+    } finally {
+      setSaving(false);
     }
   };
   return (
@@ -170,8 +181,8 @@ function FeatureSwitches({ canEdit }: { canEdit: boolean }) {
       <AsyncBlock loading={settings.loading} error={settings.error} data={settings.data} onRetry={settings.reload}>
         {(s) => (
           <div className="divide-y divide-line px-4">
-            <Switch label="Require a keycard to enter" description="Members without an issued keycard are refused at the door." checked={s.requireKeycardForEntry} disabled={!canEdit} onChange={(v) => save({ ...s, requireKeycardForEntry: v })} />
-            <Switch label="Hide revenue from front desk" description="Front-desk staff won't see revenue figures or payment history." checked={s.hideRevenueFromFrontDesk} disabled={!canEdit} onChange={(v) => save({ ...s, hideRevenueFromFrontDesk: v })} />
+            <Switch label="Require a keycard to enter" description="Members without an issued keycard are refused at the door." checked={s.requireKeycardForEntry} disabled={!canEdit || saving} onChange={(v) => save({ requireKeycardForEntry: v })} />
+            <Switch label="Hide revenue from front desk" description="Front-desk staff won't see revenue figures or payment history." checked={s.hideRevenueFromFrontDesk} disabled={!canEdit || saving} onChange={(v) => save({ hideRevenueFromFrontDesk: v })} />
           </div>
         )}
       </AsyncBlock>

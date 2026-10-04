@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { formatAud, parseDollarsToCents } from "@/lib/money";
 import { fmtDate, fmtDateTime } from "@/lib/client/format";
@@ -31,10 +31,16 @@ function describe(b: Balance) {
   return `${b.remaining} left of ${(b.allowance ?? 0) + b.adjustments}`;
 }
 
-export function BenefitsPanel({ memberId, archived }: { memberId: string; archived: boolean }) {
+// `version` goes up when the membership changes elsewhere on the page (a
+// new plan changes the allowance), so this panel reloads (R-55).
+export function BenefitsPanel({ memberId, archived, version = 0 }: { memberId: string; archived: boolean; version?: number }) {
   const { can } = useStaff();
   const toast = useToast();
   const usage = useResource<Usage>(`/api/members/${memberId}/benefits`);
+  const { reload } = usage;
+  useEffect(() => {
+    if (version > 0) void reload();
+  }, [version, reload]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ kind: "CLASS_CREDIT" as keyof typeof KIND_TEXT, amount: "1", direction: "add", reason: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});

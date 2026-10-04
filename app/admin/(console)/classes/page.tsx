@@ -43,19 +43,28 @@ function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[
   const full = cls.bookings.length >= cls.capacity;
   const taken = new Set([...cls.bookings.map((b) => b.memberId), ...cls.waitlist.map((w) => w.memberId)]);
 
-  const run = async (fn: () => Promise<unknown>, success: string) => {
+  // One change at a time per class: while one is being sent the class's
+  // buttons are disabled, so a double tap can't send it twice (R-57).
+  const [pending, setPending] = useState<string | null>(null);
+  const run = async (key: string, fn: () => Promise<unknown>, success: string) => {
+    if (pending) return;
+    setPending(key);
     try {
       await fn();
       toast(success);
       onChange();
     } catch (e) {
       toast(e instanceof ApiClientError ? e.message : "That didn't work.", "bad");
+    } finally {
+      setPending(null);
     }
   };
+  const busy = (key: string) => ({ busy: pending === key, disabled: pending !== null && pending !== key });
 
   const addMember = () =>
     memberId &&
     run(
+      "add",
       () => api(`/api/classes/${cls.id}/${full ? "waitlist" : "book"}`, { body: full ? { memberId } : { memberId, casual } }).then(() => {
         setMemberId("");
         setCasual(false);
@@ -102,21 +111,23 @@ function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[
                         <Button
                           variant={b.status === "ATTENDED" ? "primary" : "secondary"}
                           aria-pressed={b.status === "ATTENDED"}
-                          onClick={() => run(() => api(`/api/classes/${cls.id}/book`, { method: "PATCH", body: { memberId: b.memberId, status: b.status === "ATTENDED" ? "BOOKED" : "ATTENDED" } }), "Attendance saved")}
+                          {...busy(`attended-${b.id}`)}
+                          onClick={() => run(`attended-${b.id}`, () => api(`/api/classes/${cls.id}/book`, { method: "PATCH", body: { memberId: b.memberId, status: b.status === "ATTENDED" ? "BOOKED" : "ATTENDED" } }), "Attendance saved")}
                         >
                           Attended
                         </Button>
                         <Button
                           variant={b.status === "NO_SHOW" ? "danger" : "ghost"}
                           aria-pressed={b.status === "NO_SHOW"}
-                          onClick={() => run(() => api(`/api/classes/${cls.id}/book`, { method: "PATCH", body: { memberId: b.memberId, status: b.status === "NO_SHOW" ? "BOOKED" : "NO_SHOW" } }), "Attendance saved")}
+                          {...busy(`no-show-${b.id}`)}
+                          onClick={() => run(`no-show-${b.id}`, () => api(`/api/classes/${cls.id}/book`, { method: "PATCH", body: { memberId: b.memberId, status: b.status === "NO_SHOW" ? "BOOKED" : "NO_SHOW" } }), "Attendance saved")}
                         >
                           No-show
                         </Button>
                       </>
                     ) : null}
                     {can("classes:book") ? (
-                      <Button variant="ghost" onClick={() => run(() => api(`/api/classes/${cls.id}/book?memberId=${encodeURIComponent(b.memberId)}`, { method: "DELETE" }), "Booking cancelled")}>
+                      <Button variant="ghost" {...busy(`remove-${b.id}`)} onClick={() => run(`remove-${b.id}`, () => api(`/api/classes/${cls.id}/book?memberId=${encodeURIComponent(b.memberId)}`, { method: "DELETE" }), "Booking cancelled")}>
                         Remove
                       </Button>
                     ) : null}
@@ -138,10 +149,10 @@ function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[
                     </span>
                     {can("classes:book") ? (
                       <div className="flex gap-1">
-                        <Button variant="secondary" disabled={full} onClick={() => run(() => api(`/api/classes/${cls.id}/waitlist/promote`, { body: { memberId: w.memberId } }), "Moved into the class")}>
+                        <Button variant="secondary" busy={pending === `promote-${w.id}`} disabled={full || (pending !== null && pending !== `promote-${w.id}`)} onClick={() => run(`promote-${w.id}`, () => api(`/api/classes/${cls.id}/waitlist/promote`, { body: { memberId: w.memberId } }), "Moved into the class")}>
                           Book in
                         </Button>
-                        <Button variant="ghost" onClick={() => run(() => api(`/api/classes/${cls.id}/waitlist?memberId=${encodeURIComponent(w.memberId)}`, { method: "DELETE" }), "Removed from waitlist")}>
+                        <Button variant="ghost" {...busy(`unwait-${w.id}`)} onClick={() => run(`unwait-${w.id}`, () => api(`/api/classes/${cls.id}/waitlist?memberId=${encodeURIComponent(w.memberId)}`, { method: "DELETE" }), "Removed from waitlist")}>
                           Remove
                         </Button>
                       </div>
@@ -164,7 +175,7 @@ function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[
                     </option>
                   ))}
               </SelectField>
-              <Button variant="secondary" disabled={!memberId} onClick={addMember}>
+              <Button variant="secondary" busy={pending === "add"} disabled={!memberId || (pending !== null && pending !== "add")} onClick={addMember}>
                 {full ? "Add to waitlist" : "Book in"}
               </Button>
             </div>
@@ -181,7 +192,8 @@ function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[
       <ConfirmDialog
         open={confirmCancel}
         onCancel={() => setConfirmCancel(false)}
-        onConfirm={() => run(() => api(`/api/classes/${cls.id}`, { method: "DELETE" }), "Class cancelled").then(() => setConfirmCancel(false))}
+        onConfirm={() => run("cancel", () => api(`/api/classes/${cls.id}`, { method: "DELETE" }), "Class cancelled").then(() => setConfirmCancel(false))}
+        busy={pending === "cancel"}
         title={`Cancel ${cls.name}?`}
         confirmLabel="Cancel class"
         body={`${cls.bookings.length} booking(s) and ${cls.waitlist.length} waitlist place(s) will be removed. Let those members know.`}

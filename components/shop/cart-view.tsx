@@ -90,7 +90,7 @@ export function CartView() {
                       {item?.variant.available ? (
                         <select
                           id={`qty-${line.variantId}`}
-                          value={Math.min(line.quantity, item.variant.maxQuantity)}
+                          value={line.quantity}
                           onChange={(e) => setQuantity(line.variantId, Number(e.target.value))}
                           className="min-h-tap rounded border border-line-strong bg-surface px-2"
                         >
@@ -99,6 +99,13 @@ export function CartView() {
                               {n}
                             </option>
                           ))}
+                          {/* Show the real quantity when stock has dropped below it, so
+                              picking an available number is a change the cart sees (R-49). */}
+                          {line.quantity > item.variant.maxQuantity ? (
+                            <option value={line.quantity} disabled>
+                              {line.quantity} (too many)
+                            </option>
+                          ) : null}
                         </select>
                       ) : null}
                       <IconButton label={`Remove ${item?.product.name ?? "item"}`} onClick={() => setQuantity(line.variantId, 0)}>

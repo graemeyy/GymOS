@@ -149,7 +149,7 @@ export function MembershipPanel({ member, plans, onChanged }: { member: MemberDe
         open={action === "pause"}
         onClose={() => setAction(null)}
         title="Pause membership"
-        description={`Between ${policy.pause.minDays} and ${policy.pause.maxDays} days, up to ${policy.pause.maxPausesPerYear} times in 12 months. No payments are taken while paused${policy.pause.feeCents ? `, but there's a ${formatAud(policy.pause.feeCents)} pause fee` : ""}.`}
+        description={`Between ${policy.pause.minDays} and ${policy.pause.maxDays} days, up to ${policy.pause.maxPausesPerYear} times in 12 months. No payments are taken while paused${policy.pause.feeCents ? `, but there's a ${formatAud(policy.pause.feeCents)} pause fee to collect at the desk (it isn't charged automatically)` : ""}.`}
         footer={
           <>
             <Button variant="secondary" onClick={() => setAction(null)}>

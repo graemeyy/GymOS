@@ -4,7 +4,7 @@ import path from "node:path";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["lib/**/*.test.ts", "tests/integration/**/*.test.ts"],
+    include: ["lib/**/*.test.{ts,tsx}", "components/**/*.test.{ts,tsx}", "app/**/*.test.tsx", "tests/integration/**/*.test.ts"],
     setupFiles: ["./tests/setup-env.ts"],
     globalSetup: ["./tests/global-setup.ts"],
     // Integration tests share one Postgres test database.
@@ -12,6 +12,8 @@ export default defineConfig({
     testTimeout: 20_000,
     hookTimeout: 60_000,
   },
+  // Next.js leaves JSX to its compiler; component tests need it transformed.
+  oxc: { jsx: { runtime: "automatic" } },
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, ".") },
   },

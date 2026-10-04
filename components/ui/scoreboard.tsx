@@ -5,6 +5,8 @@ export interface ScoreboardItem {
   label: string;
   value: string | null;
   note?: string;
+  // Callers set "alert" only when the number needs attention: comparing the
+  // formatted text to "0" missed "$0" (R-88).
   tone?: "neutral" | "alert";
   href?: string;
 }
@@ -21,7 +23,7 @@ export function Scoreboard({ items, label }: { items: ScoreboardItem[]; label: s
             <span
               className={cn(
                 "tabular font-display text-4xl font-bold leading-none sm:text-5xl",
-                item.tone === "alert" && item.value !== "0" ? "text-chalk" : "text-board-ink"
+                item.tone === "alert" ? "text-chalk" : "text-board-ink"
               )}
             >
               {item.value ?? "–"}

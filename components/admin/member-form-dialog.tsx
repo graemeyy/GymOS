@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import { STATUS_TEXT, type MemberStatus } from "@/lib/client/labels";
 import { Dialog } from "@/components/ui/dialog";
@@ -20,6 +20,7 @@ export interface EditableMember {
   email: string;
   status: MemberStatus;
   planId: string | null;
+  membershipPlan?: { id: string; name: string } | null;
   notes?: string | null;
   referredById?: string | null;
 }
@@ -40,22 +41,29 @@ export function MemberFormDialog({
   const { can } = useStaff();
   const toast = useToast();
   const canBilling = can("billing:manage");
-  const [form, setForm] = useState({ name: "", email: "", planId: "", status: "ACTIVE" as MemberStatus });
+  // planId null means "not chosen yet": the default comes from the plans
+  // list, which may arrive after the dialog opens.
+  const [form, setForm] = useState({ name: "", email: "", planId: null as string | null, status: "ACTIVE" as MemberStatus });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Reset only when the dialog opens, not whenever the parent re-renders or
+  // the plans list arrives, which wiped what staff had typed (R-56).
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    setErrors({});
-    setMessage(null);
-    setForm({
-      name: member?.name ?? "",
-      email: member?.email ?? "",
-      planId: member?.planId ?? plans[0]?.id ?? "",
-      status: member?.status ?? "ACTIVE",
-    });
-  }, [open, member, plans]);
+    if (open && !wasOpen.current) {
+      setErrors({});
+      setMessage(null);
+      setForm({ name: member?.name ?? "", email: member?.email ?? "", planId: member ? (member.planId ?? "") : null, status: member?.status ?? "ACTIVE" });
+    }
+    wasOpen.current = open;
+  }, [open, member]);
+
+  const planId = form.planId ?? plans[0]?.id ?? "";
+  // A member on a retired plan keeps it in the list instead of showing
+  // "No plan" (R-56).
+  const currentPlan = member?.membershipPlan && !plans.some((p) => p.id === member.membershipPlan?.id) ? member.membershipPlan : null;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -66,13 +74,13 @@ export function MemberFormDialog({
       if (member) {
         const body: Record<string, unknown> = { name: form.name, email: form.email };
         if (canBilling) {
-          body.planId = form.planId || null;
+          body.planId = planId || null;
           body.status = form.status;
         }
         await api(`/api/members/${member.id}`, { method: "PUT", body });
         toast("Member updated");
       } else {
-        await api("/api/members", { body: { name: form.name, email: form.email, planId: form.planId || null } });
+        await api("/api/members", { body: { name: form.name, email: form.email, planId: planId || null } });
         toast("Member added");
       }
       onSaved();
@@ -109,13 +117,14 @@ export function MemberFormDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
             label="Plan"
-            value={form.planId}
+            value={planId}
             error={errors.planId}
             disabled={Boolean(member) && !canBilling}
             hint={member && !canBilling ? "A manager can change the plan." : undefined}
             onChange={(e) => setForm({ ...form, planId: e.target.value })}
           >
             <option value="">No plan</option>
+            {currentPlan ? <option value={currentPlan.id}>{currentPlan.name} (retired)</option> : null}
             {plans.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}

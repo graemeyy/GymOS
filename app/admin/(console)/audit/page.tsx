@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
-import { api, useResource } from "@/lib/client/api";
+import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { fmtDateTime } from "@/lib/client/format";
 import { Button, PageHeader, Panel } from "@/components/ui/primitives";
-import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
+import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { SelectField, TextField } from "@/components/ui/form";
 import { DataList } from "@/components/ui/data-list";
 
@@ -51,13 +51,15 @@ function detailText(d: Record<string, unknown> | null) {
 }
 
 export default function AuditPage() {
+  const toast = useToast();
   const [action, setAction] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const params = new URLSearchParams({ take: "50" });
   if (action) params.set("action", action);
-  if (from) params.set("from", `${from}T00:00:00`);
-  if (to) params.set("to", `${to}T23:59:59`);
+  // Plain dates: the server reads them as whole gym-local days (R-108).
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
   const query = params.toString();
   const first = useResource<Page>(`/api/audit-log?${query}`);
   const [more, setMore] = useState<{ query: string; items: Entry[]; cursor: string | null } | null>(null);
@@ -71,6 +73,9 @@ export default function AuditPage() {
     try {
       const page = await api<Page>(`/api/audit-log?${query}&cursor=${encodeURIComponent(next)}`);
       setMore({ query, items: [...(extra?.items ?? []), ...page.items], cursor: page.nextCursor });
+    } catch (e) {
+      // Previously unhandled: the button just stopped spinning (R-93).
+      toast(e instanceof ApiClientError ? e.message : "Couldn't load more entries. Try again.", "bad");
     } finally {
       setLoadingMore(false);
     }

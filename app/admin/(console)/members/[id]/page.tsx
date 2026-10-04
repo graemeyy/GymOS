@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Archive, Pencil, QrCode } from "lucide-react";
@@ -34,6 +34,14 @@ export default function MemberDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  // Bumped after a membership change so the benefits and history panels
+  // reload along with the member (R-55).
+  const [membershipVersion, setMembershipVersion] = useState(0);
+  const reloadMember = member.reload;
+  const membershipChanged = useCallback(async () => {
+    setMembershipVersion((v) => v + 1);
+    await reloadMember();
+  }, [reloadMember]);
 
   const archive = async () => {
     setArchiving(true);
@@ -48,12 +56,17 @@ export default function MemberDetailPage() {
     }
   };
 
+  // Sent once: a second tap would invalidate the pass just issued (R-57).
+  const [reissuing, setReissuing] = useState(false);
   const reissuePass = async () => {
+    setReissuing(true);
     try {
       await api(`/api/members/${id}/pass`, { method: "POST" });
       toast("New pass issued. The old one no longer works.");
     } catch (e) {
       toast(e instanceof ApiClientError ? e.message : "Couldn't reissue the pass.", "bad");
+    } finally {
+      setReissuing(false);
     }
   };
 
@@ -88,7 +101,7 @@ export default function MemberDetailPage() {
                       </Button>
                     ) : null}
                     {can("members:write") ? (
-                      <Button variant="secondary" onClick={reissuePass}>
+                      <Button variant="secondary" busy={reissuing} onClick={reissuePass}>
                         <QrCode className="h-4 w-4" aria-hidden="true" /> Reissue pass
                       </Button>
                     ) : null}
@@ -108,8 +121,8 @@ export default function MemberDetailPage() {
             ) : null}
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <MembershipPanel member={m} plans={plans.data ?? []} onChanged={member.reload} />
-              <BenefitsPanel memberId={m.id} archived={Boolean(m.archivedAt)} />
+              <MembershipPanel member={m} plans={plans.data ?? []} onChanged={membershipChanged} />
+              <BenefitsPanel memberId={m.id} archived={Boolean(m.archivedAt)} version={membershipVersion} />
 
               <Panel aria-labelledby="classes-heading">
                 <PanelHeader id="classes-heading" title="Upcoming classes" />
@@ -167,7 +180,7 @@ export default function MemberDetailPage() {
                 </Panel>
               ) : null}
 
-              <HistoryPanel memberId={m.id} />
+              <HistoryPanel memberId={m.id} version={membershipVersion} />
 
               <Panel aria-labelledby="visits-heading">
                 <PanelHeader id="visits-heading" title="Recent visits" />

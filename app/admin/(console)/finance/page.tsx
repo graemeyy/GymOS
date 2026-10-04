@@ -76,7 +76,7 @@ export default function FinancePage() {
                   { label: "Takings", value: formatAud(s.grossCents, { whole: true }), note: `${s.paymentCount} payments` },
                   { label: "Refunds", value: formatAud(s.refundsCents, { whole: true }) },
                   { label: "Net", value: formatAud(s.netCents, { whole: true }) },
-                  { label: "Owed by members", value: formatAud(s.outstandingTotalCents, { whole: true }), tone: "alert", note: "Not in takings" },
+                  { label: "Owed by members", value: formatAud(s.outstandingTotalCents, { whole: true }), tone: s.outstandingTotalCents > 0 ? "alert" : "neutral", note: "Not in takings" },
                 ]}
               />
               <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">

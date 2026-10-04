@@ -65,10 +65,12 @@ export default function EquipmentPage() {
                 </div>
                 {can("equipment:manage") ? (
                   <div className="flex shrink-0 gap-2">
-                    <Button variant="secondary" busy={busyId === a.id} onClick={() => act(a.id, () => api("/api/agent-actions", { method: "PATCH", body: { id: a.id, status: "APPROVED" } }), "Approved")}>
+                    {/* Both buttons wait for either answer, so an order can't be
+                        approved and rejected at once (R-57). */}
+                    <Button variant="secondary" busy={busyId === `${a.id}:approve`} disabled={busyId === `${a.id}:reject`} onClick={() => act(`${a.id}:approve`, () => api("/api/agent-actions", { method: "PATCH", body: { id: a.id, status: "APPROVED" } }), "Approved")}>
                       <Check className="h-4 w-4" aria-hidden="true" /> Approve
                     </Button>
-                    <Button variant="ghost" onClick={() => act(a.id, () => api("/api/agent-actions", { method: "PATCH", body: { id: a.id, status: "REJECTED" } }), "Rejected")}>
+                    <Button variant="ghost" busy={busyId === `${a.id}:reject`} disabled={busyId === `${a.id}:approve`} onClick={() => act(`${a.id}:reject`, () => api("/api/agent-actions", { method: "PATCH", body: { id: a.id, status: "REJECTED" } }), "Rejected")}>
                       <X className="h-4 w-4" aria-hidden="true" /> Reject
                     </Button>
                   </div>

@@ -1,7 +1,9 @@
 import { formatAud } from "@/lib/money";
+import { gym } from "@/lib/config";
 import type { TaxInvoice } from "@/lib/billing/invoice";
 
-const date = (v: string | Date) => new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(v));
+// The gym's date, not the viewer's: the invoice date is a legal record (R-54).
+const date = (v: string | Date) => new Intl.DateTimeFormat("en-AU", { timeZone: gym.business.timezone, day: "numeric", month: "long", year: "numeric" }).format(new Date(v));
 
 // Print-friendly tax invoice. Uses only the light palette so it prints the
 // same whatever theme the screen is in.

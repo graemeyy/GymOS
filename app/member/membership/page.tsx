@@ -210,9 +210,11 @@ export default function MembershipPage() {
               </Panel>
             ) : null}
 
-            <ChangePlanDialog plan={changeTo} onClose={() => setChangeTo(null)} onDone={refresh} />
-            <PauseDialog open={pausing} options={o.pause} onClose={() => setPausing(false)} onDone={refresh} />
-            <CancelDialog open={cancelling} options={o.cancellation} onClose={() => setCancelling(false)} onDone={refresh} />
+            {/* Mounted only while open, so each opening starts clean instead of
+                showing the last attempt's error (R-90). */}
+            {changeTo ? <ChangePlanDialog plan={changeTo} onClose={() => setChangeTo(null)} onDone={refresh} /> : null}
+            {pausing ? <PauseDialog open options={o.pause} onClose={() => setPausing(false)} onDone={refresh} /> : null}
+            {cancelling ? <CancelDialog open options={o.cancellation} onClose={() => setCancelling(false)} onDone={refresh} /> : null}
           </>
         )}
       </AsyncBlock>

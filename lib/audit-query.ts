@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
-import { zId } from "@/lib/http/route";
+import { zGymDate, zGymDateEnd, zId } from "@/lib/http/route";
 
 export const AuditQuery = z.object({
   take: z.coerce.number().int().min(1).max(200).default(50),
@@ -8,8 +8,9 @@ export const AuditQuery = z.object({
   action: z.string().trim().max(60).optional(),
   staffId: zId.optional(),
   targetId: zId.optional(),
-  from: z.coerce.date().optional(),
-  to: z.coerce.date().optional(),
+  // Plain dates are gym-local days (R-108).
+  from: zGymDate.optional(),
+  to: zGymDateEnd.optional(),
 });
 
 export function auditWhere(q: z.infer<typeof AuditQuery>): Prisma.AuditLogWhereInput {
