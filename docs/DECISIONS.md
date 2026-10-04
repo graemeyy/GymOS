@@ -93,3 +93,45 @@ Decisions made while building GymOS without stopping to ask, with the reason and
 **D-038. The mobile menu behaviour is kept.** (PR 1) Same top bar, same left drawer, backdrop still closes it. Added: focus moves into the drawer and is trapped, Escape closes it, focus returns to the menu button, the page behind doesn't scroll, and the nav only renders links the role can use.
 
 **D-039. The dark theme follows the device until the person chooses.** (PR 1) A small inline script sets the theme before first paint, so there's no flash of the wrong theme.
+
+## Phase 2: owner features
+
+**D-040. Plan benefits live in the database, seeded from config.** (PR 2) Class credits, guest passes, shop discount and the casual guest rate are columns on `MembershipPlan`. Config supplies the starting values for new plans only; once a plan exists, the owner edits it in the app and config never overwrites it. A plan that has members is archived, not deleted.
+
+**D-041. Benefits are a ledger, not a counter.** (PR 2) Each grant, use, return or manual adjustment is a `BenefitLedger` row tied to a billing cycle, and the balance is the sum for the current cycle. That gives the owner a history ("who gave Jack two extra credits and why") and makes a rollover or reversal a new row rather than an edit. Unused credits don't roll over.
+
+**D-042. A member's billing cycle comes from Stripe when there is a subscription, and otherwise rolls from the join date.** (PR 2) Webhooks store the subscription's current period. Members paid in cash or set up by staff get a rolling cycle on the plan's interval.
+
+**D-043. Plan changes follow `policies.planChanges`.** (PR 2) Upgrades either charge the prorated difference now or wait for the next cycle; downgrades apply now or at the next cycle (default). Proration is by remaining time in the cycle, rounded to the cent, never negative (a downgrade doesn't produce an automatic credit; staff can refund if they choose).
+
+**D-044. Cancellation respects cooling-off, notice and minimum term from config.** (PR 2) Within the cooling-off period a cancellation is immediate. Otherwise the end date is the later of the notice period and the end of the minimum term. Staff can override with a reason, which is logged. Nothing in the app says "no refunds" (see C-08).
+
+**D-045. Pauses are validated against `policies.pause`.** (PR 2) Minimum and maximum length, no start in the past, and a limit per 12 months. A daily job applies pause starts, resumes, scheduled cancellations and pending downgrades, so state doesn't depend on someone opening a page.
+
+**D-046. Failed payments get a grace period and owner-set reminders.** (PR 2) `pastDueSince` marks the start of an episode. Reminders go out on the days in `failedPayments.reminderDays`, at most once per day and per episode. Door and front-desk check-in keep working until `suspendAccessAfterDays` has passed. Staff can retry the failed invoice through Stripe.
+
+**D-047. Refunds record GST pro rata and can't exceed what's left.** (PR 2) A partial refund carries the same share of the payment's GST. Stripe refunds use an idempotency key built from the payment, the amount already refunded and the amount, so a double-click can't refund twice; the update is guarded on the refunded total so concurrent refunds can't over-refund. Manual refunds (cash, bank transfer) are recorded without calling Stripe. `charge.refunded` webhooks reconcile refunds made in the Stripe dashboard.
+
+**D-048. Tax invoice numbers are sequential database numbers.** (PR 2) An auto-increment column gives each payment a unique, gap-tolerant invoice number. The page shows the business's ABN, the GST amount and the title "Tax invoice" when `gstRegistered` is true; otherwise it is a "Receipt" with no GST. The buyer's name and email are always shown, which covers the extra requirement for sales of $1,000 or more.
+
+**D-049. Finance reports only add up AUD, and use Australian periods.** (PR 2) Payments in any other currency are counted separately and shown as excluded, not converted. Periods offered: this month, BAS quarters (July to September and so on) and the financial year (1 July to 30 June), in the gym's time zone. Revenue is net of refunds; GST collected is net of refunded GST.
+
+**D-050. CSV exports neutralise spreadsheet formulas.** (PR 2) Any cell starting with `=`, `+`, `-`, `@`, tab or carriage return gets a leading apostrophe, so a member called `=HYPERLINK(...)` can't run a formula in the owner's spreadsheet.
+
+**D-051. Shop orders follow a fixed set of transitions.** (PR 2) Pending, paid, ready for pickup or shipped, then collected or delivered. Stock is committed when an order is paid and returned when an unpaid order is cancelled. A paid order can't be cancelled from the order screen; the owner refunds the payment, which marks the order refunded and returns the stock. This keeps the money and the order in step.
+
+**D-052. Supplement products show a guideline note and carry no app-written claims.** (PR 2) The product editor shows a note about TGA and Food Standards Code rules for supplement categories and warns (without blocking) when a description contains words like "cure", "treat" or "clinically proven". The owner writes every word of the description.
+
+**D-053. Timetables are templates that generate classes.** (PR 2) A weekly template (day, time, length, capacity, trainer) generates real classes two weeks ahead. Generation is idempotent through a unique key on template and start time, so the daily job can run it every day. Editing a template doesn't change classes already generated; staff edit those individually.
+
+**D-054. QR passes are signed tokens with a version.** (PR 2) A pass is `GYM1.` plus a signed token holding the member ID and a `qrVersion`. Reissuing a pass bumps the version, so a screenshot of an old pass stops working. The front desk scans with the browser's `BarcodeDetector` where available and can always type or paste the code.
+
+**D-055. Staff roles are fixed, with one owner setting.** (PR 2) Owner, manager, front desk and trainer, with the permission map shown read-only in Settings. Custom roles would add a permissions editor the owner has to get right; four roles cover a small gym. Revenue visibility for front desk is a config switch.
+
+**D-056. The audit log is filterable and exportable, and records who, what and when.** (PR 2) Every change to members, plans, payments, refunds, products, orders, staff and announcements is logged with the actor's name kept in the row, so the record survives staff being removed.
+
+**D-057. Announcements email only members who opted in, and only once.** (PR 2) Members choose whether to receive announcement emails (`notifyAnnouncements`, default on for existing members). Publishing can send an email; a re-publish doesn't re-send unless the owner asks. Audience can be everyone, active members or a plan.
+
+**D-058. Email goes through Resend's HTTP API and does nothing without a key.** (PR 2) No SDK dependency. Without `RESEND_API_KEY` sends are logged as skipped; tests capture messages instead of sending.
+
+**D-059. All daily jobs run from the existing cron route.** (PR 2) `/api/cron/churn-shield` already had a Vercel cron entry and a secret. It now runs transitions, reminders, timetable generation, retention scoring and rate-limit clean-up. Renaming the route would mean changing the deployment's cron config, which this work doesn't touch.

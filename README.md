@@ -46,6 +46,12 @@ STRIPE_WEBHOOK_SECRET=whsec_...      # from `stripe listen --forward-to localhos
 
 Live keys are refused at startup unless `STRIPE_ALLOW_LIVE_KEYS=true`.
 
+Webhook events the app handles: `checkout.session.completed`, `customer.subscription.updated` and `.deleted`, `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed` and `charge.refunded`.
+
+### Email (optional)
+
+Set `RESEND_API_KEY` and `EMAIL_FROM` to send payment reminders, waitlist and announcement emails through Resend. Without a key, emails are skipped and logged.
+
 ## Checks
 
 ```bash
@@ -65,7 +71,7 @@ CI (`.github/workflows/ci.yml`) runs all of the above on every pull request.
 
 On Vercel, `vercel.json` sets the build command to `npm run vercel-build`, which applies migrations (`prisma migrate deploy`) before building. Plain `npm run build` never runs migrations, so a local build can't change a database by accident. Migrations are additive; each has a `down.sql` beside it for rollback.
 
-Set the environment variables from `.env.example` in the hosting provider. `CRON_SECRET` enables the nightly retention job; `IOT_GATEWAY_SECRET` enables door scanners. Both endpoints refuse every request until their secret is set.
+Set the environment variables from `.env.example` in the hosting provider. `CRON_SECRET` enables the daily job (plan changes, pauses and cancellations falling due, payment reminders, timetable generation and retention scores); `IOT_GATEWAY_SECRET` enables door scanners. Both endpoints refuse every request until their secret is set.
 
 ## Adopting GymOS for a new gym
 
