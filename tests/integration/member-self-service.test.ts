@@ -362,3 +362,24 @@ describe("deleting an account", () => {
     expect((await call(signup.POST, await makeRequest("POST", "/x", { body: { name: "Back Again", email: "erase@example.com", password: "a-long-password", acceptTerms: true } }))).status).toBe(201);
   });
 });
+
+describe("data retention (config: check-ins 24 months, archived members 24 months)", () => {
+  it("deletes old check-ins and anonymises long-archived members, keeping payments", async () => {
+    const { applyDataRetention } = await import("@/lib/jobs/daily");
+    const recent = await createMember({ name: "Recent Leaver" });
+    const old = await createMember({ name: "Long Gone", status: "CANCELED" });
+    const longAgo = new Date(Date.now() - 800 * DAY);
+    await prisma.member.update({ where: { id: old.id }, data: { archivedAt: longAgo } });
+    await prisma.member.update({ where: { id: recent.id }, data: { archivedAt: new Date(Date.now() - 30 * DAY) } });
+    await prisma.checkIn.createMany({ data: [{ memberId: recent.id, timestamp: longAgo }, { memberId: recent.id, timestamp: new Date() }] });
+    await prisma.payment.create({ data: { memberId: old.id, amount: 2995, gstCents: 272, status: "succeeded" } });
+
+    const result = await applyDataRetention(prisma);
+    expect(result).toEqual({ checkInsDeleted: 1, membersAnonymised: 1 });
+    expect(await prisma.checkIn.count()).toBe(1);
+    expect(await prisma.member.findUniqueOrThrow({ where: { id: old.id } })).toMatchObject({ name: "Deleted member" });
+    expect(await prisma.member.findUniqueOrThrow({ where: { id: recent.id } })).toMatchObject({ name: "Recent Leaver", anonymisedAt: null });
+    expect(await prisma.payment.count({ where: { memberId: old.id } })).toBe(1);
+    expect(await applyDataRetention(prisma)).toEqual({ checkInsDeleted: 0, membersAnonymised: 0 });
+  });
+});

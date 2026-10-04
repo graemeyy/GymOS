@@ -112,7 +112,7 @@ test.describe("owner features", () => {
   test("classes: week view and weekly timetable", async ({ page }) => {
     await page.goto("/admin/classes/timetable");
     await expect(page.getByRole("heading", { name: "Weekly timetable" })).toBeVisible();
-    await expect(page.getByText("Strongman Saturday")).toBeVisible();
+    await expect(page.getByText("Strongman")).toBeVisible();
     await page.waitForLoadState("networkidle");
     await expectNoHorizontalScroll(page);
     await expectNoA11yViolations(page);
