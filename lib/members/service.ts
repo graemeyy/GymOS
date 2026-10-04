@@ -1,4 +1,3 @@
-import type { Status } from "@prisma/client";
 import type { Db } from "@/lib/db";
 import type { MemberActor, StaffActor } from "@/lib/auth/session";
 import { can } from "@/lib/auth/permissions";
@@ -9,14 +8,6 @@ import { releaseFutureBookings } from "@/lib/classes/service";
 import { markPaidAtDesk, setPlanAtDesk, startMembership } from "@/lib/membership/service";
 import { getMemberListItem } from "./queries";
 import type { CreateMemberInput, ProfileInput, UpdateMemberInput } from "./schema";
-
-export const STATUS_LABELS: Record<Status, string> = {
-  ACTIVE: "Active",
-  PAUSED: "Paused",
-  PAST_DUE: "Past due",
-  CANCELED: "Cancelled",
-  PENDING: "Not started",
-};
 
 export async function assertReferrer(db: Db, referredById: string | null | undefined, selfId?: string) {
   if (!referredById) return;

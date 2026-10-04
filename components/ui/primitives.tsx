@@ -128,6 +128,3 @@ export function StatusTag({ tone = "neutral", children }: { tone?: Tone; childre
   );
 }
 
-export function VisuallyHidden({ children }: { children: React.ReactNode }) {
-  return <span className="sr-only">{children}</span>;
-}

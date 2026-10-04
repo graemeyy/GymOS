@@ -10,10 +10,6 @@ export function audienceWhere(a: { audience: "ALL_ACTIVE" | "PLAN" | "STAFF_ONLY
   };
 }
 
-export function isLive(a: { publishedAt: Date | null; expiresAt: Date | null }, now = new Date()) {
-  return Boolean(a.publishedAt && a.publishedAt <= now && (!a.expiresAt || a.expiresAt > now));
-}
-
 export function listAnnouncements(db: Db) {
   return db.announcement.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { plan: { select: { name: true } }, createdBy: { select: { name: true } } } });
 }

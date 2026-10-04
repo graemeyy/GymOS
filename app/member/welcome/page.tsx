@@ -11,6 +11,7 @@ import { AsyncBlock, useToast } from "@/components/ui/feedback";
 import { FormMessage } from "@/components/ui/form";
 import { useMe } from "@/components/member/member-shell";
 import type { Interval } from "@/components/member/types";
+import { planPerks } from "@/lib/plans/perks";
 
 interface Plan {
   id: string;
@@ -20,15 +21,6 @@ interface Plan {
   priceCents: number;
   interval: Interval;
   benefits: { classCreditsPerCycle: number | null; guestPassesPerCycle: number; shopDiscountPercent: number };
-}
-
-function perks(plan: Plan) {
-  const noun = INTERVAL_LABELS[plan.interval].noun;
-  return [
-    plan.benefits.classCreditsPerCycle === null ? "Unlimited classes" : plan.benefits.classCreditsPerCycle > 0 ? `${plan.benefits.classCreditsPerCycle} classes per ${noun}` : "Gym floor only",
-    plan.benefits.guestPassesPerCycle > 0 ? `${plan.benefits.guestPassesPerCycle} guest pass per ${noun}` : null,
-    plan.benefits.shopDiscountPercent > 0 ? `${plan.benefits.shopDiscountPercent}% off in the shop` : null,
-  ].filter(Boolean) as string[];
 }
 
 export default function WelcomePage() {
@@ -109,7 +101,7 @@ function Welcome() {
                         </span>
                       </span>
                       {plan.description ? <span className="mt-1 block text-ink">{plan.description}</span> : null}
-                      <span className="mt-1 block text-sm text-ink-soft">{perks(plan).join(". ")}.</span>
+                      <span className="mt-1 block text-sm text-ink-soft">{planPerks(plan.benefits, plan.interval).join(". ")}.</span>
                     </span>
                   </label>
                 );

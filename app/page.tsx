@@ -4,6 +4,7 @@ import { listPlans, benefitsOf } from "@/lib/plans/queries";
 import { formatAud, INTERVAL_LABELS } from "@/lib/money";
 import { LinkButton } from "@/components/ui/primitives";
 import { SiteFooter, SiteHeader } from "@/components/public/site-chrome";
+import { planPerks } from "@/lib/plans/perks";
 
 export const dynamic = "force-dynamic";
 
@@ -64,16 +65,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 whiteboard behind a gym's front desk. Works for any number of plans. */}
             <ul className="mt-6 divide-y divide-line border-y border-line">
               {plans.map((plan) => {
-                const benefits = benefitsOf(plan);
-                const perks = [
-                  benefits.classCreditsPerCycle === null
-                    ? "Unlimited classes"
-                    : benefits.classCreditsPerCycle > 0
-                      ? `${benefits.classCreditsPerCycle} classes per ${INTERVAL_LABELS[plan.interval].noun}`
-                      : null,
-                  benefits.guestPassesPerCycle > 0 ? `${benefits.guestPassesPerCycle} guest pass per ${INTERVAL_LABELS[plan.interval].noun}` : null,
-                  benefits.shopDiscountPercent > 0 ? `${benefits.shopDiscountPercent}% off in the shop` : null,
-                ].filter(Boolean);
+                const perks = planPerks(benefitsOf(plan), plan.interval);
                 return (
                   <li key={plan.id} className="grid gap-2 py-5 sm:grid-cols-[1fr_auto] sm:gap-8">
                     <div className="max-w-prose">

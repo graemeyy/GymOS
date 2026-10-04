@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { formatAud, INTERVAL_LABELS, parseDollarsToCents } from "@/lib/money";
+import { formatPlanPrice, INTERVAL_LABELS, parseDollarsToCents, type Interval } from "@/lib/money";
 import { gym } from "@/lib/config/client";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
@@ -12,8 +12,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField, TextareaField } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
 import { DataList } from "@/components/ui/data-list";
+import { planPerks } from "@/lib/plans/perks";
 
-type Interval = keyof typeof INTERVAL_LABELS;
 interface Plan {
   id: string;
   name: string;
@@ -31,17 +31,7 @@ interface Plan {
 
 const blank = { name: "", description: "", price: "", interval: "WEEK" as Interval, active: true, unlimited: false, classes: "0", guestPasses: "0", discount: "0", guestRate: "" };
 
-function benefitsText(p: Plan) {
-  const n = INTERVAL_LABELS[p.interval].noun;
-  return [
-    p.classCreditsPerCycle === null ? "Unlimited classes" : p.classCreditsPerCycle > 0 ? `${p.classCreditsPerCycle} classes per ${n}` : "No classes included",
-    p.guestPassesPerCycle ? `${p.guestPassesPerCycle} guest pass per ${n}` : null,
-    p.shopDiscountPercent ? `${p.shopDiscountPercent}% off shop` : null,
-    p.guestRateCents ? `guests ${formatAud(p.guestRateCents)}` : null,
-  ]
-    .filter(Boolean)
-    .join(", ");
-}
+const benefitsText = (p: Plan) => planPerks(p, p.interval, { includeGuestRate: true }).join(", ");
 
 export default function PlansPage() {
   const { can } = useStaff();
@@ -153,7 +143,7 @@ export default function PlansPage() {
                       </div>
                     ),
                   },
-                  { header: "Price", cell: (p) => <span className="tabular">{formatAud(p.priceCents)} per {INTERVAL_LABELS[p.interval].noun}</span> },
+                  { header: "Price", cell: (p) => <span className="tabular">{formatPlanPrice(p.priceCents, p.interval)}</span> },
                   { header: "Members", align: "right", cell: (p) => <span className="tabular">{p.memberCount ?? "Hidden"}</span> },
                 ]}
                 actions={

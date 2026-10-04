@@ -53,7 +53,7 @@ export async function updateOrderStatus(
   actor: Actor,
   orderId: string,
   next: OrderStatus,
-  extra: { note?: string; trackingNumber?: string; restockItems?: boolean } = {}
+  extra: { note?: string; trackingNumber?: string } = {}
 ) {
   if (next === "CANCELLED") await expireCheckout(db, orderId);
   return db.$transaction(async (tx) => {
@@ -70,7 +70,7 @@ export async function updateOrderStatus(
       // A paid order must be refunded first so the money and the books match.
       throw new ApiError("conflict", "This order has been paid. Refund it instead of cancelling.");
     }
-    if (next === "CANCELLED" && extra.restockItems !== false) await restock(tx, orderId);
+    if (next === "CANCELLED") await restock(tx, orderId);
     const data: Prisma.OrderUpdateInput = { status: next, ...(extra.trackingNumber ? { trackingNumber: extra.trackingNumber.trim() } : {}) };
     const updated = await tx.order.update({ where: { id: orderId }, data });
     await tx.orderEvent.create({ data: { orderId, status: next, note: extra.note ?? null, actorName: actor.kind === "member" ? `Member: ${actor.name}` : actor.name } });

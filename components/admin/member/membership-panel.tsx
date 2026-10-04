@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
-import { formatAud, INTERVAL_LABELS } from "@/lib/money";
+import { formatAud, formatPlanPrice } from "@/lib/money";
 import { gym } from "@/lib/config/client";
 import { fmtDate } from "@/lib/format";
 import { STATUS_TEXT, STATUS_TONE } from "@/lib/client/labels";
@@ -62,7 +62,7 @@ export function MembershipPanel({ member, plans, onChanged }: { member: MemberDe
   const status = member.status;
   const rows: [string, React.ReactNode][] = [
     ["Status", <StatusTag key="s" tone={STATUS_TONE[status]}>{STATUS_TEXT[status]}</StatusTag>],
-    ["Plan", member.membershipPlan ? `${member.membershipPlan.name}, ${formatAud(member.membershipPlan.priceCents)} per ${INTERVAL_LABELS[member.membershipPlan.interval].noun}` : "None"],
+    ["Plan", member.membershipPlan ? `${member.membershipPlan.name}, ${formatPlanPrice(member.membershipPlan.priceCents, member.membershipPlan.interval)}` : "None"],
     ["Next billing date", member.nextBillingDate ? fmtDate(member.nextBillingDate) : "None"],
   ];
   if (member.pendingPlan) rows.push(["Changing to", `${member.pendingPlan.name} from the next billing date`]);
@@ -138,7 +138,7 @@ export function MembershipPanel({ member, plans, onChanged }: { member: MemberDe
             .filter((p) => p.active && p.id !== member.planId)
             .map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}, {formatAud(p.priceCents)} per {INTERVAL_LABELS[p.interval].noun}
+                {p.name}, {formatPlanPrice(p.priceCents, p.interval)}
               </option>
             ))}
         </SelectField>

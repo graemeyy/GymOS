@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { fmtDate, invoiceNo } from "@/lib/format";
-import { formatAud, INTERVAL_LABELS } from "@/lib/money";
+import { formatAud, formatPlanPrice } from "@/lib/money";
 import { Button, LinkButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { Dialog } from "@/components/ui/dialog";
@@ -52,9 +52,9 @@ const addDays = addCalendarDays;
 function changeText(plan: PlanOption) {
   const c = plan.change!;
   if (!c.immediate) return `Changes on ${fmtDate(c.effectiveAt)}, your next billing date. You keep your current plan until then.`;
-  if (c.prorationCents === null) return `Starts now. Stripe charges or credits the difference for the rest of this billing period, then ${formatAud(plan.priceCents)} per ${INTERVAL_LABELS[plan.interval].noun}.`;
-  if (c.prorationCents > 0) return `Starts now. Stripe charges about ${formatAud(c.prorationCents)} for the rest of this billing period, then ${formatAud(plan.priceCents)} per ${INTERVAL_LABELS[plan.interval].noun}.`;
-  return `Starts now. Then ${formatAud(plan.priceCents)} per ${INTERVAL_LABELS[plan.interval].noun}.`;
+  if (c.prorationCents === null) return `Starts now. Stripe charges or credits the difference for the rest of this billing period, then ${formatPlanPrice(plan.priceCents, plan.interval)}.`;
+  if (c.prorationCents > 0) return `Starts now. Stripe charges about ${formatAud(c.prorationCents)} for the rest of this billing period, then ${formatPlanPrice(plan.priceCents, plan.interval)}.`;
+  return `Starts now. Then ${formatPlanPrice(plan.priceCents, plan.interval)}.`;
 }
 
 const CANCEL_RULE: Record<string, string> = {
@@ -127,7 +127,7 @@ export default function MembershipPage() {
                         <p className="font-medium">
                           {plan.name}{" "}
                           <span className="tabular text-ink-soft">
-                            {formatAud(plan.priceCents)} per {INTERVAL_LABELS[plan.interval].noun}
+                            {formatPlanPrice(plan.priceCents, plan.interval)}
                           </span>
                         </p>
                         {plan.description ? <p className="text-sm text-ink-soft">{plan.description}</p> : null}

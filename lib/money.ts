@@ -2,8 +2,6 @@
 // GST in Australia is 10% of the GST-exclusive price, so the GST contained in
 // an inclusive price is 1/11 of it. Rounded to the nearest cent.
 
-export const GST_RATE = 0.1;
-
 export function gstFromInclusive(inclusiveCents: number, gstRegistered = true): number {
   assertCents(inclusiveCents);
   if (!gstRegistered) return 0;
@@ -57,12 +55,14 @@ export const INTERVAL_LABELS = {
   YEAR: { noun: "year", adverb: "yearly" },
 } as const;
 
-export function formatPlanPrice(cents: number, interval: keyof typeof INTERVAL_LABELS): string {
+export type Interval = keyof typeof INTERVAL_LABELS;
+
+export function formatPlanPrice(cents: number, interval: Interval): string {
   return `${formatAud(cents)} per ${INTERVAL_LABELS[interval].noun}`;
 }
 
 // Monthly-equivalent value for MRR. 52 weeks / 12 months.
-export function monthlyEquivalentCents(cents: number, interval: keyof typeof INTERVAL_LABELS): number {
+export function monthlyEquivalentCents(cents: number, interval: Interval): number {
   switch (interval) {
     case "WEEK":
       return Math.round((cents * 52) / 12);
