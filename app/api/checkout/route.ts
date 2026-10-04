@@ -7,6 +7,7 @@ import { getStripe } from "@/lib/billing/stripe";
 import { stripeRecurring } from "@/lib/billing/intervals";
 import { RATE_LIMITS } from "@/lib/rate-limit";
 import { logAction } from "@/lib/audit";
+import { recordAcceptance } from "@/lib/legal";
 
 const Body = z.object({
   planId: zId,
@@ -44,6 +45,7 @@ export const POST = memberRoute({ body: Body, rateLimit: RATE_LIMITS.checkout },
     success_url: `${appUrl}/member?checkout=success`,
     cancel_url: `${appUrl}/member?checkout=cancelled`,
   });
+  await recordAcceptance(db, member.id, "checkout");
   await logAction(db, member, { action: "billing.checkout_started", targetType: "MembershipPlan", targetId: plan.id, details: { termsVersion: gym.legal.termsVersion } });
   if (!session.url) throw new ApiError("upstream_failed", "Stripe didn't return a checkout link. Try again.");
   return json({ url: session.url });

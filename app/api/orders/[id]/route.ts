@@ -2,6 +2,7 @@ import { z } from "zod";
 import { staffRoute, json } from "@/lib/http/route";
 import { ApiError } from "@/lib/http/errors";
 import { allowedTransitions, updateOrderStatus } from "@/lib/shop/orders";
+import { sendOrderEmail } from "@/lib/shop/emails";
 
 export const GET = staffRoute({ permission: "orders:fulfil" }, async ({ params, db }) => {
   const order = await db.order.findUnique({
@@ -25,5 +26,10 @@ const Body = z.object({
 });
 
 export const PATCH = staffRoute({ permission: "orders:fulfil", body: Body }, async ({ params, body, db, staff }) => {
-  return json(await updateOrderStatus(db, staff, params.id, body.status, { note: body.note, trackingNumber: body.trackingNumber }));
+  const order = await updateOrderStatus(db, staff, params.id, body.status, { note: body.note, trackingNumber: body.trackingNumber });
+  // Tell the customer when there's something for them to do or expect.
+  if (body.status === "READY_FOR_PICKUP" || body.status === "SHIPPED") {
+    await sendOrderEmail(db, order.id, body.status === "SHIPPED" ? "shipped" : "ready").catch(() => undefined);
+  }
+  return json(order);
 });

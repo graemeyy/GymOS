@@ -158,6 +158,7 @@ export async function resetDatabase(prisma: PrismaClient) {
     prisma.productVariant.deleteMany(),
     prisma.product.deleteMany(),
     prisma.memberNote.deleteMany(),
+    prisma.legalAcceptance.deleteMany(),
     prisma.benefitLedger.deleteMany(),
     prisma.membershipEvent.deleteMany(),
     prisma.paymentReminder.deleteMany(),

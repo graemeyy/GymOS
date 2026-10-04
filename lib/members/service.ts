@@ -4,13 +4,14 @@ import { ApiError } from "@/lib/http/errors";
 import { getStripe } from "@/lib/billing/stripe";
 import { logAction, type Actor } from "@/lib/audit";
 
-export const MEMBER_STATUSES = ["ACTIVE", "PAUSED", "PAST_DUE", "CANCELED"] as const satisfies readonly Status[];
+export const MEMBER_STATUSES = ["ACTIVE", "PAUSED", "PAST_DUE", "CANCELED", "PENDING"] as const satisfies readonly Status[];
 
 export const STATUS_LABELS: Record<Status, string> = {
   ACTIVE: "Active",
   PAUSED: "Paused",
   PAST_DUE: "Past due",
   CANCELED: "Cancelled",
+  PENDING: "Not started",
 };
 
 // Fields staff lists may show. Never includes passwordHash or sessionVersion.

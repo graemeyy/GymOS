@@ -5,7 +5,7 @@ export const GET = memberRoute({}, async ({ db, member }) => {
     where: { memberId: member.id },
     orderBy: { createdAt: "desc" },
     take: 50,
-    select: { id: true, amount: true, gstCents: true, currency: true, status: true, description: true, createdAt: true },
+    select: { id: true, invoiceNumber: true, amount: true, gstCents: true, refundedCents: true, currency: true, status: true, description: true, kind: true, createdAt: true },
   });
   return json(payments);
 });

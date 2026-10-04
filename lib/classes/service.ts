@@ -64,9 +64,9 @@ export async function cancelBooking(db: Db, actor: Actor, classId: string, membe
     if (creditReturned) await returnClassCredit(tx, memberId, classId);
     await logAction(tx, actor, { action: "class.booking_cancelled", targetType: "Class", targetId: classId, details: { className: cls.name, memberId, late, creditReturned } });
 
-    let promoted: { memberId: string; email: string; name: string | null } | null = null;
+    let promoted: { memberId: string; email: string; name: string | null; notify: boolean } | null = null;
     if (cls.startTime.getTime() > Date.now()) {
-      const queue = await tx.classWaitlist.findMany({ where: { classId }, orderBy: { createdAt: "asc" }, include: { member: { select: { email: true, name: true, status: true, archivedAt: true } } } });
+      const queue = await tx.classWaitlist.findMany({ where: { classId }, orderBy: { createdAt: "asc" }, include: { member: { select: { email: true, name: true, status: true, archivedAt: true, notifyWaitlist: true } } } });
       for (const entry of queue) {
         if (entry.member.archivedAt || entry.member.status !== "ACTIVE") continue;
         try {
@@ -75,7 +75,7 @@ export async function cancelBooking(db: Db, actor: Actor, classId: string, membe
           await tx.classBooking.create({ data: { classId, memberId: entry.memberId, usedCredit } });
           await tx.classWaitlist.delete({ where: { id: entry.id } });
           await tx.$executeRaw`RELEASE SAVEPOINT promote`;
-          promoted = { memberId: entry.memberId, email: entry.member.email, name: entry.member.name };
+          promoted = { memberId: entry.memberId, email: entry.member.email, name: entry.member.name, notify: entry.member.notifyWaitlist };
           await logAction(tx, { kind: "system", name: "Waitlist" }, { action: "class.waitlist_promoted", targetType: "Class", targetId: classId, details: { className: cls.name, memberId: entry.memberId, automatic: true } });
           break;
         } catch (error) {
@@ -87,7 +87,9 @@ export async function cancelBooking(db: Db, actor: Actor, classId: string, membe
     }
     return { late, creditReturned, promoted, cls };
   });
-  if (result.promoted) {
+  // Members who turned waitlist emails off still get the place; they see it
+  // in their bookings.
+  if (result.promoted?.notify) {
     const when = new Intl.DateTimeFormat("en-AU", { timeZone: gym.business.timezone, weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }).format(result.cls.startTime);
     await sendEmail({
       to: result.promoted.email,
