@@ -95,3 +95,59 @@ export function useResource<T>(url: string | null): Resource<T> {
 
   return { data, error, loading, reload: load };
 }
+
+export interface Mutation<A extends unknown[], R> {
+  /** Resolves to the result, or undefined if it failed or one was already in flight. */
+  run: (...args: A) => Promise<R | undefined>;
+  busy: boolean;
+  error: string | null;
+  fields: Record<string, string>;
+  reset: () => void;
+}
+
+// The one way to change data from the browser (docs/CODE-STANDARDS.md
+// section 4). One request at a time: a second call while one is in flight is
+// ignored, so a double tap can't send it twice (R-57). Failures become a
+// message and field errors for the form, and go to onError (usually a toast).
+export function useMutation<A extends unknown[], R>(
+  fn: (...args: A) => Promise<R>,
+  opts: { onSuccess?: (result: R, ...args: A) => void | Promise<void>; onError?: (error: ApiClientError) => void } = {}
+): Mutation<A, R> {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const inFlight = useRef(false);
+  const latest = useRef({ fn, opts });
+  useEffect(() => {
+    latest.current = { fn, opts };
+  });
+
+  const run = useCallback(async (...args: A) => {
+    if (inFlight.current) return undefined;
+    inFlight.current = true;
+    setBusy(true);
+    setError(null);
+    setFields({});
+    try {
+      const result = await latest.current.fn(...args);
+      await latest.current.opts.onSuccess?.(result, ...args);
+      return result;
+    } catch (e) {
+      const err = e instanceof ApiClientError ? e : new ApiClientError(0, "error", "Something went wrong. Please try again.");
+      setError(err.message);
+      setFields(err.fields);
+      latest.current.opts.onError?.(err);
+      return undefined;
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setError(null);
+    setFields({});
+  }, []);
+
+  return { run, busy, error, fields, reset };
+}
