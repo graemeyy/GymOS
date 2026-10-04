@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { memberRoute, json, zName } from "@/lib/http/route";
-import { benefitsOf } from "@/lib/plans";
+import { benefitsOf } from "@/lib/plans/queries";
 import { getBenefitUsage } from "@/lib/membership/benefits";
 import { outstandingAcceptances } from "@/lib/legal";
 import { logAction } from "@/lib/audit";

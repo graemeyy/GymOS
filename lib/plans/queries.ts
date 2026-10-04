@@ -1,6 +1,6 @@
 import type { MembershipPlan } from "@prisma/client";
 import { prisma, type Db } from "@/lib/db";
-import { gym, type PlanBenefits } from "@/lib/config";
+import type { PlanBenefits } from "@/lib/config";
 
 export const planSelect = {
   id: true,
@@ -37,25 +37,12 @@ export async function listPlans(db: Db = prisma, opts: { includeInactive?: boole
   });
 }
 
-// Creates plans from config that don't exist yet, with their benefits. Never
-// overwrites a plan the owner has edited in the app, and never deletes one.
-export async function syncPlansFromConfig(db: Db = prisma): Promise<{ created: string[] }> {
-  const created: string[] = [];
-  for (const [index, plan] of gym.plans.entries()) {
-    const existing = await db.membershipPlan.findUnique({ where: { slug: plan.slug } });
-    if (existing) continue;
-    await db.membershipPlan.create({
-      data: {
-        slug: plan.slug,
-        name: plan.name,
-        description: plan.description,
-        priceCents: plan.priceCents,
-        interval: plan.interval,
-        sortOrder: 100 + index,
-        ...plan.benefits,
-      },
-    });
-    created.push(plan.slug);
-  }
-  return { created };
+// All plans, including retired ones, with member counts. Counts are null
+// when revenue is hidden, because price times count is the revenue (R-43).
+export async function listPlansWithMemberCounts(db: Db, showMemberCounts: boolean) {
+  const plans = await listPlans(db, { includeInactive: true });
+  if (!showMemberCounts) return plans.map((p) => ({ ...p, memberCount: null }));
+  const counts = await db.member.groupBy({ by: ["planId"], where: { archivedAt: null, status: { not: "CANCELED" } }, _count: { _all: true } });
+  const byPlan = new Map(counts.map((c) => [c.planId, c._count._all]));
+  return plans.map((p) => ({ ...p, memberCount: byPlan.get(p.id) ?? 0 }));
 }

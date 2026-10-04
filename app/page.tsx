@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { gym, formatAddress } from "@/lib/config";
-import { listPlans, benefitsOf } from "@/lib/plans";
+import { listPlans, benefitsOf } from "@/lib/plans/queries";
 import { formatAud, INTERVAL_LABELS } from "@/lib/money";
 import { LinkButton } from "@/components/ui/primitives";
 import { SiteFooter, SiteHeader } from "@/components/public/site-chrome";
