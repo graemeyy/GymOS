@@ -35,6 +35,7 @@ jobs:
       TEST_DATABASE_URL: postgresql://gymos:gymos@localhost:5432/gymos_test
       E2E_DATABASE_URL: postgresql://gymos:gymos@localhost:5432/gymos_e2e_test
       SHADOW_DATABASE_URL: postgresql://gymos:gymos@localhost:5432/gymos_shadow_test
+      ROLLBACK_DATABASE_URL: postgresql://gymos:gymos@localhost:5432/gymos_rollback_test
       SESSION_SECRET: ci-only-session-secret-not-used-anywhere-else-0123
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
@@ -54,6 +55,8 @@ jobs:
         run: |
           PGPASSWORD=gymos psql -h localhost -U gymos -d gymos_test -c "CREATE DATABASE gymos_shadow_test"
           npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$SHADOW_DATABASE_URL" --exit-code
+      - name: Check every down.sql rolls back cleanly
+        run: npm run check:rollback
       - name: Lint
         run: npm run lint
       - name: Type-check
