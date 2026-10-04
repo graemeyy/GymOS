@@ -61,6 +61,12 @@ export async function hideRevenueFromFrontDesk(db: Db = prisma): Promise<boolean
   return settings?.hideRevenueFromFrontDesk ?? false;
 }
 
+// Whether this staff member may see money figures (takings, amounts owing,
+// plan revenue). Front desk can be blocked by the owner's setting.
+export async function canSeeRevenue(staff: StaffActor, db: Db = prisma): Promise<boolean> {
+  return can(staff.role, "revenue:view", { hideRevenueFromFrontDesk: await hideRevenueFromFrontDesk(db) });
+}
+
 export async function requireStaff(request: Request, permission: Permission, db: Db = prisma): Promise<StaffActor> {
   const staff = await resolveStaff(request, db);
   if (!staff) throw new ApiError("unauthenticated", "Please sign in as staff.");

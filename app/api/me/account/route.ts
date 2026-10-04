@@ -18,7 +18,7 @@ const Body = z.object({
 
 // Erases the member's personal details. Financial records stay (tax law),
 // without their name or email.
-export const DELETE = memberRoute({ body: Body, rateLimit: RATE_LIMITS.login }, async ({ body, db, member }) => {
+export const DELETE = memberRoute({ body: Body, rateLimit: RATE_LIMITS.loginMember }, async ({ body, db, member }) => {
   const record = await db.member.findUniqueOrThrow({ where: { id: member.id }, select: { passwordHash: true } });
   if (!record.passwordHash || !(await verifyPassword(body.password, record.passwordHash))) {
     throw new ApiError("validation_failed", "That password isn't right.", { password: "Doesn't match" });

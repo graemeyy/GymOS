@@ -18,7 +18,7 @@ export interface MemberDetail {
   cancelledAt: string | null;
   cancelReason: string | null;
   pastDueSince: string | null;
-  amountOwingCents: number;
+  amountOwingCents: number | null;
   hasSubscription: boolean;
   canRetryPayment: boolean;
   keycardIssued: boolean;

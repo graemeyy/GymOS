@@ -85,15 +85,30 @@ describe("sign-in", () => {
     expect(ok.headers.get("set-cookie")).toMatch(/gymos_session=.+HttpOnly/i);
   });
 
-  it("locks an account after repeated wrong passwords", async () => {
+  // Changed by review R-40: five failures used to lock the account for
+  // everyone, which let anyone lock the owner out. Now five failures lock
+  // that address out of the account, and a higher cap (50) applies across
+  // all addresses.
+  it("locks an address out of an account after repeated wrong passwords", async () => {
     await createStaff("OWNER", { email: "target@example.com", password: "right-password-123" });
     const statuses: number[] = [];
     for (let i = 0; i < 7; i++) {
-      const res = await call(login.POST, await makeRequest("POST", "/api/auth/login", { body: { email: "target@example.com", password: `guess-${i}` }, headers: { "x-forwarded-for": `10.0.0.${i}` } }));
+      const res = await call(login.POST, await makeRequest("POST", "/api/auth/login", { body: { email: "target@example.com", password: `guess-${i}` }, headers: { "x-forwarded-for": "10.0.0.1" } }));
       statuses.push(res.status);
     }
     expect(statuses.slice(0, 5).every((s) => s === 401)).toBe(true);
     expect(statuses.slice(5)).toEqual([429, 429]);
+  });
+
+  it("caps wrong passwords for one account across many addresses", async () => {
+    await createStaff("OWNER", { email: "spread@example.com", password: "right-password-123" });
+    const statuses: number[] = [];
+    for (let i = 0; i < 52; i++) {
+      const res = await call(login.POST, await makeRequest("POST", "/api/auth/login", { body: { email: "spread@example.com", password: `guess-${i}` }, headers: { "x-forwarded-for": `10.1.${Math.floor(i / 200)}.${i % 200}` } }));
+      statuses.push(res.status);
+    }
+    expect(statuses.slice(0, 50).every((s) => s === 401)).toBe(true);
+    expect(statuses.slice(50)).toEqual([429, 429]);
   });
 
   it("signing out revokes the session everywhere", async () => {

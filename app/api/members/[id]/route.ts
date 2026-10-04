@@ -2,7 +2,7 @@ import { z } from "zod";
 import { staffRoute, json, zEmail, zName, zId } from "@/lib/http/route";
 import { ApiError } from "@/lib/http/errors";
 import { can } from "@/lib/auth/permissions";
-import { hideRevenueFromFrontDesk } from "@/lib/auth/session";
+import { canSeeRevenue } from "@/lib/auth/session";
 import { logAction } from "@/lib/audit";
 import { archiveMember, assertPlan, assertReferrer, MEMBER_STATUSES } from "@/lib/members/service";
 import { currentCycle } from "@/lib/membership/cycle";
@@ -10,7 +10,7 @@ import { markPaidAtDesk, setPlanAtDesk, startMembership } from "@/lib/membership
 
 export const GET = staffRoute({ permission: "members:read" }, async ({ params, db, staff }) => {
   const now = new Date();
-  const showPayments = can(staff.role, "revenue:view", { hideRevenueFromFrontDesk: await hideRevenueFromFrontDesk(db) });
+  const showPayments = await canSeeRevenue(staff, db);
   const member = await db.member.findUnique({
     where: { id: params.id },
     select: {
@@ -74,6 +74,8 @@ export const GET = staffRoute({ permission: "members:read" }, async ({ params, d
     hasSubscription: Boolean(stripeSubscriptionId),
     canRetryPayment: Boolean(lastFailedInvoiceId),
     payments: showPayments ? member.payments : null,
+    // Amounts owing are money figures too (R-43).
+    amountOwingCents: showPayments ? member.amountOwingCents : null,
   });
 });
 
