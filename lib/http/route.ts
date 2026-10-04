@@ -6,6 +6,8 @@ import { requireMember, requireStaff, type MemberActor, type StaffActor } from "
 import type { Permission } from "@/lib/auth/permissions";
 import { enforceRateLimit, clientIp, type RateLimitRule } from "@/lib/rate-limit";
 import { ApiError, type ApiErrorBody } from "./errors";
+import { gym } from "@/lib/config";
+import { zonedTimeToUtc } from "@/lib/dates";
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
@@ -96,8 +98,12 @@ function handleError(error: unknown): Response {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2025") return errorResponse(new ApiError("not_found", "That record doesn't exist."));
     if (error.code === "P2002") return errorResponse(new ApiError("conflict", "That already exists."));
+    if (error.code === "P2003") return errorResponse(new ApiError("validation_failed", "Something this refers to doesn't exist. Reload and try again."));
   }
-  console.error("Unhandled route error:", error instanceof Error ? error.message : error);
+  // Only the error's name and Prisma code: messages can contain personal
+  // data from the query (R-81).
+  const code = error instanceof Prisma.PrismaClientKnownRequestError ? ` ${error.code}` : "";
+  console.error(`Unhandled route error: ${error instanceof Error ? error.name : "unknown"}${code}`);
   return errorResponse(new ApiError("internal", "Something went wrong. Please try again."));
 }
 
@@ -170,3 +176,13 @@ export const zEmail = z
 export const zName = z.string().trim().min(1, "Required").max(120);
 export const zPassword = z.string().min(10, "Use at least 10 characters").max(200);
 export const zCents = z.number().int().nonnegative().max(100_000_00);
+
+// A date someone picked (YYYY-MM-DD) means midnight at the gym, not midnight
+// UTC (R-13). A full timestamp with an offset is taken as given.
+export const zGymDate = z.union([
+  z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .transform((d) => zonedTimeToUtc(d, "00:00", gym.business.timezone)),
+  z.iso.datetime({ offset: true }).transform((s) => new Date(s)),
+]);

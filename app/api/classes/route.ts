@@ -18,7 +18,7 @@ export const GET = staffRoute({ permission: "classes:read", query: Query }, asyn
   const from = query.from ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
   const to = query.to ?? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
   if (to.getTime() - from.getTime() > 62 * 86_400_000) throw new ApiError("validation_failed", "Choose a range of two months or less.");
-  const where: Prisma.ClassWhereInput = { startTime: { gte: from, lt: to }, ...(query.mine === "1" ? { trainerId: staff.id } : {}) };
+  const where: Prisma.ClassWhereInput = { startTime: { gte: from, lt: to }, cancelledAt: null, ...(query.mine === "1" ? { trainerId: staff.id } : {}) };
   const classes = await db.class.findMany({
     where,
     orderBy: { startTime: "asc" },

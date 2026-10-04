@@ -1,16 +1,8 @@
 import { staffRoute, json } from "@/lib/http/route";
-import { ApiError } from "@/lib/http/errors";
-import { logAction } from "@/lib/audit";
+import { cancelClass } from "@/lib/classes/service";
 
+// Cancels a class: bookings are released with credits returned, and the class
+// stays as a cancelled row so the timetable job doesn't recreate it.
 export const DELETE = staffRoute({ permission: "classes:manage" }, async ({ params, db, staff }) => {
-  const cls = await db.class.findUnique({ where: { id: params.id }, include: { _count: { select: { bookings: true } } } });
-  if (!cls) throw new ApiError("not_found", "Class not found.");
-  await db.class.delete({ where: { id: params.id } });
-  await logAction(db, staff, {
-    action: "class.cancelled",
-    targetType: "Class",
-    targetId: params.id,
-    details: { name: cls.name, startTime: cls.startTime.toISOString(), bookingsRemoved: cls._count.bookings },
-  });
-  return json({ ok: true });
+  return json({ ok: true, ...(await cancelClass(db, staff, params.id)) });
 });

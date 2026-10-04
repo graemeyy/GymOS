@@ -1,10 +1,10 @@
-import type { Prisma } from "@prisma/client";
 import type { Db } from "@/lib/db";
 import { gym } from "@/lib/config";
 import { ApiError } from "@/lib/http/errors";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { logAction, type Actor } from "@/lib/audit";
 import { recordAcceptance } from "@/lib/legal";
+import { releaseFutureBookings } from "@/lib/classes/service";
 
 export const ERASED = "[erased]";
 
@@ -140,10 +140,11 @@ export async function eraseMember(db: Db, actor: Actor, memberId: string) {
 // The erasure itself, without the checks. Also used by the retention job for
 // members archived longer than the gym keeps personal details.
 export async function anonymiseMember(db: Db, actor: Actor, memberId: string) {
+  // Future bookings are released the way a staff cancellation would, so
+  // credits come back and the waitlist moves up (R-39).
+  await releaseFutureBookings(db, actor, memberId);
   const now = new Date();
   await db.$transaction(async (tx) => {
-    await tx.classBooking.deleteMany({ where: { memberId, class: { startTime: { gt: now } } } });
-    await tx.classWaitlist.deleteMany({ where: { memberId } });
     await tx.memberNote.deleteMany({ where: { memberId } });
     await tx.order.updateMany({ where: { memberId }, data: { customerName: "Deleted member", email: `deleted-${memberId}@deleted.invalid` } });
     await tx.$executeRaw`UPDATE "Order" SET "shippingAddress" = NULL WHERE "memberId" = ${memberId}`;
@@ -166,31 +167,18 @@ export async function anonymiseMember(db: Db, actor: Actor, memberId: string) {
         anonymisedAt: now,
       },
     });
-    // The audit log keeps what happened, but not who the person was.
-    const rows = await tx.auditLog.findMany({
-      where: { OR: [{ targetType: "Member", targetId: memberId }, { details: { path: ["actorMemberId"], equals: memberId } }] },
-      select: { id: true, staffName: true, details: true },
-    });
-    for (const row of rows) {
-      const details = scrubDetails(row.details);
-      await tx.auditLog.update({
-        where: { id: row.id },
-        data: { ...(row.staffName.startsWith("Member: ") ? { staffName: `Member: ${ERASED}` } : {}), ...(details !== undefined ? { details } : {}) },
-      });
-    }
+    // The audit log keeps what happened, but not who the person was. Two
+    // set-based statements instead of one update per row (R-47).
+    await tx.$executeRaw`
+      UPDATE "AuditLog" SET "staffName" = ${`Member: ${ERASED}`}
+      WHERE "details"->>'actorMemberId' = ${memberId} AND "staffName" LIKE 'Member: %'`;
+    await tx.$executeRaw`
+      UPDATE "AuditLog" SET "details" = (
+        SELECT jsonb_object_agg(k, CASE WHEN k IN ('name', 'email', 'reason') THEN to_jsonb(${ERASED}::text) ELSE v END)
+        FROM jsonb_each("details") AS e(k, v)
+      )
+      WHERE "targetType" = 'Member' AND "targetId" = ${memberId}
+        AND jsonb_typeof("details") = 'object' AND "details" ?| array['name', 'email', 'reason']`;
     await logAction(tx, actor, { action: "member.erased", targetType: "Member", targetId: memberId });
   });
-}
-
-function scrubDetails(details: Prisma.JsonValue): Prisma.InputJsonValue | undefined {
-  if (!details || typeof details !== "object" || Array.isArray(details)) return undefined;
-  const copy = { ...details } as Record<string, Prisma.JsonValue>;
-  let changed = false;
-  for (const key of ["name", "email", "reason"]) {
-    if (key in copy) {
-      copy[key] = ERASED;
-      changed = true;
-    }
-  }
-  return changed ? (copy as Prisma.InputJsonValue) : undefined;
 }

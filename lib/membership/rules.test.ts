@@ -21,8 +21,24 @@ describe("billing cycles", () => {
       start: d("2026-10-01T00:00:00Z"),
       end: d("2026-10-08T00:00:00Z"),
     });
-    const rolled = currentCycle({ createdAt: d("2026-09-17T00:00:00Z"), currentPeriodStart: null, currentPeriodEnd: null }, "WEEK", now);
+    const rolled = currentCycle({ createdAt: d("2026-09-17T00:00:00Z"), currentPeriodStart: null, currentPeriodEnd: null }, "WEEK", now, "UTC");
     expect(rolled).toEqual({ start: d("2026-10-01T00:00:00Z"), end: d("2026-10-08T00:00:00Z") });
+  });
+});
+
+describe("R-29 monthly cycles keep their anchor day", () => {
+  it("returns to the 31st after a short month instead of drifting to the 28th", () => {
+    const member = { createdAt: d("2026-01-31T00:00:00Z"), currentPeriodStart: null, currentPeriodEnd: null };
+    expect(currentCycle(member, "MONTH", d("2026-04-15T00:00:00Z"), "UTC")).toEqual({ start: d("2026-03-31T00:00:00Z"), end: d("2026-04-30T00:00:00Z") });
+    expect(currentCycle(member, "MONTH", d("2026-05-15T00:00:00Z"), "UTC")).toEqual({ start: d("2026-04-30T00:00:00Z"), end: d("2026-05-31T00:00:00Z") });
+  });
+
+  it("counts months in the gym's time zone, not UTC", () => {
+    // Joined at 12:30am on 1 March in Sydney (still 28 Feb in UTC).
+    const member = { createdAt: d("2026-02-28T13:30:00Z"), currentPeriodStart: null, currentPeriodEnd: null };
+    const cycle = currentCycle(member, "MONTH", d("2026-03-20T00:00:00Z"), "Australia/Sydney");
+    // Next cycle starts 12:30am on 1 April Sydney time (AEDT ends 5 April).
+    expect(cycle.end.toISOString()).toBe("2026-03-31T13:30:00.000Z");
   });
 });
 

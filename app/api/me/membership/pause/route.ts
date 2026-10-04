@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { memberRoute, json } from "@/lib/http/route";
+import { memberRoute, json, zGymDate } from "@/lib/http/route";
 import { pauseMembership, resumeMembership } from "@/lib/membership/service";
 
-const Body = z.object({ from: z.coerce.date(), until: z.coerce.date() }).refine((b) => b.until > b.from, { message: "End must be after start", path: ["until"] });
+const Body = z.object({ from: zGymDate, until: zGymDate }).refine((b) => b.until > b.from, { message: "End must be after start", path: ["until"] });
 
 // Pause rules (length, how often, whether members may pause themselves) are
 // checked in the service, the same as for staff.

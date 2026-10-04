@@ -19,7 +19,8 @@ export function splitInclusive(inclusiveCents: number, gstRegistered = true) {
 export function applyDiscount(inclusiveCents: number, percent: number): number {
   assertCents(inclusiveCents);
   if (percent < 0 || percent > 100) throw new RangeError("Discount must be between 0 and 100");
-  return Math.round(inclusiveCents * (1 - percent / 100));
+  // Integer arithmetic: 0.7 * 45 in floating point is 31.499..., not 31.5 (R-70).
+  return Math.round((inclusiveCents * (100 - percent)) / 100);
 }
 
 const audFormatter = new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" });

@@ -12,7 +12,7 @@ export const GET = memberRoute({ query: Query }, async ({ query, db, member }) =
   const to = query.to ?? new Date(from.getTime() + 7 * 86_400_000);
   if (to.getTime() - from.getTime() > 31 * 86_400_000) throw new ApiError("validation_failed", "Choose a range of a month or less.");
   const classes = await db.class.findMany({
-    where: { startTime: { gte: from, lt: to } },
+    where: { startTime: { gte: from, lt: to }, cancelledAt: null },
     orderBy: { startTime: "asc" },
     select: {
       id: true,

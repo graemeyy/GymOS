@@ -10,6 +10,8 @@ import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { Dialog } from "@/components/ui/dialog";
 import { FormMessage, TextareaField, TextField } from "@/components/ui/form";
 import { useMe } from "@/components/member/member-shell";
+import { gym } from "@/lib/config";
+import { addCalendarDays, localDateIn } from "@/lib/dates";
 import { MembershipLine } from "@/components/member/membership-summary";
 import type { Interval } from "@/components/member/types";
 
@@ -21,7 +23,7 @@ interface PlanOption {
   interval: Interval;
   current: boolean;
   pending: boolean;
-  change: { upgrade: boolean; immediate: boolean; effectiveAt: string; prorationCents: number } | null;
+  change: { upgrade: boolean; immediate: boolean; effectiveAt: string; prorationCents: number | null } | null;
 }
 
 interface Options {
@@ -42,12 +44,15 @@ interface Payment {
   status: string;
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
-const addDays = (d: string, n: number) => new Date(new Date(d).getTime() + n * 86_400_000).toISOString().slice(0, 10);
+// The gym's local date, not UTC (which is yesterday before 10 or 11am in
+// Sydney) (R-13).
+const today = () => localDateIn(gym.business.timezone);
+const addDays = addCalendarDays;
 
 function changeText(plan: PlanOption) {
   const c = plan.change!;
   if (!c.immediate) return `Changes on ${fmtDate(c.effectiveAt)}, your next billing date. You keep your current plan until then.`;
+  if (c.prorationCents === null) return `Starts now. Stripe charges or credits the difference for the rest of this billing period, then ${formatAud(plan.priceCents)} per ${INTERVAL_LABELS[plan.interval].noun}.`;
   if (c.prorationCents > 0) return `Starts now. Stripe charges about ${formatAud(c.prorationCents)} for the rest of this billing period, then ${formatAud(plan.priceCents)} per ${INTERVAL_LABELS[plan.interval].noun}.`;
   return `Starts now. Then ${formatAud(plan.priceCents)} per ${INTERVAL_LABELS[plan.interval].noun}.`;
 }

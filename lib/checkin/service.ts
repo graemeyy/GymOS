@@ -11,8 +11,11 @@ export async function accessDecision(
   now = new Date()
 ): Promise<CheckInDecision> {
   if (member.archivedAt) return { granted: false, reason: "Membership archived" };
+  // Allow-list rather than deny-list, so a status added later (like PENDING)
+  // never lets someone in by default (R-02).
   if (member.status === "PAUSED") return { granted: false, reason: "Membership paused" };
   if (member.status === "CANCELED") return { granted: false, reason: "Membership cancelled" };
+  if (member.status !== "ACTIVE" && member.status !== "PAST_DUE") return { granted: false, reason: "Membership not started" };
   let warning: string | null = null;
   if (member.status === "PAST_DUE") {
     // The owner sets a grace period; during it the member can still train.
