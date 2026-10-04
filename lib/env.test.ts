@@ -9,7 +9,7 @@ const base = {
 describe("environment validation", () => {
   it("accepts a minimal valid environment and fills defaults", () => {
     const env = parseServerEnv(base);
-    expect(env.NEXT_PUBLIC_APP_URL).toBe("http://localhost:3000");
+    expect(env.NEXT_PUBLIC_APP_URL).toBeUndefined();
     expect(env.STRIPE_SECRET_KEY).toBeUndefined();
   });
 

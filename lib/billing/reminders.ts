@@ -1,7 +1,7 @@
+import { appUrl } from "@/lib/app-url";
 import type { Db } from "@/lib/db";
 import { gym } from "@/lib/config";
 import { formatAud } from "@/lib/money";
-import { env } from "@/lib/env";
 import { sendEmail, signature } from "@/lib/email";
 import { DAY_MS } from "@/lib/time";
 
@@ -31,7 +31,7 @@ export async function sendPaymentReminders(db: Db, now = new Date()) {
       subject: `Your ${gym.brand.shortName} payment didn't go through`,
       text:
         `Hi ${m.name?.split(" ")[0] ?? "there"},\n\nYour last membership payment${owing} didn't go through. ` +
-        `Update your card at ${env().NEXT_PUBLIC_APP_URL}/member and we'll retry it automatically.` +
+        `Update your card at ${appUrl("/member")} and we'll retry it automatically.` +
         (suspendIn > 0 ? ` Gym access pauses in ${suspendIn} day(s) if it's still unpaid.` : " Gym access is paused until it's paid.") +
         signature(),
     });

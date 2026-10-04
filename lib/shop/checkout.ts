@@ -1,6 +1,6 @@
+import { appUrl } from "@/lib/app-url";
 import type Stripe from "stripe";
 import type { Db, Tx } from "@/lib/db";
-import { env } from "@/lib/env";
 import { gym } from "@/lib/config";
 import { ApiError } from "@/lib/http/errors";
 import { getStripe } from "@/lib/billing/stripe";
@@ -83,7 +83,6 @@ export async function startShopCheckout(db: Db, actor: Actor & { kind: "member" 
   });
   if (priced.shippingCents > 0) lineItems.push({ quantity: 1, price_data: { currency: "aud", unit_amount: priced.shippingCents, product_data: { name: "Shipping" } } });
 
-  const appUrl = env().NEXT_PUBLIC_APP_URL;
   let session: Stripe.Checkout.Session;
   try {
     session = await getStripe().checkout.sessions.create(
@@ -99,8 +98,8 @@ export async function startShopCheckout(db: Db, actor: Actor & { kind: "member" 
         // Stripe's shortest allowed expiry, 30 minutes. An abandoned order is
         // cancelled when Stripe reports it expired.
         expires_at: Math.floor((Date.now() + 30 * MINUTE_MS) / 1000),
-        success_url: `${appUrl}/member/orders/${order.id}?paid=1`,
-        cancel_url: `${appUrl}/shop/cart`,
+        success_url: appUrl(`/member/orders/${order.id}?paid=1`),
+        cancel_url: appUrl("/shop/cart"),
       },
       { idempotencyKey: `shop-checkout-${order.id}` }
     );

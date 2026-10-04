@@ -1,3 +1,4 @@
+import { appUrl } from "@/lib/app-url";
 import type { Announcement } from "@prisma/client";
 import type { Db } from "@/lib/db";
 import type { StaffActor } from "@/lib/auth/session";
@@ -5,7 +6,6 @@ import { ApiError } from "@/lib/http/errors";
 import { logAction } from "@/lib/audit";
 import { gym } from "@/lib/config";
 import { sendEmail, signature } from "@/lib/email";
-import { env } from "@/lib/env";
 import { audienceWhere } from "./queries";
 import type { AnnouncementInput } from "./schema";
 
@@ -76,7 +76,7 @@ export async function emailAnnouncement(db: Db, announcementId: string) {
     const res = await sendEmail({
       to: r.email,
       subject: `${gym.brand.shortName}: ${a.title}`,
-      text: `Hi ${r.name?.split(" ")[0] ?? "there"},\n\n${a.body}\n\nTo stop gym news emails, switch off "Gym news" at ${env().NEXT_PUBLIC_APP_URL}/member/account.${signature()}`,
+      text: `Hi ${r.name?.split(" ")[0] ?? "there"},\n\n${a.body}\n\nTo stop gym news emails, switch off "Gym news" at ${appUrl("/member/account")}.${signature()}`,
     });
     if (res.sent) sent++;
   }
