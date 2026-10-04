@@ -9,3 +9,5 @@ export const InventoryBody = z.object({
   reorderLevel: z.number().int().min(0).max(1_000_000).default(0),
   unitCostCents: zCents.nullable().optional(),
 });
+
+export const AdjustStockBody = z.object({ delta: z.number().int().min(-10_000).max(10_000).refine((d) => d !== 0, "Must not be zero") });
