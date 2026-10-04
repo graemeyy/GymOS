@@ -1,162 +1,188 @@
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Status } from "@prisma/client";
+import { hashPassword } from "../lib/auth/password";
+import { gstFromInclusive } from "../lib/money";
+import { syncPlansFromConfig } from "../lib/plans";
 
-const PLAN_PRICES: Record<string, number> = {
-  BASIC: 2900,
-  PREMIUM: 4900,
-  PLATINUM: 9900,
-  ELITE: 19900,
-};
+// Fictional data only. Every name, email and number below is made up; emails
+// use the reserved example.com domain.
 
-function daysAgo(days: number, hours = 0, minutes = 0): Date {
-  return new Date(Date.now() - (days * 24 * 60 + hours * 60 + minutes) * 60 * 1000);
-}
+export const DEMO_PASSWORD = "ironbark-demo-2026";
 
-function inDays(days: number, hour: number, minute = 0): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  d.setHours(hour, minute, 0, 0);
+export const DEMO_STAFF = [
+  { name: "Mel Hartigan", email: "owner@example.com", role: "OWNER" },
+  { name: "Tom Nguyen", email: "manager@example.com", role: "MANAGER" },
+  { name: "Aisha Rahman", email: "frontdesk@example.com", role: "FRONT_DESK" },
+  { name: "Lachie Brennan", email: "trainer@example.com", role: "TRAINER" },
+] as const;
+
+const DAY = 86_400_000;
+const daysAgo = (days: number, hours = 0) => new Date(Date.now() - days * DAY - hours * 3_600_000);
+
+function inDays(days: number, hourUtc: number, minute = 0) {
+  const d = new Date(Date.now() + days * DAY);
+  d.setUTCHours(hourUtc, minute, 0, 0);
   return d;
 }
 
-const MEMBERS = [
-  { name: "Alex Rivera", email: "alex.rivera@example.com", plan: "PLATINUM", status: "ACTIVE", retentionScore: 96, lastCheckIn: daysAgo(0, 0, 2), keycardIssued: true, visitsPerWeek: 5 },
-  { name: "Sarah Chen", email: "sarah.chen@example.com", plan: "PLATINUM", status: "ACTIVE", retentionScore: 91, lastCheckIn: daysAgo(0, 0, 15), keycardIssued: true, visitsPerWeek: 5 },
-  { name: "James Wilson", email: "james.wilson@example.com", plan: "BASIC", status: "ACTIVE", retentionScore: 88, lastCheckIn: daysAgo(0, 0, 45), keycardIssued: true, visitsPerWeek: 4 },
-  { name: "Emma Thompson", email: "emma.thompson@example.com", plan: "PREMIUM", status: "PAST_DUE", retentionScore: 54, lastCheckIn: daysAgo(1), keycardIssued: true, visitsPerWeek: 2, notes: "Payment failed on last attempt" },
-  { name: "Marcus Wright", email: "marcus.wright@example.com", plan: "PREMIUM", status: "ACTIVE", retentionScore: 82, lastCheckIn: daysAgo(0, 3), keycardIssued: true, visitsPerWeek: 4 },
-  { name: "David Miller", email: "david.miller@example.com", plan: "BASIC", status: "ACTIVE", retentionScore: 31, lastCheckIn: daysAgo(14), keycardIssued: true, visitsPerWeek: 1, notes: "Churn risk: declining attendance" },
-  { name: "Elena Rodriguez", email: "elena.rodriguez@example.com", plan: "PREMIUM", status: "ACTIVE", retentionScore: 38, lastCheckIn: daysAgo(10), keycardIssued: true, visitsPerWeek: 1 },
-  { name: "Priya Patel", email: "priya.patel@example.com", plan: "ELITE", status: "ACTIVE", retentionScore: 97, lastCheckIn: daysAgo(0, 1), keycardIssued: true, visitsPerWeek: 6 },
-  { name: "Tyler Brooks", email: "tyler.brooks@example.com", plan: "BASIC", status: "CANCELED", retentionScore: 12, lastCheckIn: daysAgo(60), keycardIssued: false, visitsPerWeek: 0 },
-  { name: "Nina Okafor", email: "nina.okafor@example.com", plan: "PLATINUM", status: "ACTIVE", retentionScore: 79, lastCheckIn: daysAgo(0, 4), keycardIssued: true, visitsPerWeek: 3 },
-  { name: "Jordan Casey", email: "jordan.casey@example.com", plan: "BASIC", status: "PAUSED", retentionScore: 45, lastCheckIn: daysAgo(20), keycardIssued: true, visitsPerWeek: 0 },
-  { name: "Michael Zhang", email: "michael.zhang@example.com", plan: "PREMIUM", status: "ACTIVE", retentionScore: 90, lastCheckIn: daysAgo(0, 0, 30), keycardIssued: true, visitsPerWeek: 5 },
-  { name: "Grace Kim", email: "grace.kim@example.com", plan: "ELITE", status: "ACTIVE", retentionScore: 85, lastCheckIn: daysAgo(0, 5), keycardIssued: true, visitsPerWeek: 4 },
-  { name: "Diego Martinez", email: "diego.martinez@example.com", plan: "BASIC", status: "ACTIVE", retentionScore: 67, lastCheckIn: daysAgo(2), keycardIssued: true, visitsPerWeek: 2 },
-  { name: "Olivia Brown", email: "olivia.brown@example.com", plan: "PREMIUM", status: "ACTIVE", retentionScore: 93, lastCheckIn: daysAgo(0, 0, 20), keycardIssued: true, visitsPerWeek: 5 },
-  { name: "Ryan O'Connell", email: "ryan.oconnell@example.com", plan: "BASIC", status: "ACTIVE", retentionScore: 58, lastCheckIn: daysAgo(7), keycardIssued: true, visitsPerWeek: 2 },
-  { name: "Fatima Al-Sayed", email: "fatima.alsayed@example.com", plan: "PLATINUM", status: "ACTIVE", retentionScore: 71, lastCheckIn: daysAgo(1), keycardIssued: true, visitsPerWeek: 3 },
-  { name: "Chris Taylor", email: "chris.taylor@example.com", plan: "PREMIUM", status: "PAST_DUE", retentionScore: 48, lastCheckIn: daysAgo(3), keycardIssued: true, visitsPerWeek: 2 },
+type SeedMember = {
+  name: string;
+  email: string;
+  plan: string;
+  status: Status;
+  retentionScore: number;
+  lastSeenDays: number | null;
+  visitsPerWeek: number;
+  login?: boolean;
+  notes?: string;
+};
+
+export const DEMO_MEMBERS: SeedMember[] = [
+  { name: "Charlotte Pham", email: "charlotte.pham@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 96, lastSeenDays: 0, visitsPerWeek: 5, login: true },
+  { name: "Jack O'Sullivan", email: "jack.osullivan@example.com", plan: "standard", status: "ACTIVE", retentionScore: 88, lastSeenDays: 1, visitsPerWeek: 4, login: true },
+  { name: "Priya Sharma", email: "priya.sharma@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 91, lastSeenDays: 0, visitsPerWeek: 5 },
+  { name: "Mitchell Greaves", email: "mitchell.greaves@example.com", plan: "standard", status: "PAST_DUE", retentionScore: 54, lastSeenDays: 2, visitsPerWeek: 2, notes: "Card declined on last renewal." },
+  { name: "Ngaio Tipene", email: "ngaio.tipene@example.com", plan: "off-peak", status: "ACTIVE", retentionScore: 79, lastSeenDays: 1, visitsPerWeek: 3 },
+  { name: "Daniel Kowalski", email: "daniel.kowalski@example.com", plan: "standard", status: "ACTIVE", retentionScore: 31, lastSeenDays: 15, visitsPerWeek: 1, notes: "Asked about pausing over summer." },
+  { name: "Grace Liu", email: "grace.liu@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 85, lastSeenDays: 0, visitsPerWeek: 4 },
+  { name: "Sam Whitlock", email: "sam.whitlock@example.com", plan: "off-peak", status: "CANCELED", retentionScore: 12, lastSeenDays: 60, visitsPerWeek: 0 },
+  { name: "Olivia Marchetti", email: "olivia.marchetti@example.com", plan: "standard", status: "PAUSED", retentionScore: 45, lastSeenDays: 21, visitsPerWeek: 0 },
+  { name: "Ben Adeyemi", email: "ben.adeyemi@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 93, lastSeenDays: 0, visitsPerWeek: 5 },
+  { name: "Tahlia Moore", email: "tahlia.moore@example.com", plan: "standard", status: "ACTIVE", retentionScore: 67, lastSeenDays: 3, visitsPerWeek: 2 },
+  { name: "Hamish Fraser", email: "hamish.fraser@example.com", plan: "off-peak", status: "ACTIVE", retentionScore: 58, lastSeenDays: 7, visitsPerWeek: 2 },
+  { name: "Mei Tanaka", email: "mei.tanaka@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 71, lastSeenDays: 1, visitsPerWeek: 3 },
+  { name: "Riley Dunstan", email: "riley.dunstan@example.com", plan: "standard", status: "PAST_DUE", retentionScore: 48, lastSeenDays: 4, visitsPerWeek: 2 },
 ];
 
 const CLASSES = [
-  { name: "HIIT", instructor: "Jordan Blake", day: 0, hour: 9, durationMinutes: 45, capacity: 20 },
-  { name: "Spin", instructor: "Maria Alvarez", day: 0, hour: 17, durationMinutes: 45, capacity: 18 },
-  { name: "Powerlifting Fundamentals", instructor: "Sam Okoye", day: 1, hour: 18, durationMinutes: 60, capacity: 10 },
-  { name: "Yoga Flow", instructor: "Lena Park", day: 2, hour: 7, durationMinutes: 50, capacity: 15 },
-  { name: "HIIT", instructor: "Jordan Blake", day: 3, hour: 9, durationMinutes: 45, capacity: 20 },
+  { name: "Barbell Basics", instructor: "Lachie Brennan", day: 0, hourUtc: 20, durationMinutes: 60, capacity: 10 },
+  { name: "Conditioning", instructor: "Lachie Brennan", day: 1, hourUtc: 7, durationMinutes: 45, capacity: 16 },
+  { name: "Mobility", instructor: "Tom Nguyen", day: 1, hourUtc: 22, durationMinutes: 45, capacity: 12 },
+  { name: "Strongman Saturday", instructor: "Lachie Brennan", day: 3, hourUtc: 22, durationMinutes: 75, capacity: 8 },
+  { name: "Conditioning", instructor: "Lachie Brennan", day: 4, hourUtc: 7, durationMinutes: 45, capacity: 16 },
 ];
 
 const EQUIPMENT = [
-  { name: "Treadmill #4", serialNumber: "TM-2021-004", status: "OFFLINE", healthScore: 0.12, failureProbability: 0.91, lastServicedAt: daysAgo(60), partNeeded: "Drive Belt V-22", estimatedCost: 14500 },
-  { name: "Cable Crossover (Left)", serialNumber: "CC-2019-011", status: "WARNING", healthScore: 0.58, failureProbability: 0.42, lastServicedAt: daysAgo(40), partNeeded: "Steel Coated Cable 3.5m", estimatedCost: 8900 },
-  { name: "Concept2 Rower #2", serialNumber: "RW-2020-002", status: "OPERATIONAL", healthScore: 0.95, failureProbability: 0.03, lastServicedAt: daysAgo(10), partNeeded: null, estimatedCost: null },
-  { name: "Power Rack A", serialNumber: "PR-2018-001", status: "OPERATIONAL", healthScore: 0.99, failureProbability: 0.01, lastServicedAt: daysAgo(5), partNeeded: null, estimatedCost: null },
-  { name: "Squat Rack B", serialNumber: "SR-2018-002", status: "OPERATIONAL", healthScore: 0.88, failureProbability: 0.08, lastServicedAt: daysAgo(25), partNeeded: null, estimatedCost: null },
-  { name: "Spin Bike #7", serialNumber: "SB-2021-007", status: "WARNING", healthScore: 0.62, failureProbability: 0.35, lastServicedAt: daysAgo(50), partNeeded: "Resistance belt", estimatedCost: 4200 },
-  { name: "Leg Press Machine", serialNumber: "LP-2019-003", status: "OPERATIONAL", healthScore: 0.93, failureProbability: 0.04, lastServicedAt: daysAgo(15), partNeeded: null, estimatedCost: null },
+  { name: "Treadmill 4", serialNumber: "TM-2021-004", status: "OFFLINE", lastServicedAt: daysAgo(60), partNeeded: "Drive belt", estimatedCost: 18900 },
+  { name: "Cable crossover (left)", serialNumber: "CC-2019-011", status: "WARNING", lastServicedAt: daysAgo(40), partNeeded: "Coated steel cable, 3.5 m", estimatedCost: 12400 },
+  { name: "Rower 2", serialNumber: "RW-2020-002", status: "OPERATIONAL", lastServicedAt: daysAgo(10), partNeeded: null, estimatedCost: null },
+  { name: "Power rack A", serialNumber: "PR-2018-001", status: "OPERATIONAL", lastServicedAt: daysAgo(5), partNeeded: null, estimatedCost: null },
+  { name: "Assault bike 3", serialNumber: "AB-2022-003", status: "WARNING", lastServicedAt: daysAgo(50), partNeeded: "Fan belt", estimatedCost: 6500 },
+] as const;
+
+const INVENTORY = [
+  { name: "Chalk block", category: "Consumables", sku: "CON-CHALK", quantity: 40, reorderLevel: 15, unitCostCents: 250 },
+  { name: "Disinfectant spray 5 L", category: "Cleaning", sku: "CLN-SPRAY5", quantity: 3, reorderLevel: 4, unitCostCents: 3200 },
+  { name: "Paper towel roll", category: "Cleaning", sku: "CLN-TOWEL", quantity: 24, reorderLevel: 12, unitCostCents: 180 },
 ];
 
+export async function isDatabaseEmpty(prisma: PrismaClient) {
+  const [members, staff] = await Promise.all([prisma.member.count(), prisma.staff.count()]);
+  return members === 0 && staff === 0;
+}
+
+// Wipes only rows the seed itself creates. Used by `npm run db:seed -- --reset`
+// against a local database and by the end-to-end test setup.
+export async function resetDatabase(prisma: PrismaClient) {
+  await prisma.$transaction([
+    prisma.auditLog.deleteMany(),
+    prisma.classWaitlist.deleteMany(),
+    prisma.classBooking.deleteMany(),
+    prisma.class.deleteMany(),
+    prisma.checkIn.deleteMany(),
+    prisma.payment.deleteMany(),
+    prisma.member.deleteMany(),
+    prisma.shift.deleteMany(),
+    prisma.staff.deleteMany(),
+    prisma.equipment.deleteMany(),
+    prisma.agentAction.deleteMany(),
+    prisma.inventoryItem.deleteMany(),
+    prisma.stripeEvent.deleteMany(),
+    prisma.rateLimit.deleteMany(),
+    prisma.gymSettings.deleteMany(),
+  ]);
+}
+
 export async function seedDatabase(prisma: PrismaClient) {
-  const memberRecords = [];
-  for (const m of MEMBERS) {
-    const record = await prisma.member.upsert({
-      where: { email: m.email },
-      update: {
-        name: m.name,
-        plan: m.plan as any,
-        status: m.status as any,
-        lastCheckIn: m.lastCheckIn,
-        retentionScore: m.retentionScore,
-        keycardIssued: m.keycardIssued,
-        notes: (m as any).notes ?? null,
-      },
-      create: {
+  await syncPlansFromConfig(prisma);
+  const plans = new Map((await prisma.membershipPlan.findMany()).map((p) => [p.slug, p]));
+  const passwordHash = await hashPassword(DEMO_PASSWORD);
+
+  for (const s of DEMO_STAFF) {
+    await prisma.staff.create({ data: { name: s.name, email: s.email, role: s.role, passwordHash } });
+  }
+
+  const memberIds: string[] = [];
+  for (const [i, m] of DEMO_MEMBERS.entries()) {
+    const plan = plans.get(m.plan);
+    const joined = daysAgo(400 - i * 25);
+    const member = await prisma.member.create({
+      data: {
         name: m.name,
         email: m.email,
-        plan: m.plan as any,
-        status: m.status as any,
-        lastCheckIn: m.lastCheckIn,
+        status: m.status,
+        planId: plan?.id ?? null,
         retentionScore: m.retentionScore,
-        keycardIssued: m.keycardIssued,
-        notes: (m as any).notes ?? null,
+        lastCheckIn: m.lastSeenDays === null ? null : daysAgo(m.lastSeenDays, 2),
+        keycardIssued: m.status !== "CANCELED",
+        notes: m.notes ?? null,
+        passwordHash: m.login ? passwordHash : null,
+        createdAt: joined,
       },
     });
-    memberRecords.push({ record, visitsPerWeek: m.visitsPerWeek, lastCheckIn: m.lastCheckIn });
-  }
+    memberIds.push(member.id);
 
-  // Replace check-ins and payouts wholesale each run — this is sample data, not
-  // real history, so there's no upsert key worth preserving between reseeds.
-  await prisma.checkIn.deleteMany({});
-  await prisma.payout.deleteMany({});
-  await prisma.equipment.deleteMany({});
-
-  let checkInCount = 0;
-  for (const { record, visitsPerWeek, lastCheckIn } of memberRecords) {
-    const visits = Math.round((visitsPerWeek / 7) * 14);
-    for (let i = 0; i < visits; i++) {
-      const offsetDays = (i / Math.max(visits - 1, 1)) * 13;
-      const timestamp = new Date(lastCheckIn.getTime() - offsetDays * 24 * 60 * 60 * 1000);
+    // About three weeks of visits at their usual rate.
+    const visits = Math.round(m.visitsPerWeek * 3);
+    for (let v = 0; v < visits; v++) {
       await prisma.checkIn.create({
-        data: {
-          memberId: record.id,
-          location: Math.random() < 0.85 ? "Main Entrance" : "Weight Room",
-          timestamp,
-        },
+        data: { memberId: member.id, location: "Front desk", timestamp: daysAgo((m.lastSeenDays ?? 30) + Math.floor((v * 21) / Math.max(visits, 1)), v % 12) },
       });
-      checkInCount++;
+    }
+
+    // Weekly payments for the last eight weeks for members who've paid.
+    if (plan && m.status !== "CANCELED") {
+      const paidWeeks = m.status === "PAST_DUE" ? 6 : 8;
+      for (let w = 0; w < paidWeeks; w++) {
+        await prisma.payment.create({
+          data: {
+            memberId: member.id,
+            amount: plan.priceCents,
+            gstCents: gstFromInclusive(plan.priceCents),
+            currency: "aud",
+            status: "succeeded",
+            description: `${plan.name} membership`,
+            createdAt: daysAgo(w * 7 + (m.status === "PAST_DUE" ? 14 : 0) + 1),
+          },
+        });
+      }
     }
   }
 
-  let payoutCount = 0;
-  const payingMembers = memberRecords.filter((m) => m.record.status === "ACTIVE" || m.record.status === "PAST_DUE");
-  for (const { record } of payingMembers) {
-    const monthsBack = Math.random() < 0.7 ? 2 : 3;
-    for (let i = 0; i < monthsBack; i++) {
-      const isLatest = i === 0;
-      await prisma.payout.create({
-        data: {
-          memberId: record.id,
-          amount: PLAN_PRICES[record.plan] ?? 2900,
-          currency: "usd",
-          status: isLatest && record.status === "PAST_DUE" ? "failed" : "succeeded",
-          createdAt: daysAgo(i * 30 + Math.floor(Math.random() * 3)),
-        },
-      });
-      payoutCount++;
-    }
-  }
+  // Referrals: a couple of members brought friends in.
+  await prisma.member.update({ where: { id: memberIds[2] }, data: { referredById: memberIds[0] } });
+  await prisma.member.update({ where: { id: memberIds[6] }, data: { referredById: memberIds[0] } });
 
-  for (const e of EQUIPMENT) {
-    await prisma.equipment.create({ data: e as any });
-  }
-
-  await prisma.classBooking.deleteMany({});
-  await prisma.class.deleteMany({});
-
-  const activeMembers = memberRecords.filter((m) => m.record.status === "ACTIVE").map((m) => m.record);
-  for (const c of CLASSES) {
-    const created = await prisma.class.create({
-      data: {
-        name: c.name,
-        instructor: c.instructor,
-        startTime: inDays(c.day, c.hour),
-        durationMinutes: c.durationMinutes,
-        capacity: c.capacity,
-      },
+  for (const [i, c] of CLASSES.entries()) {
+    const cls = await prisma.class.create({
+      data: { name: c.name, instructor: c.instructor, startTime: inDays(c.day, c.hourUtc), durationMinutes: c.durationMinutes, capacity: c.capacity },
     });
-    const attendeeCount = Math.min(activeMembers.length, 3 + Math.floor(Math.random() * 4));
-    const attendees = [...activeMembers].sort(() => Math.random() - 0.5).slice(0, attendeeCount);
-    for (const member of attendees) {
-      await prisma.classBooking.create({ data: { classId: created.id, memberId: member.id } });
+    const active = memberIds.filter((_, idx) => DEMO_MEMBERS[idx].status === "ACTIVE");
+    const take = i === 3 ? c.capacity : Math.min(active.length, 3 + i);
+    for (const memberId of active.slice(0, take)) {
+      await prisma.classBooking.create({ data: { classId: cls.id, memberId } });
     }
   }
 
-  return {
-    members: memberRecords.length,
-    checkIns: checkInCount,
-    payouts: payoutCount,
-    equipment: EQUIPMENT.length,
-    classes: CLASSES.length,
-  };
+  for (const e of EQUIPMENT) await prisma.equipment.create({ data: { ...e } });
+  for (const item of INVENTORY) await prisma.inventoryItem.create({ data: item });
+  await prisma.gymSettings.create({ data: { id: "singleton" } });
+
+  const owner = await prisma.staff.findUniqueOrThrow({ where: { email: "owner@example.com" } });
+  const frontDesk = await prisma.staff.findUniqueOrThrow({ where: { email: "frontdesk@example.com" } });
+  for (let d = 0; d < 5; d++) {
+    await prisma.shift.create({ data: { staffId: frontDesk.id, startTime: inDays(d, 19), endTime: inDays(d + 1, 3), notes: d === 0 ? "Opening shift" : null } });
+  }
+  await prisma.shift.create({ data: { staffId: owner.id, startTime: inDays(1, 22), endTime: inDays(2, 6) } });
+
+  return { staff: DEMO_STAFF.length, members: DEMO_MEMBERS.length, classes: CLASSES.length };
 }

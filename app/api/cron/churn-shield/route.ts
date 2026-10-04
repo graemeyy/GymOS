@@ -1,68 +1,32 @@
-import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { publicRoute, json } from "@/lib/http/route";
+import { assertBearer } from "@/lib/http/bearer";
+import { env } from "@/lib/env";
+import { retentionScore } from "@/lib/retention";
 
-export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  try {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const members = await prisma.member.findMany({
-      include: {
-        checkIns: {
-          where: {
-            timestamp: { gte: thirtyDaysAgo },
-          },
-        },
-        classBookings: {
-          where: {
-            status: "NO_SHOW",
-            class: { startTime: { gte: thirtyDaysAgo } },
-          },
+// Nightly retention scoring, called by Vercel cron with CRON_SECRET.
+export const GET = publicRoute({}, async ({ request, db }) => {
+  assertBearer(request, env().CRON_SECRET, "The cron job");
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const members = await db.member.findMany({
+    where: { archivedAt: null },
+    select: {
+      id: true,
+      lastCheckIn: true,
+      _count: {
+        select: {
+          checkIns: { where: { timestamp: { gte: thirtyDaysAgo } } },
+          classBookings: { where: { status: "NO_SHOW", class: { startTime: { gte: thirtyDaysAgo } } } },
         },
       },
-    });
-
-    const now = new Date().getTime();
-
-    const updates = members.map((member) => {
-      let score = 0;
-
-      // 1. Recency (50%)
-      if (member.lastCheckIn) {
-        const daysSince = (now - new Date(member.lastCheckIn).getTime()) / (1000 * 60 * 60 * 24);
-        if (daysSince <= 3) score += 50;
-        else if (daysSince <= 7) score += 30;
-        else if (daysSince <= 14) score += 10;
-      }
-
-      // 2. Frequency (50%)
-      const count = member.checkIns.length;
-      if (count >= 12) score += 50;
-      else if (count >= 8) score += 35;
-      else if (count >= 4) score += 15;
-
-      // 3. Class no-show penalty (booking a class and not showing up is a
-      // stronger churn signal than simply not booking one at all)
-      const noShows = member.classBookings.length;
-      score -= Math.min(noShows * 5, 20);
-      score = Math.max(score, 0);
-
-      return prisma.member.update({
-        where: { id: member.id },
-        data: { retentionScore: score },
-      });
-    });
-
-    await Promise.all(updates);
-
-    return NextResponse.json({ success: true, updated: updates.length });
-  } catch (error) {
-    console.error("Churn Shield Error:", error);
-    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
-  }
-}
+    },
+  });
+  const now = new Date();
+  const updates = members.map((m) =>
+    db.member.update({
+      where: { id: m.id },
+      data: { retentionScore: retentionScore({ lastCheckIn: m.lastCheckIn, visitsLast30Days: m._count.checkIns, noShowsLast30Days: m._count.classBookings }, now) },
+    })
+  );
+  for (let i = 0; i < updates.length; i += 100) await db.$transaction(updates.slice(i, i + 100));
+  return json({ ok: true, updated: updates.length });
+});

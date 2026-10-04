@@ -1,0 +1,104 @@
+{
+  "$comment": "Everything a new gym changes to adopt GymOS. Validated against lib/config/schema.ts at build and at startup. All details below are fictional placeholders, including the ABN (random, checksum-valid). Set isDemo to false once real details are in.",
+  "isDemo": true,
+  "brand": {
+    "name": "Ironbark Strength Co.",
+    "shortName": "Ironbark",
+    "tagline": "Strength and conditioning in Marrickville",
+    "logoText": "IB"
+  },
+  "business": {
+    "legalName": "Ironbark Strength Co. Pty Ltd",
+    "abn": "94 687 093 963",
+    "gstRegistered": true,
+    "email": "hello@ironbark.example",
+    "phone": "02 9000 0000",
+    "address": {
+      "line1": "12 Sample Lane",
+      "line2": "",
+      "suburb": "Marrickville",
+      "state": "NSW",
+      "postcode": "2204"
+    },
+    "timezone": "Australia/Sydney"
+  },
+  "hours": [
+    { "day": "mon", "open": "05:00", "close": "21:00" },
+    { "day": "tue", "open": "05:00", "close": "21:00" },
+    { "day": "wed", "open": "05:00", "close": "21:00" },
+    { "day": "thu", "open": "05:00", "close": "21:00" },
+    { "day": "fri", "open": "05:00", "close": "20:00" },
+    { "day": "sat", "open": "07:00", "close": "14:00" },
+    { "day": "sun", "open": "08:00", "close": "12:00" }
+  ],
+  "plans": [
+    {
+      "slug": "off-peak",
+      "name": "Off-peak",
+      "description": "Gym floor access 10am to 4pm on weekdays, and all day on weekends.",
+      "priceCents": 1995,
+      "interval": "WEEK",
+      "benefits": { "classCreditsPerCycle": 0, "guestPassesPerCycle": 0, "shopDiscountPercent": 0, "guestRateCents": 2500 }
+    },
+    {
+      "slug": "standard",
+      "name": "Standard",
+      "description": "Gym floor access during all opening hours, plus two classes a week.",
+      "priceCents": 2995,
+      "interval": "WEEK",
+      "benefits": { "classCreditsPerCycle": 2, "guestPassesPerCycle": 0, "shopDiscountPercent": 5, "guestRateCents": 2000 }
+    },
+    {
+      "slug": "unlimited",
+      "name": "Unlimited",
+      "description": "All opening hours, unlimited classes, and a guest pass every week.",
+      "priceCents": 3995,
+      "interval": "WEEK",
+      "benefits": { "classCreditsPerCycle": null, "guestPassesPerCycle": 1, "shopDiscountPercent": 10, "guestRateCents": 1500 }
+    }
+  ],
+  "policies": {
+    "cancellation": {
+      "noticeDays": 14,
+      "minimumTermWeeks": 0,
+      "coolingOffDays": 7,
+      "allowMemberSelfCancel": true
+    },
+    "pause": {
+      "allowMemberSelfPause": true,
+      "minDays": 7,
+      "maxDays": 90,
+      "maxPausesPerYear": 2,
+      "feeCents": 0
+    },
+    "planChanges": {
+      "upgradeProration": "prorate_now",
+      "downgradeTiming": "next_cycle"
+    },
+    "failedPayments": {
+      "reminderDays": [1, 3, 7],
+      "suspendAccessAfterDays": 7
+    },
+    "classes": {
+      "bookingOpensDaysAhead": 7,
+      "cancelWithoutPenaltyHours": 2,
+      "lateCancelForfeitsCredit": true
+    },
+    "shop": {
+      "pickupOnly": false,
+      "flatShippingCents": 1000,
+      "freeShippingOverCents": 10000,
+      "changeOfMindReturnsDays": 0
+    },
+    "dataRetention": {
+      "financialRecordsYears": 7,
+      "checkInHistoryMonths": 24,
+      "archivedMemberMonths": 24
+    }
+  },
+  "legal": {
+    "termsVersion": "2026-10-draft",
+    "privacyVersion": "2026-10-draft",
+    "reviewedByLawyer": false
+  }
+}

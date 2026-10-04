@@ -27,3 +27,7 @@ next-env.d.ts
 
 # prisma
 /prisma/dev.db
+tests/e2e/.auth/
+/test-results/
+/playwright-report/
+/coverage/

@@ -1,65 +1,30 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getSession, requireRole } from "@/lib/auth";
+import { z } from "zod";
+import { staffRoute, json, zName } from "@/lib/http/route";
 import { logAction } from "@/lib/audit";
 
-export async function GET() {
-  try {
-    const classes = await prisma.class.findMany({
-      // 24h lookback (rather than 1h) so a class that just ended stays
-      // visible long enough for staff to mark attendance on its roster.
-      where: { startTime: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
-      orderBy: { startTime: "asc" },
-      include: {
-        bookings: {
-          include: { member: { select: { id: true, name: true, email: true } } },
-        },
-        waitlist: {
-          orderBy: { createdAt: "asc" },
-          include: { member: { select: { id: true, name: true, email: true } } },
-        },
-      },
-    });
-    return NextResponse.json(classes);
-  } catch (error) {
-    console.error("Classes fetch error:", error);
-    return NextResponse.json({ error: "Failed to fetch classes" }, { status: 500 });
-  }
-}
+export const GET = staffRoute({ permission: "classes:read" }, async ({ db }) => {
+  const classes = await db.class.findMany({
+    // 24h lookback so a class that just ended stays visible for attendance.
+    where: { startTime: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+    orderBy: { startTime: "asc" },
+    include: {
+      bookings: { include: { member: { select: { id: true, name: true, email: true } } } },
+      waitlist: { orderBy: { createdAt: "asc" }, include: { member: { select: { id: true, name: true, email: true } } } },
+    },
+  });
+  return json(classes);
+});
 
-export async function POST(request: Request) {
-  const denied = await requireRole(request, "MANAGER");
-  if (denied) return denied;
+const Body = z.object({
+  name: zName,
+  instructor: z.string().trim().max(120).nullable().optional(),
+  startTime: z.coerce.date(),
+  durationMinutes: z.number().int().min(10).max(240).default(45),
+  capacity: z.number().int().min(1).max(500).default(20),
+});
 
-  try {
-    const body = await request.json();
-    const { name, instructor, startTime, durationMinutes, capacity } = body;
-
-    if (!name || !startTime) {
-      return NextResponse.json({ error: "Name and start time are required" }, { status: 400 });
-    }
-
-    const cls = await prisma.class.create({
-      data: {
-        name,
-        instructor: instructor || null,
-        startTime: new Date(startTime),
-        durationMinutes: durationMinutes ? Number(durationMinutes) : undefined,
-        capacity: capacity ? Number(capacity) : undefined,
-      },
-    });
-
-    const session = await getSession(request);
-    await logAction(prisma, session, {
-      action: "class.created",
-      targetType: "Class",
-      targetId: cls.id,
-      details: { name: cls.name, startTime: cls.startTime },
-    });
-
-    return NextResponse.json(cls, { status: 201 });
-  } catch (error) {
-    console.error("Class create error:", error);
-    return NextResponse.json({ error: "Failed to create class" }, { status: 500 });
-  }
-}
+export const POST = staffRoute({ permission: "classes:manage", body: Body }, async ({ body, db, staff }) => {
+  const cls = await db.class.create({ data: { ...body, instructor: body.instructor || null } });
+  await logAction(db, staff, { action: "class.created", targetType: "Class", targetId: cls.id, details: { name: cls.name, startTime: cls.startTime.toISOString() } });
+  return json(cls, 201);
+});

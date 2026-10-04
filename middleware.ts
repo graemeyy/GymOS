@@ -1,27 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
+import { NextResponse, type NextRequest } from "next/server";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/token";
 
+// Page-level gate only: sends signed-out visitors to the right sign-in page.
+// It is not the security boundary. Every API route checks the session and the
+// caller's permission itself, against the database (lib/http/route.ts), so a
+// middleware bypass can't expose data.
 export const config = {
-  // Protect everything except: the public marketing page, the login/setup
-  // flow, the reception kiosk (front-desk walk-up screen, no per-staff
-  // login) and the check-in API it calls, auth/webhook/cron/IoT API routes
-  // (their own auth schemes), and Next's own static assets.
-  matcher: [
-    "/((?!api/auth|api/webhooks|api/cron|api/iot|api/check-in|login|setup|marketing|reception|_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/admin/:path*", "/member/:path*"],
 };
 
+const PUBLIC_ADMIN = new Set(["/admin/login", "/admin/setup"]);
+
 export async function middleware(request: NextRequest) {
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  const session = await verifySessionToken(token);
+  const { pathname } = request.nextUrl;
+  if (PUBLIC_ADMIN.has(pathname)) return NextResponse.next();
 
-  if (session) return NextResponse.next();
+  const session = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
+  const wantsStaff = pathname.startsWith("/admin");
 
-  if (request.nextUrl.pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (wantsStaff && session?.kind === "staff") return NextResponse.next();
+  if (!wantsStaff && session?.kind === "member") return NextResponse.next();
 
-  const loginUrl = new URL("/login", request.url);
-  loginUrl.searchParams.set("from", request.nextUrl.pathname);
-  return NextResponse.redirect(loginUrl);
+  const url = request.nextUrl.clone();
+  url.pathname = wantsStaff ? "/admin/login" : "/login";
+  url.search = "";
+  url.searchParams.set("next", pathname);
+  return NextResponse.redirect(url);
 }

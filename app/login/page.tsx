@@ -1,108 +1,24 @@
-"use client";
+import { Suspense } from "react";
+import Link from "next/link";
+import type { Metadata } from "next";
+import { AuthFrame } from "@/components/auth/auth-frame";
+import { SignInForm } from "@/components/auth/sign-in-form";
 
-import React, { Suspense, useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Zap, Lock, Loader2 } from "lucide-react";
+export const metadata: Metadata = { title: "Member sign in" };
 
-export default function LoginPage() {
+export default function MemberLoginPage() {
   return (
-    <Suspense fallback={null}>
-      <LoginForm />
-    </Suspense>
-  );
-}
-
-function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [needsSetup, setNeedsSetup] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/bootstrap")
-      .then((r) => r.json())
-      .then((data) => setNeedsSetup(!!data.needsSetup))
-      .catch(() => {});
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error || "Login failed");
-        return;
+    <AuthFrame
+      title="Member sign in"
+      footer={
+        <>
+          Staff use the <Link href="/admin/login" className="font-medium text-plate underline underline-offset-2">staff sign-in</Link>.
+        </>
       }
-      const destination = searchParams.get("from") || "/";
-      router.push(destination);
-      router.refresh();
-    } catch {
-      setError("Network error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-chalk text-ink font-sans flex items-center justify-center p-6">
-      <div className="w-full max-w-sm bg-surface border border-line rounded-2xl p-8">
-        <div className="flex items-center gap-2.5 mb-8">
-          <div className="w-9 h-9 rounded-lg bg-ember flex items-center justify-center">
-            <Zap className="w-4.5 h-4.5 text-white" />
-          </div>
-          <span className="font-display font-medium text-ink">GymOS</span>
-        </div>
-        <h1 className="font-display text-xl font-medium text-ink mb-2 flex items-center gap-2">
-          <Lock className="w-4.5 h-4.5 text-ink-soft" /> Staff sign in
-        </h1>
-        {needsSetup && (
-          <p className="text-sm text-ink-soft mb-6">
-            No staff accounts exist yet. <a href="/setup" className="text-ember font-medium hover:text-ember-dark">Create the owner account →</a>
-          </p>
-        )}
-        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-ink">Email</label>
-            <input
-              required
-              type="email"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-chalk border border-line rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ember/30"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-ink">Password</label>
-            <input
-              required
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-chalk border border-line rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ember/30"
-              placeholder="••••••••"
-            />
-          </div>
-          {error && <p className="text-bad text-sm">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-ember text-white rounded-xl py-2.5 font-medium hover:bg-ember-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign in"}
-          </button>
-        </form>
-      </div>
-    </div>
+    >
+      <Suspense>
+        <SignInForm endpoint="/api/auth/member-login" home="/member" prefix="/member" />
+      </Suspense>
+    </AuthFrame>
   );
 }

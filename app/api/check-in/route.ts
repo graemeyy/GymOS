@@ -1,107 +1,40 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
-import { logAction } from "@/lib/audit";
+import { z } from "zod";
+import { staffRoute, json } from "@/lib/http/route";
+import { ApiError } from "@/lib/http/errors";
+import { RATE_LIMITS } from "@/lib/rate-limit";
+import { checkInMember } from "@/lib/checkin/service";
 
-export async function POST(req: Request) {
-  try {
-    const { memberId, email } = await req.json();
+// Front-desk check-in. Staff only: this used to be public and leaked member
+// details to anyone who guessed an email (audit S2).
+export const GET = staffRoute({ permission: "checkin:scan" }, async ({ db }) => {
+  const checkIns = await db.checkIn.findMany({
+    take: 15,
+    orderBy: { timestamp: "desc" },
+    select: { id: true, location: true, timestamp: true, member: { select: { id: true, name: true, status: true } } },
+  });
+  return json(checkIns);
+});
 
-    if (!memberId && !email) {
-      return NextResponse.json(
-        { error: "Member ID or email is required" },
-        { status: 400 }
-      );
-    }
+const Body = z.object({ query: z.string().trim().min(1, "Enter a member ID or email").max(254) });
 
-    // Find the member
-    const member = await prisma.member.findFirst({
-      where: {
-        OR: [
-          { id: memberId || undefined },
-          { email: email || undefined }
-        ]
-      },
-      include: {
-        checkIns: {
-          take: 1,
-          orderBy: { timestamp: 'desc' }
-        }
-      }
-    });
-
-    if (!member) {
-      return NextResponse.json({ error: "Member not found" }, { status: 404 });
-    }
-
-    // Determine status flags
-    const isInactive = member.status !== "ACTIVE";
-    const needsKeycard = !member.keycardIssued;
-    
-    // Create the check-in record
-    const checkIn = await prisma.checkIn.create({
-      data: {
-        memberId: member.id,
-        location: "Main Entrance",
-      }
-    });
-
-    // Update last check-in timestamp on member
-    await prisma.member.update({
-      where: { id: member.id },
-      data: { lastCheckIn: new Date() }
-    });
-
-    const session = await getSession(req);
-    await logAction(prisma, session, {
-      action: "member.checked_in",
-      targetType: "Member",
-      targetId: member.id,
-      details: { name: member.name, email: member.email },
-    });
-
-    return NextResponse.json({
-      success: true,
-      member: {
-        id: member.id,
-        name: member.name,
-        email: member.email,
-        status: member.status,
-        plan: member.plan,
-        retentionScore: member.retentionScore,
-        keycardIssued: member.keycardIssued,
-      },
-      checkIn,
-      alerts: {
-        inactive: isInactive,
-        needsKeycard,
-        lowRetention: member.retentionScore < 50
-      }
-    });
-
-  } catch (error) {
-    console.error("Check-in error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-export async function GET() {
-  try {
-    const checkIns = await prisma.checkIn.findMany({
-      take: 10,
-      orderBy: { timestamp: 'desc' },
-      include: {
-        member: {
-          select: {
-            name: true,
-            email: true,
-            status: true
-          }
-        }
-      }
-    });
-    return NextResponse.json(checkIns);
-  } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
+export const POST = staffRoute({ permission: "checkin:scan", body: Body, rateLimit: RATE_LIMITS.checkIn }, async ({ body, db, staff }) => {
+  const isEmail = body.query.includes("@");
+  const found = await db.member.findFirst({
+    where: isEmail ? { email: body.query.toLowerCase() } : { id: body.query },
+    select: { id: true },
+  });
+  if (!found) throw new ApiError("not_found", "No member matches that ID or email.");
+  const { member, decision } = await checkInMember(db, staff, found.id, "Front desk");
+  return json({
+    granted: decision.granted,
+    reason: decision.granted ? null : decision.reason,
+    member: {
+      id: member.id,
+      name: member.name,
+      status: member.status,
+      plan: member.membershipPlan?.name ?? null,
+      retentionScore: member.retentionScore,
+      keycardIssued: member.keycardIssued,
+    },
+  });
+});
