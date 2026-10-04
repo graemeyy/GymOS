@@ -11,15 +11,15 @@ Status key: **Built** means the app enforces or supports it. **Hook** means ther
 | C-01 | Prices shown to members include GST (ACCC component-pricing guidance: show the total price). | Built (PR 1): public plan prices say "Prices include GST." |
 | C-02 | GST in an inclusive price is 1/11, rounded to the nearest cent, worked out per transaction. | Built (PR 1): `lib/money.ts`, unit-tested. |
 | C-03 | The gym is registered for GST. If not, set `business.gstRegistered: false` and GST becomes 0; invoices must then not be called tax invoices. | Hook |
-| C-04 | A tax invoice for a sale under $1,000 needs: the words "tax invoice", the seller's identity and ABN, date, description, GST amount (or that the total includes GST), and the total. Sales of $1,000 or more also need the buyer's identity or ABN. | Hook (PR 1: ABN validated in config and stored GST per payment). Invoice documents are PR 2. |
+| C-04 | A tax invoice for a sale under $1,000 needs: the words "tax invoice", the seller's identity and ABN, date, description, GST amount (or that the total includes GST), and the total. Sales of $1,000 or more also need the buyer's identity or ABN. | Built (PR 2): printable invoice per payment with ABN, GST, sequential number and the buyer's name; a "Receipt" with no GST if the gym isn't registered. |
 | C-05 | Financial records are kept at least five years (ATO). Config default is seven; the schema refuses fewer than five. Archiving a member keeps their payments. | Built (PR 1) |
-| C-06 | Finance exports are labelled as summaries, not tax advice, and should be checked by an accountant before lodging a BAS. | Built (PR 1): payments export says so. Full GST summary is PR 2. |
+| C-06 | Finance exports are labelled as summaries, not tax advice, and should be checked by an accountant before lodging a BAS. | Built (PR 1 and 2): finance page and exports show GST collected net of refunds by month, BAS quarter and financial year, labelled as a summary for an accountant to check. |
 
 ## Australian Consumer Law: memberships, cancellation, refunds
 
 | # | Assumption | Status |
 | --- | --- | --- |
-| C-07 | Cancellation and refund rules are the owner's, set in `policies.cancellation` and `policies.shop` in config, not hard-coded. | Built (PR 1 config; PR 2 and 3 enforce them). |
+| C-07 | Cancellation and refund rules are the owner's, set in `policies.cancellation` and `policies.shop` in config, not hard-coded. | Built (PR 1 config; PR 2 enforces cancellation, pause and plan-change rules for staff; PR 3 for members). |
 | C-08 | Consumer guarantees can't be excluded. Terms must not say "no refunds"; a member is entitled to a remedy if a service isn't provided with due care or isn't fit for purpose, whatever the gym's change-of-mind policy says. | Owner (the template terms in PR 3 will say this). |
 | C-09 | Some states regulate fitness memberships directly, for example NSW's Fitness Services (Pre-paid Fees) legislation, which includes a cooling-off period and limits on pre-payment. Config has `coolingOffDays` (default 7) and `minimumTermWeeks`. The right values depend on the state and the contract. | Hook. Owner must confirm with a lawyer. |
 | C-10 | Unfair contract terms law applies to standard-form consumer contracts, including gym memberships (with penalties since November 2023). Membership terms need legal review. | Owner |
@@ -46,8 +46,8 @@ Small businesses under $3 million turnover are often exempt from the Privacy Act
 
 | # | Assumption | Status |
 | --- | --- | --- |
-| C-22 | GymOS never writes health, performance or therapeutic claims. Product descriptions are entered by the owner. | Built in PR 2 with the shop. |
-| C-23 | Some supplements are regulated by the TGA (for example, as listed medicines or sports supplements with therapeutic claims), and food-type supplements fall under the Food Standards Code. Selling them and describing them can be regulated. The owner needs their own advice. The shop admin will show a guideline note. | PR 2 (note); Owner (advice) |
+| C-22 | GymOS never writes health, performance or therapeutic claims. Product descriptions are entered by the owner. | Built (PR 2): descriptions are owner-entered; the editor warns on claim-like words. |
+| C-23 | Some supplements are regulated by the TGA (for example, as listed medicines or sports supplements with therapeutic claims), and food-type supplements fall under the Food Standards Code. Selling them and describing them can be regulated. The owner needs their own advice. The shop admin will show a guideline note. | Built (PR 2: guideline note on supplement products); Owner (advice) |
 | C-24 | Advertising claims must not be misleading (ACL). | Owner |
 
 ## Other
@@ -55,5 +55,5 @@ Small businesses under $3 million turnover are often exempt from the Privacy Act
 | # | Assumption | Status |
 | --- | --- | --- |
 | C-25 | Accessibility: the main flows have zero axe violations (WCAG 2.1 A and AA rules) at 375px and 1440px. This isn't a full WCAG audit. | Built (PR 1, tested in CI) |
-| C-26 | Spam Act 2003: marketing emails need consent and an unsubscribe. Transactional emails (receipts, booking confirmations) don't. Announcements in PR 2 respect notification preferences. | PR 2 and 3 |
+| C-26 | Spam Act 2003: marketing emails need consent and an unsubscribe. Transactional emails (receipts, booking confirmations) don't. Announcements in PR 2 respect notification preferences. | Built (PR 2): announcement emails only go to members with announcements switched on. PR 3 adds the member-facing preference and unsubscribe. |
 | C-27 | Staff passwords and member passwords are hashed with scrypt; no one, including the owner, can read them. | Built |

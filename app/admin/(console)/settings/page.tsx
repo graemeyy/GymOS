@@ -1,24 +1,19 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { gym, formatAddress } from "@/lib/config";
-import { formatAud, INTERVAL_LABELS, parseDollarsToCents } from "@/lib/money";
-import { ROLE_LABELS, STAFF_ROLES, type StaffRoleName } from "@/lib/auth/permissions";
+import { formatAud } from "@/lib/money";
+import { can, ROLE_LABELS, STAFF_ROLES, type Permission, type StaffRoleName } from "@/lib/auth/permissions";
+import { PERMISSION_TEXT } from "@/lib/auth/permission-text";
 import { useStaff } from "@/components/admin/staff-session";
-import { Button, IconButton, PageHeader, Panel, PanelHeader } from "@/components/ui/primitives";
+import { Button, IconButton, LinkButton, PageHeader, Panel, PanelHeader } from "@/components/ui/primitives";
 import { AsyncBlock, useToast } from "@/components/ui/feedback";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
 
-interface Plan {
-  id: string;
-  name: string;
-  priceCents: number;
-  interval: keyof typeof INTERVAL_LABELS;
-}
 interface StaffRow {
   id: string;
   name: string;
@@ -71,61 +66,88 @@ function GymDetails() {
   );
 }
 
-function PlanPrices({ canEdit }: { canEdit: boolean }) {
+function RolePermissions() {
+  const groups: [string, Permission[]][] = [
+    ["Members", ["members:read", "members:write", "members:archive"]],
+    ["Money", ["revenue:view", "billing:manage", "billing:refund", "finance:view"]],
+    ["Classes and check-in", ["classes:read", "classes:book", "classes:attendance", "classes:manage", "checkin:scan"]],
+    ["Shop", ["orders:fulfil", "shop:manage", "inventory:adjust"]],
+    ["Running the gym", ["plans:manage", "announcements:manage", "staff:manage", "audit:read", "settings:manage"]],
+  ];
+  return (
+    <Panel aria-labelledby="roles-heading">
+      <PanelHeader id="roles-heading" title="What each role can do" />
+      {/* Focusable so keyboard users can scroll it sideways on a phone. */}
+      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Permissions by role, scrollable">
+        <table className="w-full min-w-[36rem] text-sm">
+          <caption className="sr-only">Permissions by role</caption>
+          <thead>
+            <tr className="border-b border-line text-left text-ink-soft">
+              <th scope="col" className="px-4 py-2 font-medium">Permission</th>
+              {STAFF_ROLES.map((r) => (
+                <th key={r} scope="col" className="px-3 py-2 text-center font-medium">
+                  {ROLE_LABELS[r]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          {groups.map(([group, perms]) => (
+            <tbody key={group} className="border-b border-line last:border-0">
+              <tr>
+                <th scope="rowgroup" colSpan={5} className="bg-floor px-4 py-1.5 text-left text-xs font-medium text-ink-soft">
+                  {group}
+                </th>
+              </tr>
+              {perms.map((p) => (
+                <tr key={p}>
+                  <th scope="row" className="px-4 py-1.5 text-left font-normal">
+                    {PERMISSION_TEXT[p]}
+                  </th>
+                  {STAFF_ROLES.map((r) => (
+                    <td key={r} className="px-3 py-1.5 text-center">
+                      {can(r, p) ? <span aria-label="Yes" className="font-medium text-good">Yes</span> : <span aria-label="No" className="text-ink-soft">No</span>}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          ))}
+        </table>
+      </div>
+      <p className="border-t border-line px-4 py-3 text-sm text-ink-soft">Front desk can also be stopped from seeing revenue with the switch above. Trainers can only mark attendance for their own classes.</p>
+    </Panel>
+  );
+}
+
+function ChangePassword() {
   const toast = useToast();
-  const plans = useResource<Plan[]>("/api/plans");
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [form, setForm] = useState({ currentPassword: "", newPassword: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (plans.data) setValues(Object.fromEntries(plans.data.map((p) => [p.id, (p.priceCents / 100).toFixed(2)])));
-  }, [plans.data]);
-
-  const save = async (plan: Plan) => {
-    const cents = parseDollarsToCents(values[plan.id] ?? "");
-    if (cents === null) return setErrors({ ...errors, [plan.id]: "Enter an amount like 29.95" });
-    setErrors({ ...errors, [plan.id]: "" });
-    setBusy(plan.id);
+  const [busy, setBusy] = useState(false);
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setErrors({});
     try {
-      await api(`/api/plans/${plan.id}`, { method: "PUT", body: { priceCents: cents } });
-      toast(`${plan.name} price saved`);
-      void plans.reload();
+      await api("/api/staff/me/password", { body: form });
+      toast("Password changed. You've been signed out on other devices.");
+      setForm({ currentPassword: "", newPassword: "" });
     } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't save the price.", "bad");
+      if (e instanceof ApiClientError) setErrors({ ...e.fields, ...(Object.keys(e.fields).length ? {} : { newPassword: e.message }) });
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
-
   return (
-    <Panel aria-labelledby="plans-heading">
-      <PanelHeader id="plans-heading" title="Plan prices" />
-      <p className="border-b border-line px-4 py-3 text-sm text-ink-soft">Prices include GST. A new price applies to new sign-ups. Existing members must be given written notice before their price goes up.</p>
-      <AsyncBlock loading={plans.loading} error={plans.error} data={plans.data} onRetry={plans.reload}>
-        {(rows) => (
-          <ul className="divide-y divide-line">
-            {rows.map((plan) => (
-              <li key={plan.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-end">
-                <TextField
-                  label={`${plan.name}, per ${INTERVAL_LABELS[plan.interval].noun} (AUD)`}
-                  inputMode="decimal"
-                  value={values[plan.id] ?? ""}
-                  error={errors[plan.id] || undefined}
-                  disabled={!canEdit}
-                  onChange={(e) => setValues({ ...values, [plan.id]: e.target.value })}
-                  wrapperClassName="flex-1"
-                />
-                {canEdit ? (
-                  <Button variant="secondary" busy={busy === plan.id} onClick={() => save(plan)}>
-                    Save price
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </AsyncBlock>
+    <Panel aria-labelledby="password-heading">
+      <PanelHeader id="password-heading" title="Your password" />
+      <form onSubmit={submit} className="grid gap-4 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end" noValidate>
+        <TextField label="Current password" type="password" autoComplete="current-password" value={form.currentPassword} error={errors.currentPassword} onChange={(e) => setForm({ ...form, currentPassword: e.target.value })} />
+        <TextField label="New password" type="password" autoComplete="new-password" hint="At least 10 characters." value={form.newPassword} error={errors.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} />
+        <Button type="submit" variant="secondary" busy={busy}>
+          Change password
+        </Button>
+      </form>
     </Panel>
   );
 }
@@ -300,16 +322,26 @@ function StaffAccounts() {
 }
 
 export default function SettingsPage() {
-  const { can, loading } = useStaff();
+  const { can: allowed, loading } = useStaff();
   if (loading) return <PageHeader title="Settings" />;
   return (
     <>
       <PageHeader title="Settings" />
       <div className="space-y-6">
         <GymDetails />
-        <PlanPrices canEdit={can("plans:manage")} />
-        <FeatureSwitches canEdit={can("settings:manage")} />
-        {can("staff:manage") ? <StaffAccounts /> : null}
+        <Panel className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg">Plans and prices</h2>
+            <p className="text-sm text-ink-soft">Tiers, prices and benefits are managed on the Plans page.</p>
+          </div>
+          <LinkButton href="/admin/plans" variant="secondary">
+            Open plans
+          </LinkButton>
+        </Panel>
+        <FeatureSwitches canEdit={allowed("settings:manage")} />
+        {allowed("staff:manage") ? <StaffAccounts /> : null}
+        {allowed("staff:read") ? <RolePermissions /> : null}
+        <ChangePassword />
       </div>
     </>
   );

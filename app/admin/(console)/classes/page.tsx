@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { CalendarPlus, Trash2, Users } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Trash2, Users } from "lucide-react";
+import Link from "next/link";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { zonedTimeToUtc } from "@/lib/dates";
 import { gym } from "@/lib/config";
 import { fmtTime } from "@/lib/client/format";
 import { useStaff } from "@/components/admin/staff-session";
-import { Button, IconButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
+import { Button, IconButton, LinkButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
@@ -21,6 +22,7 @@ interface ClassRow {
   id: string;
   name: string;
   instructor: string | null;
+  trainer: { id: string; name: string } | null;
   startTime: string;
   durationMinutes: number;
   capacity: number;
@@ -36,6 +38,7 @@ function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [memberId, setMemberId] = useState("");
+  const [casual, setCasual] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const full = cls.bookings.length >= cls.capacity;
   const taken = new Set([...cls.bookings.map((b) => b.memberId), ...cls.waitlist.map((w) => w.memberId)]);
@@ -53,7 +56,10 @@ function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[
   const addMember = () =>
     memberId &&
     run(
-      () => api(`/api/classes/${cls.id}/${full ? "waitlist" : "book"}`, { body: { memberId } }).then(() => setMemberId("")),
+      () => api(`/api/classes/${cls.id}/${full ? "waitlist" : "book"}`, { body: full ? { memberId } : { memberId, casual } }).then(() => {
+        setMemberId("");
+        setCasual(false);
+      }),
       full ? "Added to the waitlist" : "Booked in"
     );
 
@@ -64,7 +70,7 @@ function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[
         <div className="min-w-0 flex-1">
           <p className="font-medium">{cls.name}</p>
           <p className="text-sm text-ink-soft">
-            {cls.durationMinutes} min{cls.instructor ? `, ${cls.instructor}` : ""}
+            {cls.durationMinutes} min{cls.trainer?.name ?? cls.instructor ? `, ${cls.trainer?.name ?? cls.instructor}` : ""}
           </p>
         </div>
         <span className={full ? "text-sm font-medium text-warn" : "text-sm text-ink-soft"}>
@@ -163,6 +169,12 @@ function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[
               </Button>
             </div>
           ) : null}
+          {can("classes:book") && !full ? (
+            <label className="flex items-start gap-3 text-sm">
+              <input type="checkbox" className="mt-0.5 h-5 w-5 accent-plate" checked={casual} onChange={(e) => setCasual(e.target.checked)} />
+              <span>Casual visit: don&apos;t use one of their class credits (they pay the casual rate at the desk)</span>
+            </label>
+          ) : null}
         </div>
       ) : null}
 
@@ -178,9 +190,9 @@ function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[
   );
 }
 
-function NewClassDialog({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
+function NewClassDialog({ open, onClose, onSaved, trainers }: { open: boolean; onClose: () => void; onSaved: () => void; trainers: { id: string; name: string }[] }) {
   const toast = useToast();
-  const [form, setForm] = useState({ name: "", instructor: "", date: "", time: "06:00", durationMinutes: "45", capacity: "16" });
+  const [form, setForm] = useState({ name: "", trainerId: "", date: "", time: "06:00", durationMinutes: "45", capacity: "16" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -198,7 +210,7 @@ function NewClassDialog({ open, onClose, onSaved }: { open: boolean; onClose: ()
       await api("/api/classes", {
         body: {
           name: form.name,
-          instructor: form.instructor || null,
+          trainerId: form.trainerId || null,
           startTime: zonedTimeToUtc(form.date, form.time, gym.business.timezone).toISOString(),
           durationMinutes: Number(form.durationMinutes),
           capacity: Number(form.capacity),
@@ -236,7 +248,14 @@ function NewClassDialog({ open, onClose, onSaved }: { open: boolean; onClose: ()
     >
       <form id="class-form" onSubmit={submit} className="space-y-4" noValidate>
         <TextField label="Class name" required value={form.name} error={errors.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-autofocus />
-        <TextField label="Trainer" value={form.instructor} error={errors.instructor} onChange={(e) => setForm({ ...form, instructor: e.target.value })} />
+        <SelectField label="Trainer" value={form.trainerId} error={errors.trainerId} onChange={(e) => setForm({ ...form, trainerId: e.target.value })}>
+          <option value="">No trainer yet</option>
+          {trainers.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </SelectField>
         <div className="grid grid-cols-2 gap-4">
           <TextField label="Date" type="date" required value={form.date} error={errors.startTime} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           <TextField label="Start time" type="time" required value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
@@ -249,10 +268,19 @@ function NewClassDialog({ open, onClose, onSaved }: { open: boolean; onClose: ()
   );
 }
 
+const WEEK = 7 * 86_400_000;
+
 export default function ClassesPage() {
-  const { can } = useStaff();
-  const classes = useResource<ClassRow[]>("/api/classes");
+  const { can, me } = useStaff();
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [mineOnly, setMineOnly] = useState<boolean | null>(null);
+  const mine = mineOnly ?? me?.role === "TRAINER";
+  // Rounded to the hour so the URL (and the fetch) doesn't change every render.
+  const from = new Date(Math.floor((Date.now() - 24 * 60 * 60 * 1000 + weekOffset * WEEK) / 3_600_000) * 3_600_000);
+  const to = new Date(from.getTime() + WEEK + 24 * 60 * 60 * 1000);
+  const classes = useResource<ClassRow[]>(me ? `/api/classes?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}${mine ? "&mine=1" : ""}` : null);
   const members = useResource<{ items: Person[] }>(can("classes:book") ? "/api/members?status=ACTIVE&take=500" : null);
+  const staffList = useResource<{ id: string; name: string; role: string }[]>(can("classes:manage") ? "/api/staff" : null);
   const [newOpen, setNewOpen] = useState(false);
 
   const days = useMemo(() => {
@@ -268,19 +296,41 @@ export default function ClassesPage() {
     <>
       <PageHeader
         title="Classes"
-        description="Upcoming classes, plus anything from the last day so you can mark attendance."
+        description="The week ahead, plus yesterday so you can still mark attendance."
         actions={
-          can("classes:manage") ? (
-            <Button onClick={() => setNewOpen(true)}>
-              <CalendarPlus className="h-4 w-4" aria-hidden="true" /> Add class
-            </Button>
-          ) : undefined
+          <>
+            <LinkButton href="/admin/classes/timetable" variant="secondary">
+              Weekly timetable
+            </LinkButton>
+            {can("classes:manage") ? (
+              <Button onClick={() => setNewOpen(true)}>
+                <CalendarPlus className="h-4 w-4" aria-hidden="true" /> Add one-off class
+              </Button>
+            ) : null}
+          </>
         }
       />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1">
+          <IconButton label="Previous week" onClick={() => setWeekOffset((w) => w - 1)}>
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+          </IconButton>
+          <span className="min-w-[8rem] text-center font-medium" aria-live="polite">
+            {weekOffset === 0 ? "This week" : weekOffset === 1 ? "Next week" : weekOffset === -1 ? "Last week" : `${weekOffset > 0 ? "In" : ""} ${Math.abs(weekOffset)} weeks${weekOffset < 0 ? " ago" : ""}`.trim()}
+          </span>
+          <IconButton label="Next week" onClick={() => setWeekOffset((w) => w + 1)}>
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
+          </IconButton>
+        </div>
+        <label className="flex min-h-tap items-center gap-3">
+          <input type="checkbox" className="h-5 w-5 accent-plate" checked={mine} onChange={(e) => setMineOnly(e.target.checked)} />
+          Only classes I&apos;m training
+        </label>
+      </div>
       <AsyncBlock loading={classes.loading} error={classes.error} data={classes.data} onRetry={classes.reload} loadingLabel="Loading classes">
         {() =>
           days.length === 0 ? (
-            <EmptyState title="No classes scheduled" action={can("classes:manage") ? <Button onClick={() => setNewOpen(true)}>Add a class</Button> : undefined} />
+            <EmptyState title={mine ? "You're not training any classes this week" : "No classes this week"} action={can("classes:manage") ? <Link href="/admin/classes/timetable" className="font-medium text-plate underline underline-offset-2">Set up the weekly timetable</Link> : undefined} />
           ) : (
             <div className="space-y-6">
               {days.map(([key, rows]) => (
@@ -300,7 +350,7 @@ export default function ClassesPage() {
           )
         }
       </AsyncBlock>
-      <NewClassDialog open={newOpen} onClose={() => setNewOpen(false)} onSaved={classes.reload} />
+      <NewClassDialog open={newOpen} onClose={() => setNewOpen(false)} onSaved={classes.reload} trainers={(staffList.data ?? []).filter((s) => s.role === "TRAINER" || s.role === "MANAGER" || s.role === "OWNER")} />
     </>
   );
 }

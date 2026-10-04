@@ -19,15 +19,15 @@ test.describe("as the owner", () => {
     await page.goto("/admin/members");
     await expect(page.getByRole("heading", { name: "Members", level: 1 })).toBeVisible();
     await page.getByLabel("Search members").fill("kowalski");
-    const row = page.getByRole("link", { name: "Daniel Kowalski" }).first();
+    const row = page.getByRole("link", { name: "Daniel Kowalski" }).filter({ visible: true }).first();
     await expect(row).toBeVisible();
-    await expect(page.getByRole("link", { name: "Charlotte Pham" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Charlotte Pham" }).filter({ visible: true })).toHaveCount(0);
     await expectNoHorizontalScroll(page);
     await expectNoA11yViolations(page);
     await page.getByLabel("Search members").fill("");
-    await expect(page.getByRole("link", { name: "Charlotte Pham" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Charlotte Pham" }).filter({ visible: true }).first()).toBeVisible();
     await screenshot(page, "admin-members");
-    await page.getByRole("link", { name: "Daniel Kowalski" }).first().click();
+    await page.getByRole("link", { name: "Daniel Kowalski" }).filter({ visible: true }).first().click();
     await expect(page.getByRole("heading", { name: "Daniel Kowalski" })).toBeVisible();
     await expect(page.getByText("Asked about pausing over summer.")).toBeVisible();
     await expectNoA11yViolations(page);
@@ -72,12 +72,17 @@ test.describe("as front desk", () => {
 
   test("checks a member in, and refuses a past-due member", async ({ page }) => {
     await page.goto("/admin/check-in");
-    const input = page.getByLabel("Member ID or email");
+    const input = page.getByLabel("Pass, member ID or email");
     await expect(input).toBeFocused();
     await input.fill("priya.sharma@example.com");
     await page.keyboard.press("Enter");
     await expect(page.getByText("Come on in")).toBeVisible();
+    // Overdue 2 days: inside the 7-day grace period, let in with a warning.
     await input.fill("mitchell.greaves@example.com");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Payment overdue. Ask them to update their card.")).toBeVisible();
+    // Overdue 9 days: refused.
+    await input.fill("riley.dunstan@example.com");
     await page.keyboard.press("Enter");
     await expect(page.getByText("Not allowed in: Payment overdue")).toBeVisible();
     await expectNoA11yViolations(page);
@@ -96,7 +101,9 @@ test.describe("as a trainer", () => {
   test("doesn't see money or staff admin", async ({ page }) => {
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
+    await page.waitForLoadState("networkidle");
     await expect(page.getByRole("link", { name: "Payments" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Finance" })).toHaveCount(0);
     expect((await page.request.get("/api/payments")).status()).toBe(403);
   });
 });

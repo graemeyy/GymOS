@@ -26,7 +26,7 @@ export default function AccessPage() {
   return (
     <>
       <PageHeader title="Door access" description="The latest entries from the front desk and door scanners. Updates every 10 seconds." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_20rem]">
         <Panel aria-labelledby="feed-heading">
           <PanelHeader id="feed-heading" title="Latest entries" />
           <AsyncBlock loading={feed.loading} error={feed.error} data={feed.data} onRetry={feed.reload}>

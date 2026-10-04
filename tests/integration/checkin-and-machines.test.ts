@@ -79,6 +79,6 @@ describe("machine endpoints fail closed", () => {
     await createMember();
     const ok = await call(cron.GET, new Request("http://localhost/x", { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } }));
     expect(ok.status).toBe(200);
-    expect(ok.body.updated).toBe(1);
+    expect(ok.body.retentionUpdated).toBe(1);
   });
 });

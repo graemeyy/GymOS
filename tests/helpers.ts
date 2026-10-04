@@ -27,8 +27,10 @@ export async function createStaff(role: StaffRole, overrides: { email?: string; 
   });
 }
 
-export async function createMember(overrides: Partial<{ email: string; name: string; password: string; status: "ACTIVE" | "PAUSED" | "PAST_DUE" | "CANCELED"; stripeSubscriptionId: string; stripeCustomerId: string }> = {}) {
-  const plan = await prisma.membershipPlan.findFirstOrThrow({ orderBy: { sortOrder: "asc" } });
+// Members default to the Unlimited plan so class bookings in tests aren't
+// limited by credits; pass planSlug to test another plan.
+export async function createMember(overrides: Partial<{ email: string; name: string; password: string; status: "ACTIVE" | "PAUSED" | "PAST_DUE" | "CANCELED"; stripeSubscriptionId: string; stripeCustomerId: string; planSlug: string }> = {}) {
+  const plan = await prisma.membershipPlan.findUniqueOrThrow({ where: { slug: overrides.planSlug ?? "unlimited" } });
   return prisma.member.create({
     data: {
       name: overrides.name ?? `Member ${unique()}`,

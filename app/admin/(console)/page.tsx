@@ -9,14 +9,22 @@ import { useStaff } from "@/components/admin/staff-session";
 import { PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, ErrorState } from "@/components/ui/feedback";
 import { Scoreboard } from "@/components/ui/scoreboard";
+import { BarList, DayColumns } from "@/components/ui/bar-list";
 
 interface Stats {
   activeMembers: number;
+  newSignups30: number;
+  cancellations30: number;
+  churnRate30: number;
   checkInsToday: number;
+  checkIns7: { date: string; count: number }[];
   pastDue: number;
+  owingCents: number | null;
   atRisk: number;
   equipmentAlerts: number;
+  openOrders: number;
   mrrCents: number | null;
+  revenue: null | { mrrCents: number; last30Cents: number; byPlan: { name: string; cents: number }[]; byProduct: { name: string; cents: number }[] };
 }
 interface CheckInRow {
   id: string;
@@ -58,7 +66,42 @@ export default function DashboardPage() {
         />
       )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      {s ? (
+        <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-4">
+          {[
+            ["New sign-ups, 30 days", String(s.newSignups30)],
+            ["Cancellations, 30 days", String(s.cancellations30)],
+            ["Churn, 30 days", `${s.churnRate30}%`],
+            s.owingCents !== null ? ["Owed by overdue members", formatAud(s.owingCents)] : ["Open shop orders", String(s.openOrders)],
+          ].map(([label, value]) => (
+            <div key={label} className="bg-surface px-4 py-3">
+              <dt className="text-sm text-ink-soft">{label}</dt>
+              <dd className="tabular font-display text-2xl font-semibold">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {s ? (
+          <Panel aria-labelledby="week-heading">
+            <PanelHeader id="week-heading" title="Check-ins this week" />
+            <DayColumns days={s.checkIns7} />
+          </Panel>
+        ) : null}
+        {s?.revenue ? (
+          <Panel aria-labelledby="revenue-heading">
+            <PanelHeader
+              id="revenue-heading"
+              title="Revenue, last 30 days"
+              action={<span className="tabular text-sm font-medium">{formatAud(s.revenue.last30Cents)}</span>}
+            />
+            <h3 className="px-4 pt-3 text-sm font-medium text-ink-soft">By plan</h3>
+            <BarList rows={s.revenue.byPlan.map((r) => ({ name: r.name, value: r.cents }))} empty="No membership payments yet." />
+            <h3 className="border-t border-line px-4 pt-3 text-sm font-medium text-ink-soft">By product</h3>
+            <BarList rows={s.revenue.byProduct.map((r) => ({ name: r.name, value: r.cents }))} empty="No shop sales yet." />
+          </Panel>
+        ) : null}
         {can("checkin:scan") ? (
           <Panel aria-labelledby="recent-checkins">
             <PanelHeader

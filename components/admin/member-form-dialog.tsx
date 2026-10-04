@@ -5,7 +5,7 @@ import { api, ApiClientError } from "@/lib/client/api";
 import { STATUS_TEXT, type MemberStatus } from "@/lib/client/labels";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/primitives";
-import { FormMessage, SelectField, TextField, TextareaField } from "@/components/ui/form";
+import { FormMessage, SelectField, TextField } from "@/components/ui/form";
 import { useToast } from "@/components/ui/feedback";
 import { useStaff } from "./staff-session";
 
@@ -40,7 +40,7 @@ export function MemberFormDialog({
   const { can } = useStaff();
   const toast = useToast();
   const canBilling = can("billing:manage");
-  const [form, setForm] = useState({ name: "", email: "", planId: "", status: "ACTIVE" as MemberStatus, notes: "" });
+  const [form, setForm] = useState({ name: "", email: "", planId: "", status: "ACTIVE" as MemberStatus });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -54,7 +54,6 @@ export function MemberFormDialog({
       email: member?.email ?? "",
       planId: member?.planId ?? plans[0]?.id ?? "",
       status: member?.status ?? "ACTIVE",
-      notes: member?.notes ?? "",
     });
   }, [open, member, plans]);
 
@@ -65,7 +64,7 @@ export function MemberFormDialog({
     setMessage(null);
     try {
       if (member) {
-        const body: Record<string, unknown> = { name: form.name, email: form.email, notes: form.notes || null };
+        const body: Record<string, unknown> = { name: form.name, email: form.email };
         if (canBilling) {
           body.planId = form.planId || null;
           body.status = form.status;
@@ -139,8 +138,8 @@ export function MemberFormDialog({
             </SelectField>
           ) : null}
         </div>
-        {member ? (
-          <TextareaField label="Notes" rows={3} hint="Visible to staff only." value={form.notes} error={errors.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+        {member && canBilling ? (
+          <p className="text-sm text-ink-soft">Setting the plan or status here corrects the record only. To change a plan, pause or cancel with the gym&apos;s rules and Stripe kept in step, use the Membership panel.</p>
         ) : null}
         {message ? <FormMessage>{message}</FormMessage> : null}
       </form>

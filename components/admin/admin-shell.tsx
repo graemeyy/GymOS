@@ -19,6 +19,11 @@ import {
   Users,
   X,
   DoorOpen,
+  Layers,
+  LineChart,
+  Megaphone,
+  ShoppingBag,
+  Receipt,
 } from "lucide-react";
 import { api } from "@/lib/client/api";
 import { cn } from "@/lib/client/cn";
@@ -44,8 +49,18 @@ const NAV: { group: string; items: NavItem[] }[] = [
     group: "Members",
     items: [
       { href: "/admin/members", label: "Members", icon: Users, permission: "members:read" },
+      { href: "/admin/plans", label: "Plans", icon: Layers, permission: "members:read" },
       { href: "/admin/retention", label: "Retention", icon: UserRoundSearch, permission: "members:read" },
+      { href: "/admin/announcements", label: "Announcements", icon: Megaphone, permission: "announcements:manage" },
+    ],
+  },
+  {
+    group: "Money",
+    items: [
       { href: "/admin/billing", label: "Payments", icon: CreditCard, permission: "revenue:view" },
+      { href: "/admin/finance", label: "Finance", icon: LineChart, permission: "finance:view" },
+      { href: "/admin/shop/orders", label: "Orders", icon: Receipt, permission: "orders:fulfil" },
+      { href: "/admin/shop", label: "Shop products", icon: ShoppingBag, permission: "orders:fulfil" },
     ],
   },
   {
@@ -77,7 +92,10 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             <p className="px-3 pb-1 text-xs font-medium text-ink-soft">{section.group}</p>
             <ul className="flex flex-col gap-0.5">
               {items.map((item) => {
-                const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+                const active =
+                  item.href === "/admin" || item.href === "/admin/shop"
+                    ? pathname === item.href || (item.href === "/admin/shop" && pathname.startsWith("/admin/shop/products"))
+                    : pathname.startsWith(item.href);
                 return (
                   <li key={item.href}>
                     <Link

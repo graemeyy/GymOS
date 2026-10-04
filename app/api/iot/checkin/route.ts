@@ -17,7 +17,7 @@ export const POST = publicRoute({ rateLimit: RATE_LIMITS.iot }, async ({ request
   const location = parsed.data.gatewayId || "Main entrance";
   const exists = await db.member.findUnique({ where: { id: parsed.data.memberId }, select: { id: true } });
   if (!exists) return json({ granted: false, reason: "Unknown card" });
-  const { member, decision } = await checkInMember(db, { kind: "system", name: `Gateway ${location}` }, exists.id, location);
+  const { member, decision } = await checkInMember(db, { kind: "system", name: `Gateway ${location}` }, exists.id, location, "GATEWAY");
   return decision.granted
     ? json({ granted: true, displayName: member.name?.split(" ")[0] ?? "Member" })
     : json({ granted: false, reason: decision.reason });

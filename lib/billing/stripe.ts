@@ -2,7 +2,7 @@ import Stripe from "stripe";
 import { env } from "@/lib/env";
 import { ApiError } from "@/lib/http/errors";
 
-export type StripeClient = Pick<Stripe, "checkout" | "billingPortal" | "subscriptions" | "webhooks" | "refunds" | "customers">;
+export type StripeClient = Pick<Stripe, "checkout" | "billingPortal" | "subscriptions" | "webhooks" | "refunds" | "customers" | "invoices">;
 
 let client: StripeClient | null = null;
 let override: StripeClient | null = null;
