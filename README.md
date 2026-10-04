@@ -35,7 +35,7 @@ Demo accounts from the seed, all with the password `ironbark-demo-2026`:
 
 To start again from scratch on a local database: `npm run db:seed -- --reset`. The seed refuses to run with `NODE_ENV=production`, never touches a database that already has members or staff, and only allows `--reset` against a local or test database.
 
-On a fresh database without seed data, open `/admin/setup` to create the owner account.
+On a fresh database without seed data, open `/admin/setup` to create the owner account. In production this needs `SETUP_TOKEN` (see Deploying).
 
 ### Stripe (optional, test mode only)
 
@@ -47,6 +47,8 @@ STRIPE_WEBHOOK_SECRET=whsec_...      # from `stripe listen --forward-to localhos
 ```
 
 Live keys are refused at startup unless `STRIPE_ALLOW_LIVE_KEYS=true`.
+
+Create the webhook endpoint with Stripe API version `2023-10-16`, the version the app is written against. Events with another version are still processed, and a warning is logged so the mismatch is noticed.
 
 Webhook events the app handles: `checkout.session.completed`, `customer.subscription.updated` and `.deleted`, `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed`, `charge.refunded` and `checkout.session.expired` (abandoned shop checkouts). Test a shop payment with card `4242 4242 4242 4242`.
 
@@ -73,11 +75,11 @@ CI (`.github/workflows/ci.yml`) runs all of the above on every pull request.
 
 On Vercel, `vercel.json` sets the build command to `npm run vercel-build`, which applies migrations (`prisma migrate deploy`) before building. Plain `npm run build` never runs migrations, so a local build can't change a database by accident. Preview deployments (pull request branches) skip migrations, because a preview may point at the production database; set `ALLOW_PREVIEW_MIGRATIONS=true` only for a preview environment with its own database. Migrations are additive; each has a `down.sql` beside it for rollback.
 
-Set the environment variables from `.env.example` in the hosting provider. `CRON_SECRET` enables the daily job (plan changes, pauses and cancellations falling due, payment reminders, timetable generation and retention scores); `IOT_GATEWAY_SECRET` enables door scanners. Both endpoints refuse every request until their secret is set.
+Set the environment variables from `.env.example` in the hosting provider. `CRON_SECRET` enables the daily job (plan changes, pauses and cancellations falling due, payment reminders, timetable generation and retention scores); `IOT_GATEWAY_SECRET` enables door scanners. Both endpoints refuse every request until their secret is set. `SETUP_TOKEN` is required in production before `/admin/setup` will create the first owner account, so a stranger can't claim a fresh deployment; the setup form asks for it.
 
 ## Adopting GymOS for a new gym
 
 1. Edit `config/gym.config.json`: brand, legal name, ABN, address, timezone, hours, plans and policies. Set `isDemo` to `false`.
 2. Run `npm run check:config`. It explains anything that's wrong, such as an ABN whose check digits don't add up.
 3. Have a lawyer review the membership terms and privacy policy. See [docs/COMPLIANCE-NOTES.md](docs/COMPLIANCE-NOTES.md).
-4. Deploy, open `/admin/setup`, and create the owner account.
+4. Set `SETUP_TOKEN`, deploy, open `/admin/setup`, and create the owner account with the token.
