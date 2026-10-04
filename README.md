@@ -21,7 +21,11 @@ npm run db:seed                  # fictional demo data (only fills an empty data
 npm run dev                      # http://localhost:3000
 ```
 
-Demo accounts from the seed, all with the password `ironbark-demo-2026`:
+Demo accounts from the seed. They all start with the same password, which isn't in the repository:
+
+- Set `SEED_DEMO_PASSWORD` (10 characters or more) before `npm run db:seed` to choose it.
+- Otherwise the seed makes a random one and prints it once in your terminal. It isn't saved anywhere, so note it down or re-seed.
+- Each account must change it at its first sign-in before it can do anything else.
 
 | Who | Email | Signs in at |
 | --- | --- | --- |
