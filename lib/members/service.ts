@@ -1,11 +1,14 @@
-import type { Prisma, Status } from "@prisma/client";
+import type { Status } from "@prisma/client";
 import type { Db } from "@/lib/db";
+import type { MemberActor, StaffActor } from "@/lib/auth/session";
+import { can } from "@/lib/auth/permissions";
 import { ApiError } from "@/lib/http/errors";
 import { getStripe } from "@/lib/billing/stripe";
 import { logAction, type Actor } from "@/lib/audit";
 import { releaseFutureBookings } from "@/lib/classes/service";
-
-export const MEMBER_STATUSES = ["ACTIVE", "PAUSED", "PAST_DUE", "CANCELED", "PENDING"] as const satisfies readonly Status[];
+import { markPaidAtDesk, setPlanAtDesk, startMembership } from "@/lib/membership/service";
+import { getMemberListItem } from "./queries";
+import type { CreateMemberInput, ProfileInput, UpdateMemberInput } from "./schema";
 
 export const STATUS_LABELS: Record<Status, string> = {
   ACTIVE: "Active",
@@ -14,21 +17,6 @@ export const STATUS_LABELS: Record<Status, string> = {
   CANCELED: "Cancelled",
   PENDING: "Not started",
 };
-
-// Fields staff lists may show. Never includes passwordHash or sessionVersion.
-export const memberListSelect = {
-  id: true,
-  name: true,
-  email: true,
-  status: true,
-  planId: true,
-  membershipPlan: { select: { id: true, name: true, slug: true } },
-  lastCheckIn: true,
-  retentionScore: true,
-  referredById: true,
-  archivedAt: true,
-  createdAt: true,
-} satisfies Prisma.MemberSelect;
 
 export async function assertReferrer(db: Db, referredById: string | null | undefined, selfId?: string) {
   if (!referredById) return;
@@ -80,4 +68,106 @@ export async function archiveMember(db: Db, actor: Actor, memberId: string) {
     });
   });
   return member;
+}
+
+// Front desk can add a member, who starts PENDING (no access) until someone
+// who can manage billing starts the membership or the member pays online.
+// A manager adding someone who pays at the desk starts them straight away
+// (R-36).
+export async function createMember(db: Db, staff: StaffActor, input: CreateMemberInput) {
+  await assertReferrer(db, input.referredById);
+  await assertPlan(db, input.planId);
+  const existing = await db.member.findUnique({ where: { email: input.email }, select: { id: true } });
+  if (existing) throw new ApiError("conflict", "A member with that email already exists.", { email: "Already in use" });
+  return db.$transaction(async (tx) => {
+    const row = await tx.member.create({
+      data: { name: input.name, email: input.email, planId: input.planId ?? null, referredById: input.referredById ?? null, status: "PENDING" },
+      select: { id: true, planId: true, referredById: true },
+    });
+    await logAction(tx, staff, {
+      action: "member.created",
+      targetType: "Member",
+      targetId: row.id,
+      details: { name: input.name, email: input.email, planId: row.planId, referredById: row.referredById },
+    });
+    if (input.planId && can(staff.role, "billing:manage")) await startMembership(tx, staff, row.id, input.planId);
+    return getMemberListItem(tx, row.id);
+  });
+}
+
+// Contact details, notes and keycards: front desk. Plan and status: billing
+// permission, because they change what the member pays or can access. Status
+// and plan go through the membership service so history, dates and Stripe
+// stay consistent (R-06); pausing and cancelling have their own actions.
+export async function updateMember(db: Db, staff: StaffActor, memberId: string, input: UpdateMemberInput) {
+  const existing = await db.member.findUnique({ where: { id: memberId }, select: { id: true, status: true, planId: true, archivedAt: true } });
+  if (!existing) throw new ApiError("not_found", "Member not found.");
+  if (existing.archivedAt) throw new ApiError("conflict", "This member is archived and can't be edited.");
+
+  const { status, planId, ...details } = input;
+  const statusChange = status !== undefined && status !== existing.status ? status : undefined;
+  const planChange = planId !== undefined && planId !== existing.planId;
+  if ((statusChange || planChange) && !can(staff.role, "billing:manage")) {
+    throw new ApiError("forbidden", "Changing a member's plan or status needs a manager.");
+  }
+  if (statusChange && statusChange !== "ACTIVE") {
+    throw new ApiError("validation_failed", "Use Pause or Cancel on the membership panel to change this.", { status: "Use the membership actions" });
+  }
+  await assertReferrer(db, details.referredById, memberId);
+  await assertPlan(db, planId);
+  if (details.email) {
+    const clash = await db.member.findUnique({ where: { email: details.email }, select: { id: true } });
+    if (clash && clash.id !== memberId) throw new ApiError("conflict", "Another member already uses that email.", { email: "Already in use" });
+  }
+
+  return db.$transaction(async (tx) => {
+    if (statusChange === "ACTIVE") {
+      if (existing.status === "PAST_DUE") await markPaidAtDesk(tx, staff, memberId);
+      else await startMembership(tx, staff, memberId, planId ?? existing.planId);
+    } else if (planChange) {
+      await setPlanAtDesk(tx, staff, memberId, planId ?? null);
+    }
+    if (Object.keys(details).length > 0) {
+      await tx.member.update({ where: { id: memberId }, data: details });
+      await logAction(tx, staff, { action: "member.updated", targetType: "Member", targetId: memberId, details: { changed: Object.keys(details) } });
+    }
+    return tx.member.findUniqueOrThrow({
+      where: { id: memberId },
+      select: { id: true, name: true, email: true, status: true, planId: true, notes: true, referredById: true, keycardIssued: true },
+    });
+  });
+}
+
+// Notes are append-only: they record who said what and when.
+export function addMemberNote(db: Db, staff: StaffActor, memberId: string, body: string) {
+  return db.$transaction(async (tx) => {
+    const member = await tx.member.findUnique({ where: { id: memberId }, select: { id: true } });
+    if (!member) throw new ApiError("not_found", "Member not found.");
+    const note = await tx.memberNote.create({ data: { memberId, staffId: staff.id, staffName: staff.name, body } });
+    await logAction(tx, staff, { action: "member.note_added", targetType: "Member", targetId: memberId, details: { noteId: note.id } });
+    return note;
+  });
+}
+
+export function reissuePass(db: Db, staff: StaffActor, memberId: string) {
+  return db.$transaction(async (tx) => {
+    const member = await tx.member.update({ where: { id: memberId }, data: { qrVersion: { increment: 1 } }, select: { id: true, qrVersion: true } });
+    await logAction(tx, staff, { action: "member.pass_reissued", targetType: "Member", targetId: memberId, details: { version: member.qrVersion } });
+  });
+}
+
+// Members can change their name and email preferences. Email address changes
+// go through the front desk until email verification exists, so a typo can't
+// lock someone out or move their account to an address they don't own.
+export function updateMemberProfile(db: Db, member: MemberActor, input: ProfileInput) {
+  return db.$transaction(async (tx) => {
+    const updated = await tx.member.update({ where: { id: member.id }, data: input, select: { name: true, notifyAnnouncements: true, notifyWaitlist: true } });
+    await logAction(tx, member, { action: "member.profile_updated", targetType: "Member", targetId: member.id, details: { changed: Object.keys(input) } });
+    return updated;
+  });
+}
+
+// The welcome steps are done once, so a repeat call keeps the first date.
+export async function markOnboarded(db: Db, memberId: string) {
+  await db.member.updateMany({ where: { id: memberId, onboardedAt: null }, data: { onboardedAt: new Date() } });
 }

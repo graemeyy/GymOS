@@ -41,6 +41,25 @@ export async function sendPaymentReminders(db: Db, now = new Date()) {
   return { remindersSent: sent };
 }
 
+// The front desk's overdue list, longest overdue first, with the last
+// reminder each member was sent.
+export function listOverdueMembers(db: Db) {
+  return db.member.findMany({
+    where: { archivedAt: null, status: "PAST_DUE" },
+    orderBy: { pastDueSince: "asc" },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      pastDueSince: true,
+      amountOwingCents: true,
+      lastFailedInvoiceId: true,
+      membershipPlan: { select: { name: true } },
+      reminders: { orderBy: { sentAt: "desc" }, take: 1, select: { day: true, sentAt: true } },
+    },
+  });
+}
+
 // True while a past-due member is still inside the grace period set by the
 // owner, so the front desk can let them in and remind them.
 export function withinGracePeriod(pastDueSince: Date | null, now = new Date()): boolean {

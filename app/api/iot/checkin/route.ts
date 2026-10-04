@@ -3,7 +3,7 @@ import { publicRoute, json, readBodyText, zId } from "@/lib/http/route";
 import { assertBearer } from "@/lib/http/bearer";
 import { env } from "@/lib/env";
 import { RATE_LIMITS } from "@/lib/rate-limit";
-import { checkInMember } from "@/lib/checkin/service";
+import { checkInAtGateway } from "@/lib/checkin/service";
 
 function safeJson(text: string): unknown {
   try {
@@ -23,10 +23,9 @@ export const POST = publicRoute({ rateLimit: RATE_LIMITS.iot }, async ({ request
   const text = await readBodyText(request, 4 * 1024);
   const parsed = Body.safeParse(safeJson(text));
   if (!parsed.success) return json({ granted: false, reason: "Bad request" }, 400);
-  const location = parsed.data.gatewayId || "Main entrance";
-  const exists = await db.member.findUnique({ where: { id: parsed.data.memberId }, select: { id: true } });
-  if (!exists) return json({ granted: false, reason: "Unknown card" });
-  const { member, decision } = await checkInMember(db, { kind: "system", name: `Gateway ${location}` }, exists.id, location, "GATEWAY");
+  const result = await checkInAtGateway(db, parsed.data.memberId, parsed.data.gatewayId || "Main entrance");
+  if (!result) return json({ granted: false, reason: "Unknown card" });
+  const { member, decision } = result;
   return decision.granted
     ? json({ granted: true, displayName: member.name?.split(" ")[0] ?? "Member" })
     : json({ granted: false, reason: decision.reason });
