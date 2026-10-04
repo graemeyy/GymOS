@@ -49,10 +49,6 @@ test.describe("as the owner", () => {
       await screenshot(page, shot);
     }
   });
-});
-
-test.describe("as front desk", () => {
-  test.use({ storageState: AUTH.frontdesk });
 
   test("add member dialog is keyboard accessible and reports errors", async ({ page }) => {
     await page.goto("/admin/members");
@@ -68,6 +64,21 @@ test.describe("as front desk", () => {
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(page.getByRole("button", { name: "Add member" })).toBeFocused();
+  });
+});
+
+test.describe("as front desk", () => {
+  test.use({ storageState: AUTH.frontdesk });
+
+  test("sees members but not their private details, and can't add members (D-100, D-105)", async ({ page }) => {
+    await page.goto("/admin/members");
+    await expect(page.getByRole("link", { name: "Charlotte Pham" }).filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add member" })).toHaveCount(0);
+    await expect(page.getByText("charlotte.pham@example.com")).toHaveCount(0);
+    await page.getByRole("link", { name: "Daniel Kowalski" }).filter({ visible: true }).first().click();
+    await expect(page.getByRole("heading", { name: "Daniel Kowalski" })).toBeVisible();
+    await expect(page.getByText("Asked about pausing over summer.")).toHaveCount(0);
+    await expectNoA11yViolations(page);
   });
 
   test("checks a member in, and refuses a past-due member", async ({ page }) => {
@@ -89,9 +100,13 @@ test.describe("as front desk", () => {
     await screenshot(page, "admin-check-in");
   });
 
-  test("can't reach staff management", async ({ page }) => {
+  test("can't reach staff management, change roles or prices", async ({ page }) => {
     expect((await page.request.get("/api/staff")).status()).toBe(403);
     expect((await page.request.get("/api/audit-log")).status()).toBe(403);
+    expect((await page.request.post("/api/roles", { data: { name: "Sneaky", permissions: ["finance.view"] } })).status()).toBe(403);
+    await page.goto("/admin/plans");
+    await expect(page.getByText("Only admins can change this")).toBeVisible();
+    await expect(page.getByRole("button", { name: /New plan/ })).toHaveCount(0);
   });
 });
 
@@ -105,5 +120,7 @@ test.describe("as a trainer", () => {
     await expect(page.getByRole("link", { name: "Payments" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Finance" })).toHaveCount(0);
     expect((await page.request.get("/api/payments")).status()).toBe(403);
+    expect((await page.request.get("/api/members")).status()).toBe(403);
+    await expect(page.getByRole("link", { name: "Members" })).toHaveCount(0);
   });
 });

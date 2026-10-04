@@ -60,7 +60,7 @@ function MembersInner() {
             <Button variant="secondary" onClick={() => members.data && exportCsv(members.data.items)} disabled={!members.data?.items.length}>
               <Download className="h-4 w-4" aria-hidden="true" /> Export CSV
             </Button>
-            {can("members:write") ? (
+            {can("members.edit") ? (
               <Button
                 onClick={() => {
                   setEditing(null);
@@ -76,7 +76,7 @@ function MembersInner() {
 
       <Panel>
         <div className="grid gap-3 border-b border-line p-4 sm:grid-cols-[1fr_12rem_12rem]">
-          <SearchField label="Search members" placeholder="Search by name or email" value={q} onChange={setQ} />
+          <SearchField label="Search members" placeholder={can("members.view_sensitive") ? "Search by name or email" : "Search by name"} value={q} onChange={setQ} />
           <SelectField label="Status" value={status} onChange={(e) => setStatus(e.target.value)} wrapperClassName="[&>label]:sr-only">
             <option value="">All statuses</option>
             {(Object.keys(STATUS_TEXT) as MemberStatus[]).map((s) => (
@@ -102,7 +102,7 @@ function MembersInner() {
                 {filtered ? (
                   <EmptyState title="No members match">Try a different name, or clear the filters.</EmptyState>
                 ) : (
-                  <EmptyState title="No members yet" action={can("members:write") ? <Button onClick={() => setDialogOpen(true)}>Add the first member</Button> : undefined} />
+                  <EmptyState title="No members yet" action={can("members.edit") ? <Button onClick={() => setDialogOpen(true)}>Add the first member</Button> : undefined} />
                 )}
               </div>
             ) : (
@@ -117,9 +117,9 @@ function MembersInner() {
                     cell: (m) => (
                       <div className="min-w-0">
                         <Link href={`/admin/members/${m.id}`} className="font-medium text-ink hover:text-plate">
-                          {m.name ?? m.email}
+                          {m.name ?? m.email ?? "Unnamed member"}
                         </Link>
-                        <p className="truncate text-sm text-ink-soft">{m.email}</p>
+                        {m.email ? <p className="truncate text-sm text-ink-soft">{m.email}</p> : null}
                       </div>
                     ),
                   },
@@ -128,10 +128,10 @@ function MembersInner() {
                   { header: "Last visit", cell: (m) => <span className="tabular">{lastSeen(m.lastCheckIn)}</span> },
                 ]}
                 actions={
-                  can("members:write")
+                  can("members.edit")
                     ? (m) => (
                         <IconButton
-                          label={`Edit ${m.name ?? m.email}`}
+                          label={`Edit ${m.name ?? m.email ?? "member"}`}
                           onClick={() => {
                             setEditing(m);
                             setDialogOpen(true);

@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const me = { kind: "staff", id: "s1", name: "Sam", role: "OWNER", permissions: ["shifts:read", "shifts:manage"] };
+const me = { kind: "staff", id: "s1", name: "Sam", roleId: "role_custom", roleName: "Custom", isOwner: false, permissions: ["classes.manage"] };
 const shift = { id: "sh1", startTime: new Date(Date.now() + 3_600_000).toISOString(), endTime: new Date(Date.now() + 9 * 3_600_000).toISOString(), notes: null, staff: { id: "s2", name: "Jo", role: "FRONT_DESK" } };
 
 describe("R-57 removing a shift", () => {
@@ -53,7 +53,7 @@ describe("R-109 overnight shifts", () => {
           return new Response("{}", { status: 201 });
         }
         if (url === "/api/auth/me") return new Response(JSON.stringify(me));
-        if (url === "/api/staff") return new Response(JSON.stringify([{ id: "s2", name: "Jo" }]));
+        if (url === "/api/staff/directory") return new Response(JSON.stringify([{ id: "s2", name: "Jo", roleName: "Front desk" }]));
         return new Response("[]");
       })
     );

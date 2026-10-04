@@ -237,7 +237,17 @@ async function handleChargeRefunded(ctx: EventContext, charge: Stripe.Charge) {
     refunded += refund.amount;
   }
   if (refunded === payment.refundedCents) return;
-  await tx.payment.update({ where: { id: payment.id }, data: { refundedCents: refunded, status: statusAfterRefunds(payment.amount, refunded, payment.status) } });
+  const status = statusAfterRefunds(payment.amount, refunded, payment.status);
+  await tx.payment.update({ where: { id: payment.id }, data: { refundedCents: refunded, status } });
+  // Refunds made in the Stripe dashboard are audited like those made in GymOS.
+  await logAction(tx, SYSTEM, {
+    action: "billing.refunded",
+    targetType: "Payment",
+    targetId: payment.id,
+    details: { amountCents: refunded - payment.refundedCents, method: "STRIPE", reason: "Refunded in Stripe", invoiceNumber: payment.invoiceNumber },
+    before: { refundedCents: payment.refundedCents, status: payment.status },
+    after: { refundedCents: refunded, status },
+  });
   if (refunded >= payment.amount && payment.orderId && (await markOrderRefunded(tx, payment.orderId, "Refunded in Stripe", "Stripe"))) {
     ctx.orderEmails.push({ orderId: payment.orderId, kind: "refunded" });
   }

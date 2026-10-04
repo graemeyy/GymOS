@@ -103,7 +103,7 @@ function OverduePanel() {
                 { header: "Last reminder", cell: (m) => (m.lastReminder ? `Day ${m.lastReminder.day}, ${fmtDate(m.lastReminder.sentAt)}` : "None yet") },
               ]}
               actions={
-                can("billing:manage")
+                can("members.edit")
                   ? (m) =>
                       m.canRetry ? (
                         <RetryPayment memberId={m.id} onDone={overdue.reload} />
@@ -133,7 +133,7 @@ export default function PaymentsPage() {
       <PageHeader
         title="Payments"
         description="Money received, newest first. Amounts include GST. Open a payment to refund it or print its tax invoice."
-        actions={can("finance:view") ? <LinkButton href="/admin/finance" variant="secondary">Finance reports</LinkButton> : undefined}
+        actions={can("finance.view") ? <LinkButton href="/admin/finance" variant="secondary">Finance reports</LinkButton> : undefined}
       />
       <OverduePanel />
       <Panel>

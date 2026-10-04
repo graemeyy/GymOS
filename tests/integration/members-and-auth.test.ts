@@ -8,18 +8,23 @@ import * as bootstrap from "@/app/api/auth/bootstrap/route";
 import * as staffById from "@/app/api/staff/[id]/route";
 import * as checkout from "@/app/api/checkout/route";
 import { setStripeForTests, type StripeClient } from "@/lib/billing/stripe";
-import { call, createMember, createStaff, makeRequest, prisma, resetDb } from "../helpers";
+import { call, createMember, createStaff, createStaffWith, makeRequest, prisma, resetDb } from "../helpers";
 
 beforeEach(resetDb);
 
 describe("members", () => {
-  it("front desk can edit contact details but not plan or status", async () => {
-    const desk = { staff: await createStaff("FRONT_DESK") };
+  // D-100: the Front desk preset no longer edits members; a role with
+  // members.edit does, and status still only changes through the membership
+  // actions.
+  it("front desk can't edit members by default; members.edit can, but not status directly", async () => {
+    const desk = { staff: await createStaff("STAFF") };
+    const editor = { staff: await createStaffWith(["members.view", "members.edit"]) };
     const m = await createMember();
-    expect((await call(memberById.PUT, await makeRequest("PUT", "/x", { as: desk, body: { name: "New Name" } }), { id: m.id })).status).toBe(200);
-    const res = await call(memberById.PUT, await makeRequest("PUT", "/x", { as: desk, body: { status: "CANCELED" } }), { id: m.id });
-    expect(res.status).toBe(403);
-    expect((await prisma.member.findUniqueOrThrow({ where: { id: m.id } })).status).toBe("ACTIVE");
+    expect((await call(memberById.PUT, await makeRequest("PUT", "/x", { as: desk, body: { name: "New Name" } }), { id: m.id })).status).toBe(403);
+    expect((await call(memberById.PUT, await makeRequest("PUT", "/x", { as: editor, body: { name: "New Name" } }), { id: m.id })).status).toBe(200);
+    const res = await call(memberById.PUT, await makeRequest("PUT", "/x", { as: editor, body: { status: "CANCELED" } }), { id: m.id });
+    expect(res.status).toBe(422);
+    expect(await prisma.member.findUniqueOrThrow({ where: { id: m.id }, select: { name: true, status: true } })).toEqual({ name: "New Name", status: "ACTIVE" });
   });
 
   it("archiving keeps payments and visits, releases future bookings, and blocks sign-in", async () => {
@@ -63,7 +68,7 @@ describe("members", () => {
   });
 
   it("rejects a duplicate email and invalid input with field errors", async () => {
-    const desk = { staff: await createStaff("FRONT_DESK") };
+    const desk = { staff: await createStaff("MANAGER") };
     await createMember({ email: "taken@example.com" });
     const dup = await call(members.POST, await makeRequest("POST", "/api/members", { as: desk, body: { name: "Someone", email: "Taken@Example.com" } }));
     expect(dup.status).toBe(409);
@@ -130,8 +135,9 @@ describe("sign-in", () => {
 
   it("the last owner can't be demoted", async () => {
     const owner = await createStaff("OWNER");
-    const res = await call(staffById.PUT, await makeRequest("PUT", "/x", { as: { staff: owner }, body: { role: "MANAGER" } }), { id: owner.id });
+    const res = await call(staffById.PUT, await makeRequest("PUT", "/x", { as: { staff: owner }, body: { roleId: "role_manager" } }), { id: owner.id });
     expect(res.status).toBe(409);
+    expect((await prisma.staff.findUniqueOrThrow({ where: { id: owner.id } })).roleId).toBe("role_owner");
   });
 });
 

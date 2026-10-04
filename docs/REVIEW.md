@@ -66,7 +66,7 @@ Tooling at review time: lint, type-check, 682 unit and integration tests, the bu
 | R-30 | `lib/dates.ts:26-30` | `startOfTodayIn` is an hour out on daylight-saving change days (today, 4 Oct 2026, is one), so the dashboard's "today" figures are off. | PR 4 |
 | R-31 | `lib/classes/service.ts:27-48`, `lib/membership/benefits.ts:65-74` | Two bookings of different classes at the same moment can both spend the last credit; only the class row is locked. | PR 4 |
 | R-32 | `app/api/class-templates/[id]/route.ts:5-8` | Editing a template's time creates a second class for every day already generated. PUT doesn't check the trainer exists, and a bad ID gives a 500. | PR 4 |
-| R-33 | `app/api/classes/route.ts:15-28`, `app/api/members/route.ts:17`, `lib/auth/permissions.ts:62` | Trainers can read every member's email, notes and billing state, and every class's booking list. | PR 6 (trainer scope is part of the new permissions model) |
+| R-33 | `app/api/classes/route.ts:15-28`, `app/api/members/route.ts:17`, `lib/auth/permissions.ts:62` | Trainers can read every member's email, notes and billing state, and every class's booking list. | PR 6: trainers see only their own classes and booked members' names; private details need `members.view_sensitive` (D-105) |
 | R-34 | `lib/checkin/qr.ts`, `app/api/check-in/route.ts` | QR passes never expire, so a shared screenshot works until staff reissue it. | Open: rotating passes would be a new feature; reissue exists |
 | R-35 | `lib/jobs/daily.ts:53-60`, `lib/membership/service.ts:268-303` | One failing step skips the rest of the daily jobs; each member's transition and its history event aren't in one transaction; a query per member. | PR 4 |
 | R-36 | `app/api/members/route.ts:47-53` | Members created by staff are ACTIVE (with any plan) with no billing set up. Front desk, which can't change billing, can create a free active member. | PR 4 |
@@ -139,7 +139,7 @@ Tooling at review time: lint, type-check, 682 unit and integration tests, the bu
 | R-81 | `lib/http/route.ts:93-101` | Foreign-key errors (P2003) become a 500; unexpected error messages (which can contain personal data) are logged verbatim. | PR 4 |
 | R-82 | `lib/auth/session.ts:84` | The cookie's `Secure` flag depends on `NODE_ENV`. | PR 5 |
 | R-83 | `lib/http/route.ts:104-111` | The query string is validated before authentication; path parameters aren't validated. | PR 5 |
-| R-84 | `app/api/auth/login/route.ts` | Failed staff sign-ins aren't audited. | PR 6 (part of the audit log work) |
+| R-84 | `app/api/auth/login/route.ts` | Failed staff sign-ins aren't audited. | PR 6: recorded against the account with the reason (D-106) |
 | R-85 | `app/api/shifts/route.ts:8` | A shift in progress disappears from "Who's rostered on" an hour after it starts. | PR 4 |
 | R-86 | `lib/classes/service.ts:31,103,127` | Members can book a class up to an hour after it started; the waitlist ignores the booking window; staff can book cancelled or pending members; "finished" ignores the class length. | PR 4 |
 | R-87 | `lib/membership/service.ts:297` | A condition that can never be true makes a scheduled plan change with no history event apply at once. | PR 4 |

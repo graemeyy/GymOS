@@ -7,7 +7,8 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { api, useMutation, useResource } from "@/lib/client/api";
 import { parseDollarsToCents } from "@/lib/money";
 import { CATEGORY_TEXT, PRODUCT_CATEGORIES, type Category } from "@/lib/shop/labels";
-import { Button, IconButton, PageHeader, Panel, PanelHeader } from "@/components/ui/primitives";
+import { AdminOnlyNote, Button, IconButton, PageHeader, Panel, PanelHeader } from "@/components/ui/primitives";
+import { useStaff } from "@/components/admin/staff-session";
 import { ErrorState, LoadingRows, useToast } from "@/components/ui/feedback";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField, TextareaField } from "@/components/ui/form";
@@ -57,6 +58,9 @@ export default function ProductEditorPage() {
   const isNew = id === "new";
   const router = useRouter();
   const toast = useToast();
+  // Prices, and new variants (which set a price), need prices.edit; without it
+  // they're shown read-only.
+  const canPrice = useStaff().can("prices.edit");
   const existing = useResource<ProductData>(isNew ? null : `/api/products/${id}`);
   const [form, setForm] = useState({ name: "", description: "", category: "APPAREL" as Category, imageUrl: "", active: true });
   const [variants, setVariants] = useState<VariantForm[]>([newVariant()]);
@@ -159,12 +163,13 @@ export default function ProductEditorPage() {
             id="variants-heading"
             title="Variants"
             action={
-              <Button variant="secondary" onClick={() => setVariants((vs) => [...vs, newVariant()])}>
+              <Button variant="secondary" disabled={!canPrice} onClick={() => setVariants((vs) => [...vs, newVariant()])}>
                 <Plus className="h-4 w-4" aria-hidden="true" /> Add variant
               </Button>
             }
           />
           <p className="border-b border-line px-4 py-3 text-sm text-ink-soft">One row for each size, colour or flavour you stock. Leave fields blank if they don&apos;t apply. Prices include GST.</p>
+          {canPrice ? null : <AdminOnlyNote id="price-note" className="border-b border-line px-4 py-3" />}
           {errors.variants ? <p className="px-4 pt-3 text-sm font-medium text-bad">{errors.variants}</p> : null}
           <ul className="divide-y divide-line">
             {variants.map((v, i) => (
@@ -182,7 +187,7 @@ export default function ProductEditorPage() {
                   <TextField label="Colour" value={v.colour} onChange={(e) => setVariant(v.key, { colour: e.target.value })} />
                   <TextField label="Flavour" value={v.flavour} onChange={(e) => setVariant(v.key, { flavour: e.target.value })} />
                   <TextField label="SKU" required value={v.sku} error={errors[`variants.${i}.sku`]} onChange={(e) => setVariant(v.key, { sku: e.target.value })} />
-                  <TextField label="Price (AUD)" inputMode="decimal" value={v.price} error={errors[`price-${v.key}`] ?? errors[`variants.${i}.priceCents`]} onChange={(e) => setVariant(v.key, { price: e.target.value })} />
+                  <TextField label="Price (AUD)" inputMode="decimal" readOnly={!canPrice} aria-describedby={canPrice ? undefined : "price-note"} value={v.price} error={errors[`price-${v.key}`] ?? errors[`variants.${i}.priceCents`]} onChange={(e) => setVariant(v.key, { price: e.target.value })} />
                   <TextField label="In stock" type="number" inputMode="numeric" min={0} value={v.stockQty} onChange={(e) => setVariant(v.key, { stockQty: e.target.value })} />
                 </div>
               </li>

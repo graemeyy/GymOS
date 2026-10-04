@@ -2,7 +2,7 @@
 
 exports[`GET response shapes (characterisation) > CSV exports keep their columns 1`] = `
 {
-  "body": "When (UTC),Who,Action,Record type,Record ID,Details
+  "body": "When (UTC),Who,Action,Record type,Record ID,Details,Old value,New value
 ",
   "status": 200,
   "type": "text/csv",
@@ -588,12 +588,14 @@ exports[`GET response shapes (characterisation) > public endpoints 4`] = `
 {
   "body": {
     "id": "string",
+    "isOwner": "boolean",
     "kind": "string",
     "name": "string",
     "permissions": [
       "string",
     ],
-    "role": "string",
+    "roleId": "string",
+    "roleName": "string",
   },
   "status": 200,
   "type": "application/json",
@@ -1456,6 +1458,35 @@ exports[`GET response shapes (characterisation) > staff products/[id] 1`] = `
 }
 `;
 
+exports[`GET response shapes (characterisation) > staff roles 1`] = `
+{
+  "body": [
+    {
+      "description": "string",
+      "id": "string",
+      "isOwner": "boolean",
+      "name": "string",
+      "permissions": [
+        "string",
+      ],
+      "preset": "string",
+      "staffCount": "number",
+    },
+    {
+      "description": "string",
+      "id": "string",
+      "isOwner": "boolean",
+      "name": "string",
+      "permissions": [],
+      "preset": "string",
+      "staffCount": "number",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
 exports[`GET response shapes (characterisation) > staff settings/features 1`] = `
 {
   "body": {
@@ -1510,8 +1541,28 @@ exports[`GET response shapes (characterisation) > staff staff 1`] = `
       "createdAt": "date",
       "email": "string",
       "id": "string",
+      "inviteExpiresAt": "null",
       "name": "string",
-      "role": "string",
+      "role": {
+        "id": "string",
+        "isOwner": "boolean",
+        "name": "string",
+      },
+      "status": "string",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff staff/directory 1`] = `
+{
+  "body": [
+    {
+      "id": "string",
+      "name": "string",
+      "roleName": "string",
     },
   ],
   "status": 200,

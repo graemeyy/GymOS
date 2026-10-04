@@ -51,7 +51,7 @@ export default function EquipmentPage() {
                   <p className="font-medium">{a.title}</p>
                   <p className="text-sm text-ink-soft">{a.description}</p>
                 </div>
-                {can("equipment:manage") ? <ApprovalButtons approval={a} onDone={reloadAll} /> : null}
+                {can("products.edit") ? <ApprovalButtons approval={a} onDone={reloadAll} /> : null}
               </li>
             ))}
           </ul>
@@ -85,7 +85,7 @@ export default function EquipmentPage() {
                   { header: "Repair", cell: (e) => (e.partNeeded ? `${e.partNeeded}${e.estimatedCost != null ? `, about ${formatAud(e.estimatedCost)}` : ""}` : <span className="text-ink-soft">None needed</span>) },
                 ]}
                 actions={
-                  can("equipment:manage")
+                  can("products.edit")
                     ? (e) =>
                         e.status === "OFFLINE" ? (
                           <DraftOrderButton equipment={e} onDone={reloadAll} />

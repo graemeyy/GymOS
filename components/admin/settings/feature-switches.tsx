@@ -1,13 +1,14 @@
 "use client";
 
 import { api, useMutation, useResource } from "@/lib/client/api";
-import { Panel, PanelHeader } from "@/components/ui/primitives";
+import { AdminOnlyNote, Panel, PanelHeader } from "@/components/ui/primitives";
 import { AsyncBlock, useToast } from "@/components/ui/feedback";
 import { Switch } from "@/components/ui/switch";
 
+// hideRevenueFromFrontDesk is still stored but has no effect: who sees money
+// is the finance.view permission now (D-101).
 interface FeatureSettings {
   requireKeycardForEntry: boolean;
-  hideRevenueFromFrontDesk: boolean;
 }
 
 export function FeatureSwitches({ canEdit }: { canEdit: boolean }) {
@@ -27,9 +28,9 @@ export function FeatureSwitches({ canEdit }: { canEdit: boolean }) {
       <PanelHeader id="features-heading" title="Front desk" />
       <AsyncBlock loading={settings.loading} error={settings.error} data={settings.data} onRetry={settings.reload}>
         {(s) => (
-          <div className="divide-y divide-line px-4">
+          <div className="px-4">
             <Switch label="Require a keycard to enter" description="Members without an issued keycard are refused at the door." checked={s.requireKeycardForEntry} disabled={!canEdit || save.busy} onChange={(v) => void save.run({ requireKeycardForEntry: v })} />
-            <Switch label="Hide revenue from front desk" description="Front-desk staff won't see revenue figures or payment history." checked={s.hideRevenueFromFrontDesk} disabled={!canEdit || save.busy} onChange={(v) => void save.run({ hideRevenueFromFrontDesk: v })} />
+            {canEdit ? null : <AdminOnlyNote className="pb-3" />}
           </div>
         )}
       </AsyncBlock>

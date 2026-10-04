@@ -82,22 +82,22 @@ export default function MemberDetailPage() {
         {(m) => (
           <>
             <PageHeader
-              title={m.name ?? m.email}
-              description={`${m.email}. Member since ${fmtDate(m.createdAt)}. Last visit: ${lastSeen(m.lastCheckIn).toLowerCase()}.`}
+              title={m.name ?? m.email ?? "Unnamed member"}
+              description={`${m.email ? `${m.email}. ` : ""}Member since ${fmtDate(m.createdAt)}. Last visit: ${lastSeen(m.lastCheckIn).toLowerCase()}.`}
               actions={
                 m.archivedAt ? undefined : (
                   <>
-                    {can("members:write") ? (
+                    {can("members.edit") ? (
                       <Button variant="secondary" onClick={() => setEditOpen(true)}>
                         <Pencil className="h-4 w-4" aria-hidden="true" /> Edit details
                       </Button>
                     ) : null}
-                    {can("members:write") ? (
+                    {can("members.edit") ? (
                       <Button variant="secondary" busy={reissue.busy} onClick={() => void reissue.run()}>
                         <QrCode className="h-4 w-4" aria-hidden="true" /> Reissue pass
                       </Button>
                     ) : null}
-                    {can("members:archive") ? (
+                    {can("members.edit") ? (
                       <Button variant="danger" onClick={() => setArchiveOpen(true)}>
                         <Archive className="h-4 w-4" aria-hidden="true" /> Archive
                       </Button>
@@ -142,7 +142,7 @@ export default function MemberDetailPage() {
                 )}
               </Panel>
 
-              <NotesPanel memberId={m.id} archived={Boolean(m.archivedAt)} />
+              {can("members.view_sensitive") ? <NotesPanel memberId={m.id} archived={Boolean(m.archivedAt)} /> : null}
 
               {m.payments ? (
                 <Panel aria-labelledby="payments-heading">
@@ -200,7 +200,7 @@ export default function MemberDetailPage() {
                       <p>
                         Referred by{" "}
                         <Link className="font-medium text-plate underline-offset-2 hover:underline" href={`/admin/members/${m.referredBy.id}`}>
-                          {m.referredBy.name ?? m.referredBy.email}
+                          {m.referredBy.name ?? m.referredBy.email ?? "A member"}
                         </Link>
                       </p>
                     ) : null}
@@ -211,7 +211,7 @@ export default function MemberDetailPage() {
                           <React.Fragment key={r.id}>
                             {i > 0 ? ", " : null}
                             <Link className="font-medium text-plate underline-offset-2 hover:underline" href={`/admin/members/${r.id}`}>
-                              {r.name ?? r.email}
+                              {r.name ?? r.email ?? "A member"}
                             </Link>
                           </React.Fragment>
                         ))}
@@ -228,7 +228,7 @@ export default function MemberDetailPage() {
               onCancel={() => setArchiveOpen(false)}
               onConfirm={() => void archive.run()}
               busy={archive.busy || archived}
-              title={`Archive ${m.name ?? m.email}?`}
+              title={`Archive ${m.name ?? m.email ?? "this member"}?`}
               confirmLabel="Archive member"
               body={
                 <ul className="list-disc space-y-1 pl-5">

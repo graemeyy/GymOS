@@ -3,7 +3,7 @@ import { prisma, type Db } from "@/lib/db";
 import { ApiError } from "@/lib/http/errors";
 import { env } from "@/lib/env";
 import { assertSignInAllowed, RATE_LIMITS, recordFailedSignIn } from "@/lib/rate-limit";
-import { can, type Permission, type StaffRoleName } from "./permissions";
+import { allows, can, effectivePermissions, type Access, type PermissionRule } from "./permissions";
 import { verifyPasswordOrDummy } from "./password";
 import {
   createSessionToken,
@@ -15,11 +15,12 @@ import {
   type SessionPayload,
 } from "./token";
 
-export interface StaffActor {
+export interface StaffActor extends Access {
   kind: "staff";
   id: string;
   name: string;
-  role: StaffRoleName;
+  roleId: string;
+  roleName: string;
 }
 
 export interface MemberActor {
@@ -40,12 +41,21 @@ export async function readSession(request: Request): Promise<SessionPayload | nu
 export async function resolveStaff(request: Request, db: Db = prisma): Promise<StaffActor | null> {
   const session = await readSession(request);
   if (!session || session.kind !== "staff") return null;
+  return loadStaffActor(db, session.sub, session.ver);
+}
+
+// The staff member's current access, read from their role on every request,
+// so a role edit or a deactivation applies straight away (D-098). No role, or
+// a deactivated account, means no access.
+export async function loadStaffActor(db: Db, id: string, sessionVersion?: number): Promise<StaffActor | null> {
   const staff = await db.staff.findUnique({
-    where: { id: session.sub },
-    select: { id: true, name: true, role: true, sessionVersion: true },
+    where: { id },
+    select: { id: true, name: true, sessionVersion: true, deactivatedAt: true, assignedRole: { select: { id: true, name: true, isOwner: true, permissions: true } } },
   });
-  if (!staff || staff.sessionVersion !== session.ver) return null;
-  return { kind: "staff", id: staff.id, name: staff.name, role: staff.role };
+  if (!staff || staff.deactivatedAt || !staff.assignedRole) return null;
+  if (sessionVersion !== undefined && staff.sessionVersion !== sessionVersion) return null;
+  const role = staff.assignedRole;
+  return { kind: "staff", id: staff.id, name: staff.name, roleId: role.id, roleName: role.name, isOwner: role.isOwner, permissions: effectivePermissions(role) };
 }
 
 export async function resolveMember(request: Request, db: Db = prisma): Promise<MemberActor | null> {
@@ -73,6 +83,9 @@ export async function signInStaff(db: Db, email: string, password: string, ip: s
     await recordFailedSignIn(RATE_LIMITS.loginAccountAnywhere, accountKey, db);
     throw new ApiError("unauthenticated", "That email and password don't match a staff account.");
   }
+  // Only after the password is right, so this doesn't reveal which emails
+  // belong to staff.
+  if (staff.deactivatedAt || !staff.roleId) throw new ApiError("forbidden", "This staff account has been deactivated. Ask the gym's owner to turn it back on.");
   return staff;
 }
 
@@ -103,24 +116,19 @@ export async function endAllSessions(db: Db, session: SessionPayload) {
   }
 }
 
-export async function hideRevenueFromFrontDesk(db: Db = prisma): Promise<boolean> {
-  const settings = await db.gymSettings.findUnique({ where: { id: "singleton" } });
-  return settings?.hideRevenueFromFrontDesk ?? false;
-}
-
 // Whether this staff member may see money figures (takings, amounts owing,
-// plan revenue). Front desk can be blocked by the owner's setting.
-export async function canSeeRevenue(staff: StaffActor, db: Db = prisma): Promise<boolean> {
-  return can(staff.role, "revenue:view", { hideRevenueFromFrontDesk: await hideRevenueFromFrontDesk(db) });
+// plan member counts).
+export function canSeeRevenue(staff: StaffActor): boolean {
+  return can(staff, "finance.view");
 }
 
-export async function requireStaff(request: Request, permission: Permission, db: Db = prisma): Promise<StaffActor> {
+// The one check behind every staff route: signed in as active staff, and,
+// when a permission is named, holding it. `null` means any active staff
+// member (schedules, the roster and other day-to-day views).
+export async function requireStaff(request: Request, permission: PermissionRule, db: Db = prisma): Promise<StaffActor> {
   const staff = await resolveStaff(request, db);
   if (!staff) throw new ApiError("unauthenticated", "Please sign in as staff.");
-  const ctx = permission === "revenue:view" ? { hideRevenueFromFrontDesk: await hideRevenueFromFrontDesk(db) } : {};
-  if (!can(staff.role, permission, ctx)) {
-    throw new ApiError("forbidden", "Your role doesn't have access to this.");
-  }
+  if (!allows(staff, permission)) throw new ApiError("forbidden", "Your role doesn't have access to this.");
   return staff;
 }
 

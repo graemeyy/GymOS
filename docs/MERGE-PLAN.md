@@ -10,7 +10,72 @@ The pull requests, in stack order:
 | 2 | graemeyy/GymOS#17 | `claude/clever-mayer-i0kufm-owner` | `20261004000000_phase2_owner_features` |
 | 3 | graemeyy/GymOS#18 | `claude/clever-mayer-i0kufm-member` | `20261005000000_phase3_member_features` |
 | 4 | graemeyy/GymOS#19 | `claude/clever-mayer-i0kufm-fixes` | `20261006000000_review_fixes` |
-| 5 | PR 5 (not opened yet) | `claude/clever-mayer-i0kufm-standard` | none |
+| 5 | graemeyy/GymOS#20 | `claude/clever-mayer-i0kufm-standard` | none |
+| 6 | graemeyy/GymOS#21 | `claude/clever-mayer-i0kufm-permissions` | `20261008000000_roles_and_permissions` |
+
+## 0. Update, 4 October afternoon: read this first
+
+Things have changed since sections 1 to 6 were written:
+
+- **Preview has its own database.** Production keeps the original; Preview has a separate one with `ALLOW_PREVIEW_MIGRATIONS=true` set for Preview only. Section 6 is done.
+- **The production data is all demo data.** So the step 3.1 checks and the catch-up migration (section 3) are skipped, and a reset of production is an acceptable way out if a migration fails.
+- **The PRs are merged into `main` one at a time, oldest first, each with a normal merge commit.** Unless automatic production deployments are paused, each merge deploys to production and runs `migrate deploy` for that PR's migration. A build that fails leaves the previous production deployment serving, so a failed migration doesn't take the site down; it stops later deploys until it's dealt with (0.3).
+
+### 0.1 Will `migrate deploy` succeed on the current production database?
+
+What I could check, from the repository (I have no access to the database or to Vercel's build logs):
+
+- **No applied migration file has changed.** Every `migration.sql` from `20250101000000_init` to `20261006000000_review_fixes` has exactly one commit in the whole repository history, on any branch: none was edited after it was added. So whatever previews or production deploys applied matches the files being merged now. (`20261008000000_roles_and_permissions` was reworded once before PR 6 was pushed; no build ever applied it, because #21's previews ran with migrations skipped.)
+- **No pending migration can trip over existing data.**
+  - Every unique index in Phase 1 to 3 is on a new table or a new, empty column.
+  - Every new `NOT NULL` column has a default.
+  - The backfills (`planId` from the old `plan` enum, `pastDueSince`, `onboardedAt`, `effectiveAt`, `paidAt`, `membershipStartedAt`, staff `roleId`) cover every value the old enums allow.
+  - The new enum values (`TRAINER`, `PENDING`) are only used by later migrations, never in the one that adds them.
+  - The roles migration maps every old staff role to a role, so no account is left without one.
+- **The history should be in order.** `main` has run `prisma migrate deploy` on every build since 8 September, so the seven 2025 migrations should already be recorded in production's `_prisma_migrations`. Phase 1 and 2 were probably applied by previews (section 1). `migrate deploy` skips what's recorded and applies the rest in order.
+
+What I can't check: production's `_prisma_migrations` table itself. Two things there would stop `migrate deploy`, and only a look at the table or the build log shows them:
+- **A failed migration** (a row with `finished_at` empty and `rolled_back_at` empty), for example if a preview build's migration was interrupted. `migrate deploy` then refuses with error P3009.
+- **A schema made with `prisma db push`** rather than migrations, without history for the 2025 migrations (R-68). The baseline fallback in `scripts/deploy-migrations.js` only marks the first one as applied, and the next would fail with "relation already exists".
+
+**So I'm confident in the files and the data, not in the recorded history.** If the first production build after a merge fails at `migrate deploy`, use 0.3. Since the data is demo, that's the quickest safe fix; don't try to repair the history by hand.
+
+### 0.2 Watching each merge's production deploy
+
+After each merge, open the production deployment's build log in Vercel and look for the `migrate deploy` output:
+
+- "N migrations found ... applied" or "No pending migrations to apply" means it worked.
+- `P3009`, `P3018`, `P3005` followed by another error, or "relation ... already exists" means it failed. Stop merging and do 0.3.
+
+### 0.3 Fallback: reset the production database and re-seed it
+
+Only because the data is demo. This deletes everything in the production database.
+
+From a trusted machine with the repository at the latest `main` (or at the branch being merged). Put the production connection string in your shell, never in the repository or a chat:
+
+```sh
+# 1. Optional: keep a copy, in case anything turns out to matter.
+pg_dump --format=custom --no-owner --file=gymos-prod-before-reset.dump "$PRODUCTION_DATABASE_URL"
+
+# 2. Drop everything and apply every migration from scratch.
+DATABASE_URL="$PRODUCTION_DATABASE_URL" npx prisma migrate reset --force --skip-seed
+
+# 3. Fill it with the fictional demo data. The seed refuses NODE_ENV=production,
+#    so run it from your machine, not from a Vercel build. It only fills an
+#    empty database, which it now is.
+DATABASE_URL="$PRODUCTION_DATABASE_URL" npm run db:seed
+
+# 4. Check the history is complete: every migration listed, none failed.
+DATABASE_URL="$PRODUCTION_DATABASE_URL" npx prisma migrate status
+```
+
+Then redeploy production (Vercel → Deployments → the latest `main` deployment → Redeploy). Its `migrate deploy` should report no pending migrations.
+
+After the reset:
+- **Demo accounts have a published password.** The demo staff and member accounts share the password in `prisma/demo.ts`, which is in the repository. On a public URL, change the owner's password straight away (Settings → Your password), or deactivate the demo staff accounts you don't need.
+- **Sessions end.** Everyone is signed out, because their accounts no longer exist.
+- **Stripe test data no longer matches.** Test-mode customers and subscriptions in Stripe point at members that are gone. Harmless in test mode; webhooks for them are ignored.
+- Without the seed, the database is empty. The first owner is then created at `/admin/setup`, which needs `SETUP_TOKEN` set in Production (D-083).
 
 ## 1. What has probably already happened to production
 
@@ -149,7 +214,8 @@ The safest approach is **one production deployment at the end**, not one per pul
 | 7 | Merge #17 into `main` | Skips Phase 2 if already applied | Then change #18's base to `main` |
 | 8 | Merge #18 into `main` | Applies Phase 3 | Then change #19's base to `main` |
 | 9 | Merge #19 into `main` | Applies the review fixes, then the catch-up | Then change PR 5's base to `main` |
-| 10 | Merge PR 5 into `main` | Nothing new | Wait for CI on `main` to pass |
+| 10 | Merge PR 5 into `main` | Nothing new | Then change PR 6's (#21) base to `main` |
+| 10a | Merge PR 6 (#21) into `main`, if it's going out in the same deployment | Applies the roles and permissions migration | Wait for CI on `main` to pass. PR 6 can also wait for a later deployment: nothing above depends on it |
 
 **Deploying:**
 
@@ -157,14 +223,18 @@ The safest approach is **one production deployment at the end**, not one per pul
     - `20261005000000_phase3_member_features`
     - `20261006000000_review_fixes`
     - the catch-up, if added
+    - `20261008000000_roles_and_permissions`, if PR 6 was merged
 12. **Check the build log** for `migrate deploy`'s list of applied migrations and the absence of errors.
 13. **Smoke-test production:**
     - sign in as owner
     - open members (plans shown), payments, finance and the shop
     - check in a member
     - run step 3.1 again: the catch-up counts should be 0, except `payments_without_gst`
+    - if PR 6 went out: every staff member has a role (`SELECT count(*) FROM "Staff" WHERE "roleId" IS NULL;` should be 0), open Staff and Roles, and sign in as a front-desk account to check it sees what you expect (D-100 narrows Front desk)
 14. **Set `SETUP_TOKEN` in Production** if you haven't (D-083).
 15. **Set the Stripe webhook endpoint's API version** to `2023-10-16` (see the README).
+
+**PR 6's migration** creates the `Role` table, inserts the five starting roles and moves every staff account onto one in the same transaction, so nobody is signed out. In the step 3 rehearsal, check that `SELECT "role", count(*) FROM "Staff" WHERE "roleId" IS NULL GROUP BY 1;` returns no rows afterwards. Its `down.sql` deletes staff who never accepted an invitation (the old schema needs a password) and archives audit old/new values and custom roles into `_archived_*` tables.
 
 **Expected effects of the review migration on a live database:**
 - It adds nullable columns and indexes, and runs backfills on `BenefitLedger`, `Payout` and `Member`.

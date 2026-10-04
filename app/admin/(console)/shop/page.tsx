@@ -49,7 +49,7 @@ export default function ShopProductsPage() {
             <LinkButton href="/admin/shop/orders" variant="secondary">
               Orders
             </LinkButton>
-            {can("shop:manage") ? <LinkButton href="/admin/shop/products/new">Add product</LinkButton> : null}
+            {can("products.edit") && can("prices.edit") ? <LinkButton href="/admin/shop/products/new">Add product</LinkButton> : null}
           </>
         }
       />
@@ -70,7 +70,7 @@ export default function ShopProductsPage() {
       <AsyncBlock loading={products.loading} error={products.error} data={products.data} onRetry={products.reload} loadingLabel="Loading products">
         {(rows) =>
           rows.length === 0 ? (
-            <EmptyState title="No products yet" action={can("shop:manage") ? <LinkButton href="/admin/shop/products/new">Add the first product</LinkButton> : undefined} />
+            <EmptyState title="No products yet" action={can("products.edit") && can("prices.edit") ? <LinkButton href="/admin/shop/products/new">Add the first product</LinkButton> : undefined} />
           ) : (
             <div className="space-y-4">
               {rows.map((p) => (
@@ -82,7 +82,7 @@ export default function ShopProductsPage() {
                       <span className="flex items-center gap-2">
                         <StatusTag>{CATEGORY_TEXT[p.category]}</StatusTag>
                         {!p.active ? <StatusTag tone="warn">Archived</StatusTag> : null}
-                        {can("shop:manage") ? (
+                        {can("products.edit") ? (
                           <Link href={`/admin/shop/products/${p.id}`} className="rounded px-2 py-1 text-sm font-medium text-plate underline-offset-2 hover:underline">
                             Edit<span className="sr-only"> {p.name}</span>
                           </Link>
@@ -101,7 +101,7 @@ export default function ShopProductsPage() {
                           <span className="flex items-center gap-3">
                             <span className="tabular">{formatAud(v.priceCents)}</span>
                             {v.stockQty === 0 ? <StatusTag tone="bad">Sold out</StatusTag> : v.stockQty <= LOW_STOCK_AT ? <StatusTag tone="warn">{v.stockQty} left</StatusTag> : <span className="tabular w-14 text-right text-sm text-ink-soft">{v.stockQty} in stock</span>}
-                            {can("inventory:adjust") ? (
+                            {can("orders.manage") ? (
                               <StockButtons label={`${p.name} ${variantLabel(v)}`} variant={v} onAdjusted={products.reload} />
                             ) : null}
                           </span>

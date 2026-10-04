@@ -28,9 +28,9 @@ Every route handler is wrapped by one of three functions in `lib/http/route.ts`:
 
 - `publicRoute`: no session needed (sign-in, sign-up, public plans and catalogue).
 - `memberRoute`: a member session. The member ID always comes from the session, never from the request, so one member can't act on another.
-- `staffRoute({ permission })`: a staff session with that permission (`lib/auth/permissions.ts`). Roles: owner, manager, front desk, trainer.
+- `staffRoute({ permission })`: a staff session whose role grants that permission, any one of a list, or (`null`) any active staff member. Roles and their permissions are rows in the `Role` table, loaded on every request; the permission catalogue and the starting roles are in `lib/auth/permissions.ts`, and [PERMISSIONS.md](PERMISSIONS.md) has the full matrix. Record-level rules (trainers' own classes, members' private details, prices) are checked in `lib/auth/access.ts`, `lib/members/privacy.ts` and the plan and shop services.
 
-Each wrapper, in order: blocks cross-site mutating requests (same-origin and JSON-only checks), applies an optional rate limit, checks the session against the database (so revoked sessions stop working immediately), then parses the body and query with Zod. Errors come back as `{ error: { code, message, fields } }`. Tests in `tests/integration/rbac.test.ts` call every route as every role, as a member and signed out.
+Each wrapper, in order: blocks cross-site mutating requests (same-origin and JSON-only checks), applies an optional rate limit, checks the session against the database (so revoked sessions stop working immediately), then parses the body and query with Zod. Errors come back as `{ error: { code, message, fields } }`. Tests in `tests/integration/rbac.test.ts` call every route as every starting role and a custom role, as a member and signed out; `tests/integration/permissions.test.ts` covers the safeguards (always an owner, no granting what you don't have), invitations, prices and trainer scope.
 
 Sessions are HMAC-signed cookies (`lib/auth/token.ts`) holding the account ID and a session version. Changing a password, archiving a member or erasing an account bumps the version and ends every session.
 
@@ -44,7 +44,7 @@ Main models:
 - **Money:** `Payment` (table `Payout` for historical reasons; sequential `invoiceNumber`), `Refund`, `PaymentReminder`, `StripeEvent` (processed webhook IDs).
 - **Classes:** `ClassTemplate` (weekly timetable), `Class`, `ClassBooking`, `ClassWaitlist`, `CheckIn`.
 - **Shop:** `Product`, `ProductVariant` (stock), `Order`, `OrderItem` (prices frozen at purchase), `OrderEvent` (status history).
-- **Operations:** `Staff`, `AuditLog`, `Announcement`, `RateLimit`, plus the older `Equipment`, `InventoryItem`, `Shift` and `AgentAction`.
+- **Operations:** `Staff`, `Role` (named sets of permissions, D-098), `AuditLog` (with old and new values, D-106), `Announcement`, `RateLimit`, plus the older `Equipment`, `InventoryItem`, `Shift` and `AgentAction`.
 
 Migrations are in `prisma/migrations`. Each has a hand-written `down.sql` for rollback. `npm run build` never migrates; the Vercel build command migrates only for production deployments (see D-060).
 
@@ -63,7 +63,7 @@ Route handlers stay thin and call `lib/<domain>/`: reads in `queries.ts`, writes
 | Finance | `lib/finance/*` | Summaries by month, BAS quarter and financial year, AUD only. CSV exports neutralise spreadsheet formulas (`lib/csv.ts`). |
 | Members | `lib/members/*` | Sign-up, password change, data export, erasure and anonymisation. |
 | Legal | `lib/legal.ts` | Current document versions and acceptance records. |
-| Plans, staff, settings, announcements, audit log | `lib/plans/*`, `lib/staff/*`, `lib/settings/*`, `lib/announcements/*`, `lib/audit-log/*` | Queries, services and schemas per area; `lib/plans/perks.ts` is the one wording for plan benefits. |
+| Plans, staff, roles, settings, announcements, audit log | `lib/plans/*`, `lib/staff/*`, `lib/roles/*`, `lib/settings/*`, `lib/announcements/*`, `lib/audit-log/*` | Queries, services and schemas per area; `lib/plans/perks.ts` is the one wording for plan benefits. |
 | Daily jobs | `lib/jobs/daily.ts` | Transitions, reminders, timetable generation, retention scores, data retention, rate-limit clean-up. |
 
 ## Stripe
@@ -106,7 +106,7 @@ Two layers, both validated at startup:
 ## Where to start for common changes
 
 - **New gym:** edit `config/gym.config.json`, run `npm run check:config`, see the README.
-- **New staff permission:** add it to `lib/auth/permissions.ts`, use it in `staffRoute`, and add the route to the matrix in `tests/integration/rbac.test.ts`.
+- **New staff permission:** follow "For developers" in [PERMISSIONS.md](PERMISSIONS.md): the catalogue in `lib/auth/permissions.ts`, a migration that gives it to the right starting roles, `staffRoute`, and the matrix in `tests/integration/rbac.test.ts`.
 - **New member action:** add a service function in `lib/<domain>/service.ts`, a `memberRoute` under `app/api/me`, and add the route to the member-route refusal test.
 - **New write that logs an audit entry:** do both inside one `db.$transaction` and add a case to `tests/integration/atomic-*.test.ts`.
 - **Changing data from the browser:** use `useMutation` from `lib/client/api.ts`.

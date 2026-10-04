@@ -25,7 +25,7 @@ beforeEach(() => {
     addEventListener: (_: string, fn: () => void) => listeners.add(fn),
     removeEventListener: (_: string, fn: () => void) => listeners.delete(fn),
   }));
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ kind: "staff", id: "s1", name: "Sam", role: "OWNER", permissions: ["dashboard:view"] }), { status: 200 })));
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ kind: "staff", id: "s1", name: "Sam", roleId: "role_trainer", roleName: "Trainer", isOwner: false, permissions: [] }), { status: 200 })));
 });
 afterEach(() => {
   cleanup();
@@ -66,5 +66,30 @@ describe("R-89 staff session errors", () => {
       </StaffSessionProvider>
     );
     await waitFor(() => expect(screen.getAllByText(/Couldn't load your menu/).length).toBeGreaterThan(0));
+  });
+});
+
+describe("menu by role", () => {
+  const menuFor = async (permissions: string[]) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ kind: "staff", id: "s1", name: "Sam", roleId: "r", roleName: "Role", isOwner: false, permissions }), { status: 200 })));
+    render(
+      <StaffSessionProvider>
+        <AdminShell>page</AdminShell>
+      </StaffSessionProvider>
+    );
+    await waitFor(() => expect(screen.getAllByRole("link", { name: "Classes" }).length).toBeGreaterThan(0));
+    return (name: string) => screen.queryAllByRole("link", { name }).length > 0;
+  };
+
+  it("a trainer sees classes and roles, but not members, money, stock, equipment or staff", async () => {
+    const has = await menuFor([]);
+    expect(has("Roles")).toBe(true);
+    for (const name of ["Members", "Payments", "Stock", "Equipment", "Staff"]) expect(has(name)).toBe(false);
+  });
+
+  it("front desk sees stock and equipment through orders", async () => {
+    const has = await menuFor(["members.view", "checkin.scan", "bookings.manage", "orders.manage"]);
+    for (const name of ["Members", "Check-in", "Stock", "Equipment"]) expect(has(name)).toBe(true);
+    for (const name of ["Payments", "Staff"]) expect(has(name)).toBe(false);
   });
 });

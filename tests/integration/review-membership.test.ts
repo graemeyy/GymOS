@@ -22,7 +22,7 @@ import { generateClasses } from "@/lib/classes/timetable";
 import { applyDataRetention, runSteps } from "@/lib/jobs/daily";
 import { localDateIn, zonedTimeToUtc } from "@/lib/dates";
 import { gym } from "@/lib/config";
-import { call, createMember, createStaff, makeRequest, prisma, resetDb, type As } from "../helpers";
+import { call, createMember, createStaff, createStaffWith, makeRequest, prisma, resetDb, type As } from "../helpers";
 import { installFakeStripe } from "../fake-stripe";
 
 const DAY = 86_400_000;
@@ -31,11 +31,15 @@ const tz = gym.business.timezone;
 let stripe: ReturnType<typeof installFakeStripe> | null = null;
 let manager: As;
 let desk: As;
+// Front desk with members.edit turned on, as a gym that wants the desk to
+// add members would set it up (D-100).
+let deskEditor: As;
 
 beforeEach(async () => {
   await resetDb();
   manager = { staff: await createStaff("MANAGER") };
   desk = { staff: await createStaff("FRONT_DESK") };
+  deskEditor = { staff: await createStaffWith(["members.view", "checkin.scan", "bookings.manage", "orders.manage", "members.edit"], "Front desk plus") };
 });
 afterEach(() => {
   stripe?.restore();
@@ -256,11 +260,21 @@ describe("R-35 daily jobs", () => {
 });
 
 describe("R-36 members added by staff", () => {
-  it("front desk can add a member, but they start without access until billing is set up", async () => {
+  // R-36's split (front desk adds PENDING members, billing starts them) went
+  // with the billing:manage permission: anyone with members.edit can add a
+  // member and start a plan (D-100). The Front desk preset can't add members.
+  it("front desk can't add members by default; with members.edit, a member added with a plan starts straight away", async () => {
     const plan = await prisma.membershipPlan.findUniqueOrThrow({ where: { slug: "unlimited" } });
-    const res = await call(members.POST, await makeRequest("POST", "/x", { as: desk, body: { name: "Walk In", email: "walkin@example.com", planId: plan.id } }));
+    expect((await call(members.POST, await makeRequest("POST", "/x", { as: desk, body: { name: "Walk In", email: "walkin@example.com", planId: plan.id } }))).status).toBe(403);
+    const res = await call(members.POST, await makeRequest("POST", "/x", { as: deskEditor, body: { name: "Walk In", email: "walkin@example.com", planId: plan.id } }));
     expect(res.status).toBe(201);
-    expect((await prisma.member.findUniqueOrThrow({ where: { email: "walkin@example.com" } })).status).toBe("PENDING");
+    expect((await prisma.member.findUniqueOrThrow({ where: { email: "walkin@example.com" } })).status).toBe("ACTIVE");
+  });
+
+  it("a member added without a plan starts pending, with no access", async () => {
+    const res = await call(members.POST, await makeRequest("POST", "/x", { as: deskEditor, body: { name: "No Plan", email: "noplan@example.com" } }));
+    expect(res.status).toBe(201);
+    expect((await prisma.member.findUniqueOrThrow({ where: { email: "noplan@example.com" } })).status).toBe("PENDING");
   });
 
   it("a manager can add a member who pays at the desk and start them straight away", async () => {
@@ -319,9 +333,9 @@ describe("R-46 visit history in the audit log", () => {
 });
 
 describe("R-63 keycards", () => {
-  it("front desk can record that a keycard was issued", async () => {
+  it("staff with members.edit can record that a keycard was issued", async () => {
     const m = await createMember();
-    const res = await call(memberById.PUT, await makeRequest("PUT", "/x", { as: desk, body: { keycardIssued: true } }), { id: m.id });
+    const res = await call(memberById.PUT, await makeRequest("PUT", "/x", { as: deskEditor, body: { keycardIssued: true } }), { id: m.id });
     expect(res.status).toBe(200);
     expect((await prisma.member.findUniqueOrThrow({ where: { id: m.id } })).keycardIssued).toBe(true);
   });

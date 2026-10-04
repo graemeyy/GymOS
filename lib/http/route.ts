@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z, type ZodType } from "zod";
 import { prisma, type Db } from "@/lib/db";
 import { requireMember, requireStaff, type MemberActor, type StaffActor } from "@/lib/auth/session";
-import type { Permission } from "@/lib/auth/permissions";
+import type { PermissionRule } from "@/lib/auth/permissions";
 import { enforceRateLimit, clientIp, type RateLimitRule } from "@/lib/rate-limit";
 import { ApiError, type ApiErrorBody } from "./errors";
 import { gym } from "@/lib/config";
@@ -177,7 +177,9 @@ export function publicRoute<B = undefined, Q = undefined>(
 // Staff and member routes authenticate before validating the query or body,
 // so callers who aren't allowed learn nothing from validation errors (R-83).
 export function staffRoute<B = undefined, Q = undefined>(
-  opts: RouteOptions<B, Q> & { permission: Permission },
+  // `null` means any active staff member; the handler may still check more
+  // (a trainer's own classes, for example).
+  opts: RouteOptions<B, Q> & { permission: PermissionRule },
   handler: (args: BaseArgs<B, Q> & { staff: StaffActor }) => Promise<unknown>
 ) {
   return async (request: Request, context: RouteContext): Promise<Response> => {

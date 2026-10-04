@@ -90,6 +90,8 @@ export async function refundPayment(db: Db, actor: Actor & { kind: "staff" }, in
       targetType: "Payment",
       targetId: payment.id,
       details: { amountCents: input.amountCents, gstCents: gst, method: input.method, reason: input.reason, invoiceNumber: payment.invoiceNumber },
+      before: { refundedCents: current.refundedCents, status: current.status },
+      after: { refundedCents, status: statusAfterRefunds(current.amount, refundedCents, current.status) },
     });
     return created;
   });

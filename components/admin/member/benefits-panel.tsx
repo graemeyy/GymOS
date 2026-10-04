@@ -73,7 +73,7 @@ export function BenefitsPanel({ memberId, archived, version = 0 }: { memberId: s
         id="benefits-heading"
         title="Benefits this cycle"
         action={
-          can("billing:manage") && !archived ? (
+          can("members.edit") && !archived ? (
             <Button variant="secondary" onClick={() => setOpen(true)}>
               Adjust
             </Button>

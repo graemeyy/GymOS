@@ -13,7 +13,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const me = { kind: "staff", id: "s1", name: "Sam", role: "OWNER", permissions: ["orders:fulfil"] };
+const me = { kind: "staff", id: "s1", name: "Sam", roleId: "role_custom", roleName: "Custom", isOwner: false, permissions: ["orders.manage"] };
 const order = {
   id: "o1",
   number: 1001,

@@ -24,10 +24,12 @@ import {
   Megaphone,
   ShoppingBag,
   Receipt,
+  ShieldCheck,
+  UserCog,
 } from "lucide-react";
 import { api } from "@/lib/client/api";
 import { cn } from "@/lib/client/cn";
-import { ROLE_LABELS, type Permission } from "@/lib/auth/permissions";
+import { allows, SEE_STOCK_AND_EQUIPMENT, type PermissionRule } from "@/lib/auth/permissions";
 import { IconButton } from "@/components/ui/primitives";
 import { ErrorState } from "@/components/ui/feedback";
 import { ThemeToggle } from "@/components/ui/theme";
@@ -35,51 +37,54 @@ import { Wordmark } from "@/components/ui/logo";
 import { useModalBehaviour } from "@/components/ui/dialog";
 import { useStaff } from "./staff-session";
 
-type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; permission: Permission };
+// `permission: null` means every active staff member sees it.
+type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }>; permission: PermissionRule };
 
 const NAV: { group: string; items: NavItem[] }[] = [
   {
     group: "Today",
     items: [
-      { href: "/admin", label: "Dashboard", icon: Gauge, permission: "dashboard:view" },
-      { href: "/admin/check-in", label: "Check-in", icon: ScanLine, permission: "checkin:scan" },
-      { href: "/admin/classes", label: "Classes", icon: CalendarDays, permission: "classes:read" },
+      { href: "/admin", label: "Dashboard", icon: Gauge, permission: null },
+      { href: "/admin/check-in", label: "Check-in", icon: ScanLine, permission: "checkin.scan" },
+      { href: "/admin/classes", label: "Classes", icon: CalendarDays, permission: null },
     ],
   },
   {
     group: "Members",
     items: [
-      { href: "/admin/members", label: "Members", icon: Users, permission: "members:read" },
-      { href: "/admin/plans", label: "Plans", icon: Layers, permission: "members:read" },
-      { href: "/admin/retention", label: "Retention", icon: UserRoundSearch, permission: "members:read" },
-      { href: "/admin/announcements", label: "Announcements", icon: Megaphone, permission: "announcements:manage" },
+      { href: "/admin/members", label: "Members", icon: Users, permission: "members.view" },
+      { href: "/admin/plans", label: "Plans", icon: Layers, permission: null },
+      { href: "/admin/retention", label: "Retention", icon: UserRoundSearch, permission: "members.view" },
+      { href: "/admin/announcements", label: "Announcements", icon: Megaphone, permission: "announcements.send" },
     ],
   },
   {
     group: "Money",
     items: [
-      { href: "/admin/billing", label: "Payments", icon: CreditCard, permission: "revenue:view" },
-      { href: "/admin/finance", label: "Finance", icon: LineChart, permission: "finance:view" },
-      { href: "/admin/shop/orders", label: "Orders", icon: Receipt, permission: "orders:fulfil" },
-      { href: "/admin/shop", label: "Shop products", icon: ShoppingBag, permission: "orders:fulfil" },
+      { href: "/admin/billing", label: "Payments", icon: CreditCard, permission: "finance.view" },
+      { href: "/admin/finance", label: "Finance", icon: LineChart, permission: "finance.view" },
+      { href: "/admin/shop/orders", label: "Orders", icon: Receipt, permission: "orders.manage" },
+      { href: "/admin/shop", label: "Shop products", icon: ShoppingBag, permission: "orders.manage" },
     ],
   },
   {
     group: "Gym",
     items: [
-      { href: "/admin/shifts", label: "Shifts", icon: Clock, permission: "shifts:read" },
-      { href: "/admin/equipment", label: "Equipment", icon: Dumbbell, permission: "equipment:read" },
-      { href: "/admin/inventory", label: "Stock", icon: Package, permission: "inventory:read" },
-      { href: "/admin/access", label: "Door access", icon: DoorOpen, permission: "checkin:scan" },
-      { href: "/admin/audit", label: "Audit log", icon: ClipboardList, permission: "audit:read" },
-      { href: "/admin/settings", label: "Settings", icon: Settings, permission: "dashboard:view" },
+      { href: "/admin/shifts", label: "Shifts", icon: Clock, permission: null },
+      { href: "/admin/equipment", label: "Equipment", icon: Dumbbell, permission: SEE_STOCK_AND_EQUIPMENT },
+      { href: "/admin/inventory", label: "Stock", icon: Package, permission: SEE_STOCK_AND_EQUIPMENT },
+      { href: "/admin/access", label: "Door access", icon: DoorOpen, permission: "checkin.scan" },
+      { href: "/admin/staff", label: "Staff", icon: UserCog, permission: "staff.manage" },
+      { href: "/admin/roles", label: "Roles", icon: ShieldCheck, permission: null },
+      { href: "/admin/audit", label: "Audit log", icon: ClipboardList, permission: "audit.view" },
+      { href: "/admin/settings", label: "Settings", icon: Settings, permission: null },
     ],
   },
 ];
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const { can, loading, error, reload } = useStaff();
+  const { me, loading, error, reload } = useStaff();
   // Show nothing until permissions arrive, so no one glimpses a link their
   // role can't use.
   if (loading) return <nav aria-label="Staff" aria-busy="true" className="min-h-[20rem]" />;
@@ -94,7 +99,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav aria-label="Staff" className="flex flex-col gap-5">
       {NAV.map((section) => {
-        const items = section.items.filter((i) => can(i.permission));
+        const items = section.items.filter((i) => allows(me, i.permission));
         if (items.length === 0) return null;
         return (
           <div key={section.group}>
@@ -143,7 +148,7 @@ function StaffFooter() {
     <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-4">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-ink">{me.name}</p>
-        <p className="text-xs text-ink-soft">{ROLE_LABELS[me.role]}</p>
+        <p className="text-xs text-ink-soft">{me.roleName}</p>
       </div>
       <IconButton label="Sign out" onClick={signOut}>
         <LogOut className="h-[18px] w-[18px]" aria-hidden="true" />

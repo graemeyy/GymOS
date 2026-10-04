@@ -14,15 +14,19 @@ import * as audit from "@/app/api/audit-log/route";
 import * as adminPlans from "@/app/api/admin/plans/route";
 import { createPassToken } from "@/lib/checkin/qr";
 import { captureEmailsForTests, capturedEmails } from "@/lib/email";
-import { call, createMember, createStaff, makeRequest, prisma, resetDb, type As } from "../helpers";
+import { call, createMember, createStaff, createStaffWith, makeRequest, prisma, resetDb, type As } from "../helpers";
 
 let owner: As;
 let desk: As;
+// Front desk with members.edit turned on, as a gym that wants the desk to
+// add members would set it up (D-100).
+let deskEditor: As;
 
 beforeEach(async () => {
   await resetDb();
   owner = { staff: await createStaff("OWNER") };
   desk = { staff: await createStaff("FRONT_DESK") };
+  deskEditor = { staff: await createStaffWith(["members.view", "checkin.scan", "bookings.manage", "orders.manage", "members.edit"], "Front desk plus") };
   captureEmailsForTests(true);
 });
 afterEach(() => captureEmailsForTests(false));
@@ -171,7 +175,8 @@ describe("QR check-in and grace period", () => {
     const scan = async () => call(checkIn.POST, await makeRequest("POST", "/api/check-in", { as: desk, body: { query: token } }));
     const ok = await scan();
     expect(ok.body).toMatchObject({ granted: true, method: "QR" });
-    await call(pass.POST, await makeRequest("POST", "/x", { as: desk }), { id: m.id });
+    expect((await call(pass.POST, await makeRequest("POST", "/x", { as: desk }), { id: m.id })).status).toBe(403);
+    expect((await call(pass.POST, await makeRequest("POST", "/x", { as: deskEditor }), { id: m.id })).status).toBe(200);
     expect((await scan()).status).toBe(409);
   });
 

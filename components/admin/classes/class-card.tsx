@@ -12,7 +12,9 @@ import { SelectField } from "@/components/ui/form";
 import type { ClassRow, Person } from "./types";
 
 export function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[]; onChange: () => void }) {
-  const { can } = useStaff();
+  const { can, me } = useStaff();
+  // Anyone with bookings.manage, or the class's own trainer (lib/auth/access.ts).
+  const canMarkAttendance = can("bookings.manage") || (Boolean(me) && cls.trainer?.id === me?.id);
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [memberId, setMemberId] = useState("");
@@ -68,7 +70,7 @@ export function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: 
         <IconButton label={open ? `Hide roster for ${cls.name}` : `Show roster for ${cls.name}`} aria-expanded={open} onClick={() => setOpen(!open)}>
           <Users className="h-[18px] w-[18px]" aria-hidden="true" />
         </IconButton>
-        {can("classes:manage") ? (
+        {can("classes.manage") ? (
           <IconButton label={`Cancel ${cls.name}`} onClick={() => setConfirmCancel(true)}>
             <Trash2 className="h-[18px] w-[18px]" aria-hidden="true" />
           </IconButton>
@@ -85,7 +87,7 @@ export function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: 
                 <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
                   <span className="font-medium">{b.member.name ?? b.member.email}</span>
                   <div className="flex items-center gap-1">
-                    {can("classes:attendance") ? (
+                    {canMarkAttendance ? (
                       <>
                         <Button
                           variant={b.status === "ATTENDED" ? "primary" : "secondary"}
@@ -105,7 +107,7 @@ export function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: 
                         </Button>
                       </>
                     ) : null}
-                    {can("classes:book") ? (
+                    {can("bookings.manage") ? (
                       <Button variant="ghost" {...busy(`remove-${b.id}`)} onClick={() => run(`remove-${b.id}`, () => api(`/api/classes/${cls.id}/book?memberId=${encodeURIComponent(b.memberId)}`, { method: "DELETE" }), "Booking cancelled")}>
                         Remove
                       </Button>
@@ -126,7 +128,7 @@ export function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: 
                       <span className="tabular mr-2 text-ink-soft">{i + 1}.</span>
                       {w.member.name ?? w.member.email}
                     </span>
-                    {can("classes:book") ? (
+                    {can("bookings.manage") ? (
                       <div className="flex gap-1">
                         <Button variant="secondary" busy={pending === `promote-${w.id}`} disabled={full || (pending !== null && pending !== `promote-${w.id}`)} onClick={() => run(`promote-${w.id}`, () => api(`/api/classes/${cls.id}/waitlist/promote`, { body: { memberId: w.memberId } }), "Moved into the class")}>
                           Book in
@@ -142,7 +144,7 @@ export function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: 
             </div>
           ) : null}
 
-          {can("classes:book") ? (
+          {can("bookings.manage") ? (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <SelectField label={full ? "Add to waitlist" : "Book a member"} value={memberId} onChange={(e) => setMemberId(e.target.value)} wrapperClassName="flex-1">
                 <option value="">Choose a member</option>
@@ -159,7 +161,7 @@ export function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: 
               </Button>
             </div>
           ) : null}
-          {can("classes:book") && !full ? (
+          {can("bookings.manage") && !full ? (
             <label className="flex items-start gap-3 text-sm">
               <input type="checkbox" className="mt-0.5 h-5 w-5 accent-plate" checked={casual} onChange={(e) => setCasual(e.target.checked)} />
               <span>Casual visit: don&apos;t use one of their class credits (they pay the casual rate at the desk)</span>

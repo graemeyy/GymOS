@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const me = { kind: "staff", id: "s1", name: "Sam", role: "OWNER", permissions: ["inventory:manage", "inventory:adjust"] };
+const me = { kind: "staff", id: "s1", name: "Sam", roleId: "role_custom", roleName: "Custom", isOwner: false, permissions: ["products.edit", "orders.manage"] };
 const item = { id: "i1", name: "Chalk", category: null, sku: null, quantity: 5, reorderLevel: 2, unitCostCents: null };
 
 describe("R-57 removing a stock item", () => {

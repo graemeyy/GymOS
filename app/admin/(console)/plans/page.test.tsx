@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const me = { kind: "staff", id: "s1", name: "Sam", role: "OWNER", permissions: ["plans:manage"] };
+const me = { kind: "staff", id: "s1", name: "Sam", roleId: "role_custom", roleName: "Custom", isOwner: false, permissions: ["plans.edit", "prices.edit"] };
 
 describe("R-57 saving a plan", () => {
   it("creates the plan once however many times it's tapped", async () => {

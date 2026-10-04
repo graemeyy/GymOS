@@ -6,19 +6,23 @@ import * as notes from "@/app/api/members/[id]/notes/route";
 import * as benefits from "@/app/api/members/[id]/benefits/route";
 import * as detail from "@/app/api/members/[id]/route";
 import { applyDueTransitions } from "@/lib/membership/service";
-import { call, createMember, createStaff, makeRequest, prisma, resetDb, type As } from "../helpers";
+import { call, createMember, createStaff, createStaffWith, makeRequest, prisma, resetDb, type As } from "../helpers";
 import { installFakeStripe } from "../fake-stripe";
 
 const DAY = 86_400_000;
 const iso = (offsetDays: number) => new Date(Date.now() + offsetDays * DAY).toISOString();
 let manager: As;
 let desk: As;
+// Front desk with members.edit turned on, as a gym that wants the desk to
+// add members would set it up (D-100).
+let deskEditor: As;
 let stripe: ReturnType<typeof installFakeStripe> | null = null;
 
 beforeEach(async () => {
   await resetDb();
   manager = { staff: await createStaff("MANAGER") };
   desk = { staff: await createStaff("FRONT_DESK") };
+  deskEditor = { staff: await createStaffWith(["members.view", "checkin.scan", "bookings.manage", "orders.manage", "members.edit", "members.view_sensitive"], "Front desk plus") };
 });
 afterEach(() => stripe?.restore());
 
@@ -121,12 +125,14 @@ describe("plan changes", () => {
 });
 
 describe("notes and adjustments", () => {
-  it("front desk can add notes; they're recorded with the author", async () => {
+  it("notes need members.edit to add and private-details access to read; they're recorded with the author", async () => {
     const m = await createMember();
-    const res = await call(notes.POST, await makeRequest("POST", "/x", { as: desk, body: { body: "Prefers morning classes" } }), { id: m.id });
+    expect((await call(notes.POST, await makeRequest("POST", "/x", { as: desk, body: { body: "Prefers morning classes" } }), { id: m.id })).status).toBe(403);
+    expect((await call(notes.GET, await makeRequest("GET", "/x", { as: desk }), { id: m.id })).status).toBe(403);
+    const res = await call(notes.POST, await makeRequest("POST", "/x", { as: deskEditor, body: { body: "Prefers morning classes" } }), { id: m.id });
     expect(res.status).toBe(201);
-    const list = await call(notes.GET, await makeRequest("GET", "/x", { as: desk }), { id: m.id });
-    expect(list.body).toMatchObject([{ body: "Prefers morning classes", staffName: (desk as { staff: { name: string } }).staff.name }]);
+    const list = await call(notes.GET, await makeRequest("GET", "/x", { as: deskEditor }), { id: m.id });
+    expect(list.body).toMatchObject([{ body: "Prefers morning classes", staffName: (deskEditor as { staff: { name: string } }).staff.name }]);
   });
 
   it("managers adjust benefits with a reason; front desk can't", async () => {

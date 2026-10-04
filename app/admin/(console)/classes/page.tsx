@@ -8,6 +8,7 @@ import { localDateIn } from "@/lib/dates";
 import { gym } from "@/lib/config/client";
 import { fmtDayHeading } from "@/lib/format";
 import { useStaff } from "@/components/admin/staff-session";
+import { ownClassesOnly } from "@/lib/auth/permissions";
 import { Button, IconButton, LinkButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
 import { DAY_MS, HOUR_MS } from "@/lib/time";
@@ -21,13 +22,13 @@ export default function ClassesPage() {
   const { can, me } = useStaff();
   const [weekOffset, setWeekOffset] = useState(0);
   const [mineOnly, setMineOnly] = useState<boolean | null>(null);
-  const mine = mineOnly ?? me?.role === "TRAINER";
+  const mine = mineOnly ?? (me ? ownClassesOnly(me) : false);
   // Rounded to the hour so the URL (and the fetch) doesn't change every render.
   const from = new Date(Math.floor((Date.now() - DAY_MS + weekOffset * WEEK) / HOUR_MS) * HOUR_MS);
   const to = new Date(from.getTime() + WEEK + 24 * 60 * 60 * 1000);
   const classes = useResource<ClassRow[]>(me ? `/api/classes?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}${mine ? "&mine=1" : ""}` : null);
-  const members = useResource<{ items: Person[] }>(can("classes:book") ? "/api/members?status=ACTIVE&take=500" : null);
-  const staffList = useResource<{ id: string; name: string; role: string }[]>(can("classes:manage") ? "/api/staff" : null);
+  const members = useResource<{ items: Person[] }>(can("bookings.manage") ? "/api/members?status=ACTIVE&take=500" : null);
+  const staffList = useResource<{ id: string; name: string; roleName: string }[]>(can("classes.manage") ? "/api/staff/directory" : null);
   const [newOpen, setNewOpen] = useState(false);
 
   const days = useMemo(() => {
@@ -49,7 +50,7 @@ export default function ClassesPage() {
             <LinkButton href="/admin/classes/timetable" variant="secondary">
               Weekly timetable
             </LinkButton>
-            {can("classes:manage") ? (
+            {can("classes.manage") ? (
               <Button onClick={() => setNewOpen(true)}>
                 <CalendarPlus className="h-4 w-4" aria-hidden="true" /> Add one-off class
               </Button>
@@ -77,7 +78,7 @@ export default function ClassesPage() {
       <AsyncBlock loading={classes.loading} error={classes.error} data={classes.data} onRetry={classes.reload} loadingLabel="Loading classes">
         {() =>
           days.length === 0 ? (
-            <EmptyState title={mine ? "You're not training any classes this week" : "No classes this week"} action={can("classes:manage") ? <Link href="/admin/classes/timetable" className="font-medium text-plate underline underline-offset-2">Set up the weekly timetable</Link> : undefined} />
+            <EmptyState title={mine ? "You're not training any classes this week" : "No classes this week"} action={can("classes.manage") ? <Link href="/admin/classes/timetable" className="font-medium text-plate underline underline-offset-2">Set up the weekly timetable</Link> : undefined} />
           ) : (
             <div className="space-y-6">
               {days.map(([key, rows]) => (
@@ -97,7 +98,7 @@ export default function ClassesPage() {
           )
         }
       </AsyncBlock>
-      <NewClassDialog open={newOpen} onClose={() => setNewOpen(false)} onSaved={classes.reload} trainers={(staffList.data ?? []).filter((s) => s.role === "TRAINER" || s.role === "MANAGER" || s.role === "OWNER")} />
+      <NewClassDialog open={newOpen} onClose={() => setNewOpen(false)} onSaved={classes.reload} trainers={staffList.data ?? []} />
     </>
   );
 }

@@ -87,7 +87,7 @@ export default function PaymentDetailPage() {
                   <LinkButton href={`/admin/invoice/${p.id}`} variant="secondary" target="_blank">
                     <Printer className="h-4 w-4" aria-hidden="true" /> Tax invoice
                   </LinkButton>
-                  {can("billing:refund") && p.refundableCents > 0 ? (
+                  {can("refunds.issue") && p.refundableCents > 0 ? (
                     <Button variant="danger" onClick={() => openRefund(p)}>
                       Refund
                     </Button>

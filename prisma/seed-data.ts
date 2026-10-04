@@ -4,6 +4,7 @@ import { gstFromInclusive } from "../lib/money";
 import { syncPlansFromConfig } from "../lib/plans/service";
 import { gym } from "../lib/config";
 import { DAY_MS } from "../lib/time";
+import { PRESET_ROLES, PRESETS } from "../lib/auth/permissions";
 import { DEMO_PASSWORD } from "./demo";
 import { CLASSES, daysAgo, DEMO_MEMBERS, DEMO_STAFF, EQUIPMENT, inDays, INVENTORY, PRODUCTS, TEMPLATES } from "./seed-fixtures";
 
@@ -48,6 +49,20 @@ export async function resetDatabase(prisma: PrismaClient) {
     prisma.rateLimit.deleteMany(),
     prisma.gymSettings.deleteMany(),
   ]);
+  await restorePresetRoles(prisma);
+}
+
+export const presetRoleId = (preset: (typeof PRESETS)[number]) => `role_${preset.toLowerCase()}`;
+
+// Custom roles go and the presets go back to what the migration created, so
+// one test's role changes can't leak into the next. Run after staff are gone.
+export async function restorePresetRoles(prisma: PrismaClient) {
+  await prisma.role.deleteMany({ where: { preset: null } });
+  for (const preset of PRESETS) {
+    const { name, description, isOwner, permissions } = PRESET_ROLES[preset];
+    const data = { name, description, isOwner, permissions: [...permissions] };
+    await prisma.role.upsert({ where: { preset }, update: data, create: { id: presetRoleId(preset), preset, ...data } });
+  }
 }
 
 export async function seedDatabase(prisma: PrismaClient) {
@@ -56,7 +71,7 @@ export async function seedDatabase(prisma: PrismaClient) {
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 
   for (const s of DEMO_STAFF) {
-    await prisma.staff.create({ data: { name: s.name, email: s.email, role: s.role, passwordHash } });
+    await prisma.staff.create({ data: { name: s.name, email: s.email, role: s.role, roleId: presetRoleId(s.preset), passwordHash } });
   }
 
   const memberIds: string[] = [];

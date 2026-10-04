@@ -8,6 +8,7 @@ import { returnClassCredit, spendClassCredit } from "@/lib/membership/benefits";
 import { sendEmail, signature } from "@/lib/email";
 import { generateClasses } from "./timetable";
 import type { AttendanceInput, ClassInput, TemplateInput } from "./schema";
+import { assertCanMarkAttendance } from "@/lib/auth/access";
 
 interface LockedClass {
   id: string;
@@ -242,14 +243,10 @@ export async function createClass(db: Db, staff: StaffActor, input: ClassInput) 
   });
 }
 
-// Trainers can only mark attendance for their own classes.
+// bookings.manage marks attendance for any class; a trainer, for their own.
 export async function markAttendance(db: Db, staff: StaffActor, classId: string, input: AttendanceInput) {
   return db.$transaction(async (tx) => {
-    if (staff.role === "TRAINER") {
-      const cls = await tx.class.findUnique({ where: { id: classId }, select: { trainerId: true } });
-      if (!cls) throw new ApiError("not_found", "Class not found.");
-      if (cls.trainerId !== staff.id) throw new ApiError("forbidden", "You can only mark attendance for your own classes.");
-    }
+    await assertCanMarkAttendance(tx, staff, classId);
     const booking = await tx.classBooking.update({
       where: { classId_memberId: { classId, memberId: input.memberId } },
       data: { status: input.status },
