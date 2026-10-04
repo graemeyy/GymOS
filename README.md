@@ -63,7 +63,7 @@ CI (`.github/workflows/ci.yml`) runs all of the above on every pull request.
 
 ## Deploying
 
-On Vercel, `vercel.json` sets the build command to `npm run vercel-build`, which applies migrations (`prisma migrate deploy`) before building. Plain `npm run build` never runs migrations, so a local build can't change a database by accident. Migrations are additive; each has a `down.sql` beside it for rollback.
+On Vercel, `vercel.json` sets the build command to `npm run vercel-build`, which applies migrations (`prisma migrate deploy`) before building. Plain `npm run build` never runs migrations, so a local build can't change a database by accident. Preview deployments (pull request branches) skip migrations, because a preview may point at the production database; set `ALLOW_PREVIEW_MIGRATIONS=true` only for a preview environment with its own database. Migrations are additive; each has a `down.sql` beside it for rollback.
 
 Set the environment variables from `.env.example` in the hosting provider. `CRON_SECRET` enables the nightly retention job; `IOT_GATEWAY_SECRET` enables door scanners. Both endpoints refuse every request until their secret is set.
 

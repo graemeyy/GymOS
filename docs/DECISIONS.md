@@ -93,3 +93,5 @@ Decisions made while building GymOS without stopping to ask, with the reason and
 **D-038. The mobile menu behaviour is kept.** (PR 1) Same top bar, same left drawer, backdrop still closes it. Added: focus moves into the drawer and is trapped, Escape closes it, focus returns to the menu button, the page behind doesn't scroll, and the nav only renders links the role can use.
 
 **D-039. The dark theme follows the device until the person chooses.** (PR 1) A small inline script sets the theme before first paint, so there's no flash of the wrong theme.
+
+**D-040a. Preview deployments don't run migrations.** (PR 1, added during PR 2) Vercel builds a preview for every pull request branch, and the build command runs `prisma migrate deploy`. If the preview environment shares the production `DATABASE_URL`, an unmerged branch could change the production schema. The migration script now skips unless `VERCEL_ENV` is `production` or `ALLOW_PREVIEW_MIGRATIONS=true`. A preview against an un-migrated database may show errors on new screens; that is the safe failure.

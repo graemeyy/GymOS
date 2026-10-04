@@ -6,6 +6,15 @@
 // production.
 const { execSync } = require("child_process");
 
+// Preview deployments (every pull request branch) must not change a database
+// that might be shared with production. Only production builds migrate,
+// unless the preview environment has its own database and sets
+// ALLOW_PREVIEW_MIGRATIONS=true.
+if (process.env.VERCEL && process.env.VERCEL_ENV !== "production" && process.env.ALLOW_PREVIEW_MIGRATIONS !== "true") {
+  process.stdout.write(`Skipping migrations on a ${process.env.VERCEL_ENV || "non-production"} build. Set ALLOW_PREVIEW_MIGRATIONS=true if this environment has its own database.\n`);
+  process.exit(0);
+}
+
 function run(cmd) {
   return execSync(cmd, { encoding: "utf8" });
 }
