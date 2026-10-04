@@ -52,6 +52,7 @@ exports[`GET response shapes (characterisation) > member me 1`] = `
     "createdAt": "date",
     "currentPeriodEnd": "null",
     "email": "string",
+    "emailVerifiedAt": "date",
     "hasCardOnFile": "boolean",
     "id": "string",
     "membershipPlan": {

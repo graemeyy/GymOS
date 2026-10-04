@@ -44,7 +44,7 @@ Main models:
 - **Money:** `Payment` (table `Payout` for historical reasons; sequential `invoiceNumber`), `Refund`, `PaymentReminder`, `StripeEvent` (processed webhook IDs).
 - **Classes:** `ClassTemplate` (weekly timetable), `Class`, `ClassBooking`, `ClassWaitlist`, `CheckIn`.
 - **Shop:** `Product`, `ProductVariant` (stock), `Order`, `OrderItem` (prices frozen at purchase), `OrderEvent` (status history).
-- **Operations:** `Staff`, `Role` (named sets of permissions, D-098), `AuditLog` (with old and new values, D-106), `Announcement`, `RateLimit`, plus the older `Equipment`, `InventoryItem`, `Shift` and `AgentAction`.
+- **Operations:** `Staff`, `Role` (named sets of permissions, D-098), `AuthToken` (hashed single-use links for password resets and email confirmation, D-112, D-113), `AuditLog` (with old and new values, D-106), `Announcement`, `RateLimit`, plus the older `Equipment`, `InventoryItem`, `Shift` and `AgentAction`.
 
 Migrations are in `prisma/migrations`. Each has a hand-written `down.sql` for rollback. `npm run build` never migrates; the Vercel build command migrates only for production deployments (see D-060).
 

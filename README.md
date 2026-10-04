@@ -59,7 +59,12 @@ Webhook events the app handles: `checkout.session.completed`, `customer.subscrip
 
 ### Email (optional)
 
-Set `RESEND_API_KEY` and `EMAIL_FROM` to send payment reminders, waitlist and announcement emails through Resend. Without a key, emails are skipped and logged.
+Set `RESEND_API_KEY` and `EMAIL_FROM` to send email through Resend: password reset links, email confirmation for online sign-ups, staff invitations, payment reminders, waitlist and announcement emails. Without a key, emails are skipped and logged.
+
+Without email:
+- Password reset and confirmation links are shown on screen instead, in development and on Vercel previews only, never on production (D-115).
+- Staff invitation links are shown to the person who sent the invitation.
+- Online sign-ups can't confirm their email, so they can't pay online until email is set up or staff start their membership at the desk (D-114).
 
 ## Checks
 
