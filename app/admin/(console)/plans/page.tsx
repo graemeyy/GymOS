@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Pencil, Plus } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatPlanPrice, INTERVAL_LABELS, parseDollarsToCents, type Interval } from "@/lib/money";
 import { gym } from "@/lib/config/client";
 import { useStaff } from "@/components/admin/staff-session";
@@ -43,7 +43,21 @@ export default function PlansPage() {
   const [form, setForm] = useState(blank);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+
+  const save = useMutation(
+    (target: Plan | null, body: Record<string, unknown>) => api(target ? `/api/plans/${target.id}` : "/api/admin/plans", { method: target ? "PUT" : "POST", body }),
+    {
+      onSuccess: (_result, target) => {
+        toast(target ? "Plan saved" : "Plan created");
+        setOpen(false);
+        void plans.reload();
+      },
+      onError: (e) => {
+        setErrors(e.fields);
+        setMessage(e.message);
+      },
+    }
+  );
 
   const openForm = (p: Plan | null) => {
     setEditing(p);
@@ -68,7 +82,7 @@ export default function PlansPage() {
     setOpen(true);
   };
 
-  const submit = async (event: React.FormEvent) => {
+  const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const priceCents = parseDollarsToCents(form.price);
     const guestRateCents = form.guestRate.trim() ? parseDollarsToCents(form.guestRate) : 0;
@@ -76,7 +90,6 @@ export default function PlansPage() {
     if (priceCents === null || priceCents === 0) fieldErrors.priceCents = "Enter a price like 29.95";
     if (guestRateCents === null) fieldErrors.guestRateCents = "Enter an amount like 20.00";
     if (Object.keys(fieldErrors).length) return setErrors(fieldErrors);
-    setBusy(true);
     setErrors({});
     setMessage(null);
     const body = {
@@ -90,19 +103,7 @@ export default function PlansPage() {
       shopDiscountPercent: Number(form.discount) || 0,
       guestRateCents,
     };
-    try {
-      await api(editing ? `/api/plans/${editing.id}` : "/api/admin/plans", { method: editing ? "PUT" : "POST", body });
-      toast(editing ? "Plan saved" : "Plan created");
-      setOpen(false);
-      void plans.reload();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-      }
-    } finally {
-      setBusy(false);
-    }
+    void save.run(editing, body);
   };
 
   return (
@@ -176,7 +177,7 @@ export default function PlansPage() {
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" form="plan-form" busy={busy}>
+            <Button type="submit" form="plan-form" busy={save.busy}>
               {editing ? "Save plan" : "Create plan"}
             </Button>
           </>

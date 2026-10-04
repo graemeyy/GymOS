@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { fmtDateTime } from "@/lib/format";
 import { Button, Panel, PanelHeader } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
@@ -19,22 +19,17 @@ export function NotesPanel({ memberId, archived }: { memberId: string; archived:
   const { can } = useStaff();
   const notes = useResource<Note[]>(`/api/members/${memberId}/notes`);
   const [body, setBody] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const add = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/members/${memberId}/notes`, { body: { body } });
+  const save = useMutation((text: string) => api(`/api/members/${memberId}/notes`, { body: { body: text } }), {
+    onSuccess: () => {
       setBody("");
       void notes.reload();
-    } catch (e) {
-      setError(e instanceof ApiClientError ? e.fields.body ?? e.message : "Couldn't save the note.");
-    } finally {
-      setBusy(false);
-    }
+    },
+  });
+  const error = save.fields.body ?? save.error;
+
+  const add = (event: React.FormEvent) => {
+    event.preventDefault();
+    void save.run(body);
   };
 
   return (
@@ -44,7 +39,7 @@ export function NotesPanel({ memberId, archived }: { memberId: string; archived:
         <form onSubmit={add} className="space-y-3 border-b border-line px-4 py-3">
           <TextareaField label="Add a note" rows={2} value={body} hint="Not shown in the member app, but included if the member downloads their data. Don't record health details unless they've agreed." onChange={(e) => setBody(e.target.value)} />
           {error ? <FormMessage>{error}</FormMessage> : null}
-          <Button type="submit" variant="secondary" busy={busy} disabled={!body.trim()}>
+          <Button type="submit" variant="secondary" busy={save.busy} disabled={!body.trim()}>
             Save note
           </Button>
         </form>

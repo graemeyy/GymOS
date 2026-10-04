@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
 import { fmtDateTime } from "@/lib/format";
 import { ORDER_STATUS_TEXT, ORDER_STATUS_TONE, type OrderStatusName } from "@/lib/shop/labels";
@@ -54,24 +54,28 @@ export default function OrderDetailPage() {
   const [shipOpen, setShipOpen] = useState(false);
   const [tracking, setTracking] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  // The status being moved to, so only that button shows busy.
+  const [moving, setMoving] = useState<OrderStatusName | null>(null);
 
-  const move = async (status: OrderStatusName, trackingNumber?: string) => {
-    setBusy(status);
-    setError(null);
-    try {
-      await api(`/api/orders/${id}`, { method: "PATCH", body: { status, trackingNumber } });
-      toast(`Order ${ORDER_STATUS_TEXT[status].toLowerCase()}`);
-      setShipOpen(false);
-      void order.reload();
-    } catch (e) {
-      const msg = e instanceof ApiClientError ? e.message : "Couldn't update the order.";
-      if (shipOpen) setError(msg);
-      else toast(msg, "bad");
-    } finally {
-      setBusy(null);
+  const move = useMutation<[status: OrderStatusName, trackingNumber?: string], unknown>(
+    (status, trackingNumber) => {
+      setMoving(status);
+      setError(null);
+      return api(`/api/orders/${id}`, { method: "PATCH", body: { status, trackingNumber } });
+    },
+    {
+      onSuccess: (_result, status) => {
+        toast(`Order ${ORDER_STATUS_TEXT[status].toLowerCase()}`);
+        setShipOpen(false);
+        void order.reload();
+      },
+      onError: (e) => {
+        if (shipOpen) setError(e.message);
+        else toast(e.message, "bad");
+      },
     }
-  };
+  );
+  const busyStatus = move.busy ? moving : null;
 
   return (
     <>
@@ -98,7 +102,7 @@ export default function OrderDetailPage() {
             {can("orders:fulfil") && o.nextStatuses.length > 0 ? (
               <div className="mb-6 flex flex-wrap gap-2">
                 {o.nextStatuses.map((s) => (
-                  <Button key={s} variant={s === "CANCELLED" ? "danger" : s === "PAID" ? "ghost" : "primary"} busy={busy === s} onClick={() => (s === "SHIPPED" ? setShipOpen(true) : move(s))}>
+                  <Button key={s} variant={s === "CANCELLED" ? "danger" : s === "PAID" ? "ghost" : "primary"} busy={busyStatus === s} onClick={() => (s === "SHIPPED" ? setShipOpen(true) : void move.run(s))}>
                     {ACTION_TEXT[s] ?? ORDER_STATUS_TEXT[s]}
                   </Button>
                 ))}
@@ -190,7 +194,7 @@ export default function OrderDetailPage() {
                   <Button variant="secondary" onClick={() => setShipOpen(false)}>
                     Cancel
                   </Button>
-                  <Button busy={busy === "SHIPPED"} onClick={() => move("SHIPPED", tracking)}>
+                  <Button busy={busyStatus === "SHIPPED"} onClick={() => void move.run("SHIPPED", tracking)}>
                     Mark shipped
                   </Button>
                 </>

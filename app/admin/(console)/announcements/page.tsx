@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Plus } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { gym } from "@/lib/config/client";
 import { localDateIn } from "@/lib/dates";
@@ -40,75 +40,58 @@ export default function AnnouncementsPage() {
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [publishing, setPublishing] = useState<Announcement | null>(null);
-  // Separate in-flight flags, so the publish and delete buttons can't be
-  // pressed twice (R-16, R-57).
-  const [publishBusy, setPublishBusy] = useState(false);
-  const [removeBusy, setRemoveBusy] = useState(false);
   const [sendEmail, setSendEmail] = useState(false);
   const [deleting, setDeleting] = useState<Announcement | null>(null);
 
+  const save = useMutation(
+    (target: Announcement | null, body: Record<string, unknown>) => api(target ? `/api/announcements/${target.id}` : "/api/announcements", { method: target ? "PUT" : "POST", body }),
+    {
+      onSuccess: (_result, target) => {
+        toast(target ? "Announcement saved" : "Draft saved");
+        setOpen(false);
+        void list.reload();
+      },
+    }
+  );
+
+  // Publish and delete each have their own mutation, so neither can be
+  // pressed twice (R-16, R-57).
+  const publish = useMutation((a: Announcement, email: boolean) => api<{ emailed: number }>(`/api/announcements/${a.id}/publish`, { body: { email } }), {
+    onSuccess: (res, _a, email) => {
+      toast(email ? `Published and emailed to ${res.emailed} member${res.emailed === 1 ? "" : "s"}` : "Published");
+      void list.reload();
+      setPublishing(null);
+    },
+    onError: (e) => {
+      toast(e.message, "bad");
+      setPublishing(null);
+    },
+  });
+
+  const remove = useMutation((a: Announcement) => api(`/api/announcements/${a.id}`, { method: "DELETE" }), {
+    onSuccess: () => {
+      toast("Announcement deleted");
+      void list.reload();
+      setDeleting(null);
+    },
+    onError: (e) => {
+      toast(e.message, "bad");
+      setDeleting(null);
+    },
+  });
+
   const openForm = (a: Announcement | null) => {
     setEditing(a);
-    setErrors({});
-    setMessage(null);
+    save.reset();
     setForm(a ? { title: a.title, body: a.body, audience: a.audience, planId: a.planId ?? "", expiresAt: a.expiresAt ? lastShownDay(a.expiresAt) : "" } : blank);
     setOpen(true);
   };
 
-  const save = async (event: React.FormEvent) => {
+  const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    setBusy(true);
-    setErrors({});
-    setMessage(null);
     const body = { title: form.title, body: form.body, audience: form.audience, planId: form.audience === "PLAN" ? form.planId || null : null, expiresAt: form.expiresAt || null };
-    try {
-      await api(editing ? `/api/announcements/${editing.id}` : "/api/announcements", { method: editing ? "PUT" : "POST", body });
-      toast(editing ? "Announcement saved" : "Draft saved");
-      setOpen(false);
-      void list.reload();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const publish = async () => {
-    if (!publishing || publishBusy) return;
-    setPublishBusy(true);
-    try {
-      const email = Boolean(publishing.publishedAt) || sendEmail;
-      const res = await api<{ emailed: number }>(`/api/announcements/${publishing.id}/publish`, { body: { email } });
-      toast(email ? `Published and emailed to ${res.emailed} member${res.emailed === 1 ? "" : "s"}` : "Published");
-      void list.reload();
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't publish.", "bad");
-    } finally {
-      setPublishBusy(false);
-      setPublishing(null);
-    }
-  };
-
-  const remove = async () => {
-    if (!deleting || removeBusy) return;
-    setRemoveBusy(true);
-    try {
-      await api(`/api/announcements/${deleting.id}`, { method: "DELETE" });
-      toast("Announcement deleted");
-      void list.reload();
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't delete.", "bad");
-    } finally {
-      setRemoveBusy(false);
-      setDeleting(null);
-    }
+    void save.run(editing, body);
   };
 
   return (
@@ -188,15 +171,15 @@ export default function AnnouncementsPage() {
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" form="announcement-form" busy={busy}>
+            <Button type="submit" form="announcement-form" busy={save.busy}>
               Save draft
             </Button>
           </>
         }
       >
-        <form id="announcement-form" onSubmit={save} className="space-y-4" noValidate>
-          <TextField label="Title" value={form.title} error={errors.title} onChange={(e) => setForm({ ...form, title: e.target.value })} data-autofocus />
-          <TextareaField label="Message" rows={5} value={form.body} error={errors.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
+        <form id="announcement-form" onSubmit={submit} className="space-y-4" noValidate>
+          <TextField label="Title" value={form.title} error={save.fields.title} onChange={(e) => setForm({ ...form, title: e.target.value })} data-autofocus />
+          <TextareaField label="Message" rows={5} value={form.body} error={save.fields.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
           <div className="grid gap-4 sm:grid-cols-2">
             <SelectField label="Who sees it" value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value as Announcement["audience"] })}>
               {Object.entries(AUDIENCE_TEXT).map(([k, v]) => (
@@ -206,7 +189,7 @@ export default function AnnouncementsPage() {
               ))}
             </SelectField>
             {form.audience === "PLAN" ? (
-              <SelectField label="Plan" value={form.planId} error={errors.planId} onChange={(e) => setForm({ ...form, planId: e.target.value })}>
+              <SelectField label="Plan" value={form.planId} error={save.fields.planId} onChange={(e) => setForm({ ...form, planId: e.target.value })}>
                 <option value="">Choose a plan</option>
                 {plans.data?.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -215,9 +198,9 @@ export default function AnnouncementsPage() {
                 ))}
               </SelectField>
             ) : null}
-            <TextField label="Stop showing after (optional)" type="date" value={form.expiresAt} error={errors.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
+            <TextField label="Stop showing after (optional)" type="date" value={form.expiresAt} error={save.fields.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
           </div>
-          {message ? <FormMessage>{message}</FormMessage> : null}
+          {save.error ? <FormMessage>{save.error}</FormMessage> : null}
         </form>
       </Dialog>
 
@@ -230,7 +213,7 @@ export default function AnnouncementsPage() {
             <Button variant="secondary" onClick={() => setPublishing(null)}>
               Not yet
             </Button>
-            <Button onClick={publish} busy={publishBusy}>{publishing?.publishedAt ? "Send email" : sendEmail ? "Publish and email" : "Publish"}</Button>
+            <Button onClick={() => publishing && void publish.run(publishing, Boolean(publishing.publishedAt) || sendEmail)} busy={publish.busy}>{publishing?.publishedAt ? "Send email" : sendEmail ? "Publish and email" : "Publish"}</Button>
           </>
         }
       >
@@ -246,7 +229,7 @@ export default function AnnouncementsPage() {
           </label>
         )}
       </Dialog>
-      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={remove} busy={removeBusy} title={`Delete "${deleting?.title ?? ""}"?`} confirmLabel="Delete" body="Members won't see it any more. Emails already sent can't be recalled." />
+      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={() => deleting && void remove.run(deleting)} busy={remove.busy} title={`Delete "${deleting?.title ?? ""}"?`} confirmLabel="Delete" body="Members won't see it any more. Emails already sent can't be recalled." />
     </>
   );
 }
