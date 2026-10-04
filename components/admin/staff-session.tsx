@@ -2,13 +2,15 @@
 
 import React, { createContext, useContext } from "react";
 import { useResource } from "@/lib/client/api";
-import type { Permission, StaffRoleName } from "@/lib/auth/permissions";
+import { can as hasPermission, type Permission } from "@/lib/auth/permissions";
 
 export interface StaffMe {
   kind: "staff";
   id: string;
   name: string;
-  role: StaffRoleName;
+  roleId: string;
+  roleName: string;
+  isOwner: boolean;
   permissions: Permission[];
 }
 
@@ -28,7 +30,7 @@ export function StaffSessionProvider({ children }: { children: React.ReactNode }
   const { data, loading, error, reload } = useResource<StaffMe>("/api/auth/me");
   const me = data?.kind === "staff" ? data : null;
   return (
-    <StaffSessionContext.Provider value={{ me, loading, error: Boolean(error) && !me, reload: () => void reload(), can: (p) => Boolean(me?.permissions.includes(p)) }}>
+    <StaffSessionContext.Provider value={{ me, loading, error: Boolean(error) && !me, reload: () => void reload(), can: (p) => hasPermission(me, p) }}>
       {children}
     </StaffSessionContext.Provider>
   );

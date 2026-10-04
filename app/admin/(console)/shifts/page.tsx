@@ -6,7 +6,6 @@ import { api, useMutation, useResource } from "@/lib/client/api";
 import { addCalendarDays, zonedTimeToUtc } from "@/lib/dates";
 import { gym } from "@/lib/config/client";
 import { fmtDateTime, fmtTime } from "@/lib/format";
-import { ROLE_LABELS, type StaffRoleName } from "@/lib/auth/permissions";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, PageHeader, Panel } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
@@ -19,7 +18,7 @@ interface Shift {
   startTime: string;
   endTime: string;
   notes: string | null;
-  staff: { id: string; name: string; role: StaffRoleName };
+  staff: { id: string; name: string; role: string };
 }
 interface StaffRow {
   id: string;
@@ -30,7 +29,7 @@ export default function ShiftsPage() {
   const { can } = useStaff();
   const toast = useToast();
   const shifts = useResource<Shift[]>("/api/shifts");
-  const staff = useResource<StaffRow[]>(can("shifts:manage") ? "/api/staff" : null);
+  const staff = useResource<StaffRow[]>(can("classes.manage") ? "/api/staff/directory" : null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ staffId: "", date: "", start: "06:00", end: "14:00", notes: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -82,7 +81,7 @@ export default function ShiftsPage() {
         title="Shifts"
         description="Who's rostered on, from now."
         actions={
-          can("shifts:manage") ? (
+          can("classes.manage") ? (
             <Button onClick={() => setOpen(true)}>
               <Plus className="h-4 w-4" aria-hidden="true" /> Add shift
             </Button>
@@ -103,12 +102,12 @@ export default function ShiftsPage() {
                 rowKey={(s) => s.id}
                 columns={[
                   { header: "Staff", primary: true, cell: (s) => <span className="font-medium">{s.staff.name}</span> },
-                  { header: "Role", cell: (s) => ROLE_LABELS[s.staff.role] },
+                  { header: "Role", cell: (s) => s.staff.role },
                   { header: "When", cell: (s) => <span className="tabular">{fmtDateTime(s.startTime)} to {fmtTime(s.endTime)}</span> },
                   { header: "Notes", cell: (s) => s.notes ?? <span className="text-ink-soft">None</span> },
                 ]}
                 actions={
-                  can("shifts:manage")
+                  can("classes.manage")
                     ? (s) => (
                         <IconButton label={`Remove ${s.staff.name}'s shift`} onClick={() => setRemoving(s)}>
                           <Trash2 className="h-4 w-4" aria-hidden="true" />

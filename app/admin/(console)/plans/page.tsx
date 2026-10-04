@@ -6,7 +6,7 @@ import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatPlanPrice, INTERVAL_LABELS, parseDollarsToCents, type Interval } from "@/lib/money";
 import { gym } from "@/lib/config/client";
 import { useStaff } from "@/components/admin/staff-session";
-import { Button, IconButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
+import { AdminOnlyNote, Button, IconButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField, TextareaField } from "@/components/ui/form";
@@ -36,7 +36,10 @@ const benefitsText = (p: Plan) => planPerks(p, p.interval, { includeGuestRate: t
 export default function PlansPage() {
   const { can } = useStaff();
   const toast = useToast();
-  const canEdit = can("plans:manage");
+  const canEdit = can("plans.edit");
+  // Prices, billing interval and guest rate need prices.edit too; without it
+  // they're shown read-only in the editor.
+  const canPrice = can("prices.edit");
   const plans = useResource<Plan[]>("/api/admin/plans");
   const [editing, setEditing] = useState<Plan | null>(null);
   const [open, setOpen] = useState(false);
@@ -112,19 +115,20 @@ export default function PlansPage() {
         title="Plans"
         description="Membership tiers, prices and what's included. Prices include GST."
         actions={
-          canEdit ? (
+          canEdit && canPrice ? (
             <Button onClick={() => openForm(null)}>
               <Plus className="h-4 w-4" aria-hidden="true" /> New plan
             </Button>
           ) : undefined
         }
       />
+      {canEdit ? null : <AdminOnlyNote className="-mt-4 mb-4" />}
       <Panel>
         <AsyncBlock loading={plans.loading} error={plans.error} data={plans.data} onRetry={plans.reload}>
           {(rows) =>
             rows.length === 0 ? (
               <div className="p-4">
-                <EmptyState title="No plans yet" action={canEdit ? <Button onClick={() => openForm(null)}>Create the first plan</Button> : undefined} />
+                <EmptyState title="No plans yet" action={canEdit && canPrice ? <Button onClick={() => openForm(null)}>Create the first plan</Button> : undefined} />
               </div>
             ) : (
               <DataList
@@ -187,8 +191,8 @@ export default function PlansPage() {
           <TextField label="Name" required value={form.name} error={errors.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-autofocus />
           <TextareaField label="What's included" rows={2} value={form.description} error={errors.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="grid gap-4 sm:grid-cols-2">
-            <TextField label="Price incl. GST (AUD)" inputMode="decimal" value={form.price} error={errors.priceCents} onChange={(e) => setForm({ ...form, price: e.target.value })} />
-            <SelectField label="Billed" value={form.interval} error={errors.interval} onChange={(e) => setForm({ ...form, interval: e.target.value as Interval })}>
+            <TextField label="Price incl. GST (AUD)" inputMode="decimal" readOnly={!canPrice} aria-describedby={canPrice ? undefined : "price-note"} value={form.price} error={errors.priceCents} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+            <SelectField label="Billed" disabled={!canPrice} aria-describedby={canPrice ? undefined : "price-note"} value={form.interval} error={errors.interval} onChange={(e) => setForm({ ...form, interval: e.target.value as Interval })}>
               {(Object.keys(INTERVAL_LABELS) as Interval[]).map((i) => (
                 <option key={i} value={i}>
                   {INTERVAL_LABELS[i].adverb[0].toUpperCase() + INTERVAL_LABELS[i].adverb.slice(1)}
@@ -196,6 +200,7 @@ export default function PlansPage() {
               ))}
             </SelectField>
           </div>
+          {canPrice ? null : <AdminOnlyNote id="price-note" className="-mt-2" />}
           <fieldset className="space-y-3 rounded border border-line p-4">
             <legend className="px-1 text-sm font-medium">Benefits per billing cycle</legend>
             <label className="flex items-center gap-3">
@@ -208,7 +213,7 @@ export default function PlansPage() {
               ) : null}
               <TextField label="Guest passes" type="number" inputMode="numeric" min={0} value={form.guestPasses} error={errors.guestPassesPerCycle} onChange={(e) => setForm({ ...form, guestPasses: e.target.value })} />
               <TextField label="Shop discount (%)" type="number" inputMode="numeric" min={0} max={100} value={form.discount} error={errors.shopDiscountPercent} onChange={(e) => setForm({ ...form, discount: e.target.value })} />
-              <TextField label="Guest visit rate (AUD)" inputMode="decimal" value={form.guestRate} error={errors.guestRateCents} hint="What a guest pays without a pass." onChange={(e) => setForm({ ...form, guestRate: e.target.value })} />
+              <TextField label="Guest visit rate (AUD)" inputMode="decimal" readOnly={!canPrice} aria-describedby={canPrice ? undefined : "price-note"} value={form.guestRate} error={errors.guestRateCents} hint="What a guest pays without a pass." onChange={(e) => setForm({ ...form, guestRate: e.target.value })} />
             </div>
           </fieldset>
           <Switch label="Available for new sign-ups" description="Turn off to retire the plan. Members already on it keep it." checked={form.active} onChange={(v) => setForm({ ...form, active: v })} />

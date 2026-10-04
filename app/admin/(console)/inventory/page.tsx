@@ -92,7 +92,7 @@ export default function StockPage() {
         title="Stock"
         description="Back-of-house supplies such as chalk, cleaning products and towels."
         actions={
-          can("inventory:manage") ? (
+          can("products.edit") ? (
             <Button onClick={() => openForm(null)}>
               <Plus className="h-4 w-4" aria-hidden="true" /> Add item
             </Button>
@@ -139,8 +139,8 @@ export default function StockPage() {
                 ]}
                 actions={(i) => (
                   <>
-                    {can("inventory:adjust") ? <AdjustButtons item={i} onAdjusted={items.reload} /> : null}
-                    {can("inventory:manage") ? (
+                    {can("orders.manage") ? <AdjustButtons item={i} onAdjusted={items.reload} /> : null}
+                    {can("products.edit") ? (
                       <>
                         <IconButton label={`Edit ${i.name}`} onClick={() => openForm(i)}>
                           <Pencil className="h-4 w-4" aria-hidden="true" />

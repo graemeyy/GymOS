@@ -128,3 +128,19 @@ export function StatusTag({ tone = "neutral", children }: { tone?: Tone; childre
   );
 }
 
+
+// Shown beside settings and prices the viewer can see but not change, so the
+// screen explains itself instead of hiding the value.
+export const ADMIN_ONLY_NOTE = "Only admins can change this";
+
+export function AdminOnlyNote({ id, className }: { id?: string; className?: string }) {
+  return (
+    <p id={id} className={cn("flex items-center gap-1.5 text-sm text-ink-soft", className)}>
+      <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 fill-none stroke-current" strokeWidth="1.5">
+        <rect x="3" y="7" width="10" height="7" rx="1" />
+        <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+      </svg>
+      {ADMIN_ONLY_NOTE}
+    </p>
+  );
+}

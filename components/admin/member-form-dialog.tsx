@@ -17,7 +17,8 @@ export interface PlanOption {
 export interface EditableMember {
   id: string;
   name: string | null;
-  email: string;
+  // Null when the viewer can't see members' private details.
+  email: string | null;
   status: MemberStatus;
   planId: string | null;
   membershipPlan?: { id: string; name: string } | null;
@@ -40,7 +41,9 @@ export function MemberFormDialog({
 }) {
   const { can } = useStaff();
   const toast = useToast();
-  const canBilling = can("billing:manage");
+  const canBilling = can("members.edit");
+  // Editing someone whose email the viewer can't see leaves the email alone.
+  const emailHidden = Boolean(member) && member?.email === null;
   // planId null means "not chosen yet": the default comes from the plans
   // list, which may arrive after the dialog opens.
   const [form, setForm] = useState({ name: "", email: "", planId: null as string | null, status: "ACTIVE" as MemberStatus });
@@ -75,7 +78,8 @@ export function MemberFormDialog({
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     if (member) {
-      const body: Record<string, unknown> = { name: form.name, email: form.email };
+      const body: Record<string, unknown> = { name: form.name };
+      if (!emailHidden) body.email = form.email;
       if (canBilling) {
         body.planId = planId || null;
         body.status = form.status;
@@ -104,7 +108,7 @@ export function MemberFormDialog({
     >
       <form id="member-form" onSubmit={submit} className="space-y-4" noValidate>
         <TextField label="Full name" autoComplete="off" required value={form.name} error={save.fields.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-autofocus />
-        <TextField label="Email" type="email" autoComplete="off" required value={form.email} error={save.fields.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        {emailHidden ? null : <TextField label="Email" type="email" autoComplete="off" required value={form.email} error={save.fields.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />}
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
             label="Plan"

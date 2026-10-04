@@ -35,7 +35,7 @@ export function NotesPanel({ memberId, archived }: { memberId: string; archived:
   return (
     <Panel aria-labelledby="notes-heading">
       <PanelHeader id="notes-heading" title="Staff notes" />
-      {can("members:write") && !archived ? (
+      {can("members.edit") && !archived ? (
         <form onSubmit={add} className="space-y-3 border-b border-line px-4 py-3">
           <TextareaField label="Add a note" rows={2} value={body} hint="Not shown in the member app, but included if the member downloads their data. Don't record health details unless they've agreed." onChange={(e) => setBody(e.target.value)} />
           {error ? <FormMessage>{error}</FormMessage> : null}

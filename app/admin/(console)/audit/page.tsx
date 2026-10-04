@@ -8,6 +8,7 @@ import { Button, PageHeader, Panel } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { SelectField, TextField } from "@/components/ui/form";
 import { DataList } from "@/components/ui/data-list";
+import { auditChanges, formatAuditValue } from "@/lib/audit-log/changes";
 
 interface Entry {
   id: string;
@@ -16,6 +17,8 @@ interface Entry {
   targetType: string;
   targetId: string | null;
   details: Record<string, unknown> | null;
+  before: unknown;
+  after: unknown;
   createdAt: string;
 }
 interface Page {
@@ -29,12 +32,41 @@ const AREAS: [string, string][] = [
   ["membership.", "Plan changes, pauses and cancellations"],
   ["member.", "Member records and check-ins"],
   ["staff.", "Staff accounts and sign-ins"],
+  ["role.", "Roles and permissions"],
   ["plan.", "Plans and prices"],
+  ["product.", "Shop products and prices"],
   ["order.", "Shop orders"],
   ["class.", "Classes and bookings"],
   ["settings.", "Settings"],
   ["finance.", "Finance exports"],
+  ["audit.", "Audit log exports"],
 ];
+
+// Old and new values, for entries that record them (PR 6 onwards).
+function Changes({ entry }: { entry: Entry }) {
+  const changes = auditChanges(entry.before, entry.after);
+  if (changes.length === 0) return null;
+  return (
+    <details className="mt-1 text-sm">
+      <summary className="cursor-pointer text-plate underline underline-offset-2">
+        {changes.length === 1 ? "1 change" : `${changes.length} changes`}
+      </summary>
+      <dl className="mt-1 space-y-1">
+        {changes.map((c) => (
+          <div key={c.field}>
+            <dt className="font-medium">{c.field}</dt>
+            <dd className="break-words text-ink-soft">
+              <span className="line-through decoration-bad">{formatAuditValue(c.before)}</span>
+              <span aria-hidden="true"> → </span>
+              <span className="sr-only"> changed to </span>
+              <span className="text-ink">{formatAuditValue(c.after)}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+  );
+}
 
 function describe(action: string) {
   const [noun, verb = ""] = action.split(".");
@@ -53,10 +85,13 @@ function detailText(d: Record<string, unknown> | null) {
 export default function AuditPage() {
   const toast = useToast();
   const [action, setAction] = useState("");
+  const [staffId, setStaffId] = useState("");
+  const people = useResource<{ id: string; name: string }[]>("/api/staff/directory");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const params = new URLSearchParams({ take: "50" });
   if (action) params.set("action", action);
+  if (staffId) params.set("staffId", staffId);
   // Plain dates: the server reads them as whole gym-local days (R-108).
   if (from) params.set("from", from);
   if (to) params.set("to", to);
@@ -96,11 +131,19 @@ export default function AuditPage() {
         }
       />
       <Panel>
-        <div className="grid gap-3 border-b border-line p-4 sm:grid-cols-3">
+        <div className="grid gap-3 border-b border-line p-4 sm:grid-cols-2 lg:grid-cols-4">
           <SelectField label="Area" value={action} onChange={(e) => setAction(e.target.value)}>
             {AREAS.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
+              </option>
+            ))}
+          </SelectField>
+          <SelectField label="Who" value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+            <option value="">Anyone</option>
+            {(people.data ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
               </option>
             ))}
           </SelectField>
@@ -128,6 +171,7 @@ export default function AuditPage() {
                         <div>
                           <p className="font-medium first-letter:uppercase">{describe(e.action)}</p>
                           {detailText(e.details) ? <p className="text-sm text-ink-soft">{detailText(e.details)}</p> : null}
+                          <Changes entry={e} />
                         </div>
                       ),
                     },

@@ -34,9 +34,9 @@ function to12h(t: string) {
 export default function TimetablePage() {
   const { can } = useStaff();
   const toast = useToast();
-  const canEdit = can("classes:manage");
+  const canEdit = can("classes.manage");
   const slots = useResource<Slot[]>("/api/class-templates");
-  const staff = useResource<{ id: string; name: string; role: string }[]>(canEdit ? "/api/staff" : null);
+  const staff = useResource<{ id: string; name: string; roleName: string }[]>(canEdit ? "/api/staff/directory" : null);
   const [editing, setEditing] = useState<Slot | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
@@ -174,13 +174,11 @@ export default function TimetablePage() {
           <TextField label="Class name" required value={form.name} error={save.fields.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-autofocus />
           <SelectField label="Trainer" value={form.trainerId} error={save.fields.trainerId} onChange={(e) => setForm({ ...form, trainerId: e.target.value })}>
             <option value="">No trainer yet</option>
-            {(staff.data ?? [])
-              .filter((s) => s.role !== "FRONT_DESK")
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
+            {(staff.data ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.roleName})
+              </option>
+            ))}
           </SelectField>
           <div className="grid grid-cols-2 gap-4">
             <SelectField label="Day" value={form.weekday} onChange={(e) => setForm({ ...form, weekday: e.target.value })}>

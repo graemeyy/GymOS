@@ -26,7 +26,7 @@ export function MembershipPanel({ member, plans, onChanged }: { member: MemberDe
   const [planId, setPlanId] = useState("");
   const [pause, setPause] = useState({ from: todayIso(), until: plusDaysIso(14) });
   const [cancel, setCancel] = useState({ reason: "", immediate: false });
-  const canManage = can("billing:manage") && !member.archivedAt;
+  const canManage = can("members.edit") && !member.archivedAt;
   const policy = gym.policies;
 
   // One change at a time across the panel's buttons and dialogs.

@@ -99,7 +99,7 @@ export default function OrderDetailPage() {
                 </>
               }
             />
-            {can("orders:fulfil") && o.nextStatuses.length > 0 ? (
+            {can("orders.manage") && o.nextStatuses.length > 0 ? (
               <div className="mb-6 flex flex-wrap gap-2">
                 {o.nextStatuses.map((s) => (
                   <Button key={s} variant={s === "CANCELLED" ? "danger" : s === "PAID" ? "ghost" : "primary"} busy={busyStatus === s} onClick={() => (s === "SHIPPED" ? setShipOpen(true) : void move.run(s))}>
