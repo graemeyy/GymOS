@@ -1,19 +1,18 @@
-import { z } from "zod";
 import { staffRoute } from "@/lib/http/route";
 import { gym } from "@/lib/config";
 import { toCsv } from "@/lib/csv";
 import { logAction } from "@/lib/audit";
 import { financeSummary } from "@/lib/finance/reports";
-import { RangeQuery, resolveRange } from "@/lib/finance/range";
-
-const Query = RangeQuery.extend({ type: z.enum(["summary", "payments", "refunds"]).default("summary") });
+import { listPaymentsPaidBetween, listRefundsBetween } from "@/lib/finance/queries";
+import { resolveRange } from "@/lib/finance/range";
+import { ExportQuery } from "@/lib/finance/schema";
 
 const dollars = (cents: number) => (cents / 100).toFixed(2);
 const ymd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: gym.business.timezone }).format(d);
 
 // CSV exports for the bookkeeper. Every file starts with a line saying it's a
 // summary, not tax advice.
-export const GET = staffRoute({ permission: "finance:view", query: Query }, async ({ query, db, staff }) => {
+export const GET = staffRoute({ permission: "finance:view", query: ExportQuery }, async ({ query, db, staff }) => {
   const range = resolveRange(query);
   const header = [
     `# ${gym.business.legalName} (ABN ${gym.business.abn}). ${range.label}. Amounts in AUD and include GST.`,
@@ -38,11 +37,7 @@ export const GET = staffRoute({ permission: "finance:view", query: Query }, asyn
       { header: "Amount", value: (r) => r.amount },
     ]);
   } else if (query.type === "payments") {
-    const rows = await db.payment.findMany({
-      where: { paidAt: { gte: range.from, lt: range.to } },
-      orderBy: { paidAt: "asc" },
-      include: { member: { select: { name: true, email: true } } },
-    });
+    const rows = await listPaymentsPaidBetween(db, range.from, range.to);
     body = toCsv(rows, [
       { header: "Date", value: (p) => ymd(p.paidAt) },
       { header: "Invoice", value: (p) => `INV-${String(p.invoiceNumber).padStart(6, "0")}` },
@@ -56,11 +51,7 @@ export const GET = staffRoute({ permission: "finance:view", query: Query }, asyn
       { header: "Status", value: (p) => p.status },
     ]);
   } else {
-    const rows = await db.refund.findMany({
-      where: { createdAt: { gte: range.from, lt: range.to } },
-      orderBy: { createdAt: "asc" },
-      include: { payment: { select: { invoiceNumber: true, member: { select: { name: true, email: true } } } } },
-    });
+    const rows = await listRefundsBetween(db, range.from, range.to);
     body = toCsv(rows, [
       { header: "Date", value: (r) => ymd(r.createdAt) },
       { header: "Invoice", value: (r) => `INV-${String(r.payment.invoiceNumber).padStart(6, "0")}` },

@@ -1,10 +1,9 @@
 import { staffRoute, json } from "@/lib/http/route";
 import { ApiError } from "@/lib/http/errors";
-import { buildTaxInvoice } from "@/lib/billing/invoice";
-import { invoiceLinesForPayment } from "@/lib/billing/invoice-lines";
+import { getTaxInvoice } from "@/lib/billing/queries";
 
 export const GET = staffRoute({ permission: "revenue:view" }, async ({ params, db }) => {
-  const payment = await db.payment.findUnique({ where: { id: params.id }, include: { member: { select: { name: true, email: true } } } });
-  if (!payment) throw new ApiError("not_found", "Payment not found.");
-  return json(buildTaxInvoice({ ...payment, lines: await invoiceLinesForPayment(db, payment) }));
+  const invoice = await getTaxInvoice(db, params.id);
+  if (!invoice) throw new ApiError("not_found", "Payment not found.");
+  return json(invoice);
 });

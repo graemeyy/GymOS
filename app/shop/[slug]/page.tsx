@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { prisma } from "@/lib/db";
 import { currentMemberId } from "@/lib/auth/server-session";
-import { getCatalogue } from "@/lib/shop/catalogue";
+import { getCatalogue, getShopProductName } from "@/lib/shop/queries";
 import { CATEGORY_TEXT } from "@/lib/shop/labels";
 import { AddToCart } from "@/components/shop/add-to-cart";
 
@@ -13,13 +12,12 @@ type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const product = await prisma.product.findFirst({ where: { slug, active: true }, select: { name: true } });
-  return { title: product?.name ?? "Shop" };
+  return { title: (await getShopProductName(slug)) ?? "Shop" };
 }
 
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
-  const catalogue = await getCatalogue(prisma, await currentMemberId(), { slug });
+  const catalogue = await getCatalogue(await currentMemberId(), { slug });
   const product = catalogue.products[0];
   if (!product) notFound();
   return (
