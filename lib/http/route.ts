@@ -64,9 +64,11 @@ function isJson(request: Request) {
   return (request.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase() === "application/json";
 }
 
+// From the headers a real body always comes with. Next.js gives every
+// non-GET request a body stream, empty or not, so `request.body` can't tell.
 function hasBody(request: Request) {
   const length = request.headers.get("content-length");
-  return length !== null ? Number(length) > 0 : request.body !== null;
+  return length !== null ? Number(length) > 0 : request.headers.has("transfer-encoding");
 }
 
 // Reads the body as text, refusing it as soon as it passes `limit` bytes

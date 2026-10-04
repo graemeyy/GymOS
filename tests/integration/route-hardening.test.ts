@@ -64,8 +64,21 @@ describe("R-80 JSON only", () => {
     const owner = { staff: await createStaff("OWNER") };
     const m = await call(members.POST, await makeRequest("POST", "/x", { as: owner, body: { name: "Pass Holder", email: "pass@example.com" } }));
     const cookie = (await makeRequest("GET", "/", { as: owner })).headers.get("cookie")!;
-    const req = new Request("http://localhost:3000/x", { method: "POST", headers: { ...BASE, cookie, "content-type": "application/x-www-form-urlencoded" }, body: "a=1" });
+    // As a browser sends it: a form post always declares its length.
+    const req = new Request("http://localhost:3000/x", { method: "POST", headers: { ...BASE, cookie, "content-type": "application/x-www-form-urlencoded", "content-length": "3" }, body: "a=1" });
     expect((await call(memberPass.POST, req, { id: m.body.id as string })).status).toBe(400);
+  });
+});
+
+describe("bodiless requests from the browser", () => {
+  it("are accepted, even though Next.js gives every non-GET request an empty body stream", async () => {
+    const owner = { staff: await createStaff("OWNER") };
+    const m = await call(members.POST, await makeRequest("POST", "/x", { as: owner, body: { name: "Pass Holder", email: "pass2@example.com" } }));
+    const cookie = (await makeRequest("GET", "/", { as: owner })).headers.get("cookie")!;
+    const empty = new ReadableStream<Uint8Array>({ start: (c) => c.close() });
+    const req = new Request("http://localhost:3000/x", { method: "POST", headers: { ...BASE, cookie }, body: empty, duplex: "half" } as RequestInit);
+    expect(req.body).not.toBeNull();
+    expect((await call(memberPass.POST, req, { id: m.body.id as string })).status).toBe(200);
   });
 });
 
