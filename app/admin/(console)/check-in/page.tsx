@@ -5,7 +5,7 @@ import { Camera } from "lucide-react";
 import { QrScannerDialog } from "@/components/admin/qr-scanner";
 import Link from "next/link";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { fmtTime } from "@/lib/client/format";
+import { fmtTime } from "@/lib/format";
 import { STATUS_TEXT, STATUS_TONE, type MemberStatus } from "@/lib/client/labels";
 import { Button, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";

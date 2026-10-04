@@ -1,9 +1,9 @@
 import { formatAud } from "@/lib/money";
-import { gym } from "@/lib/config/client";
 import type { TaxInvoice } from "@/lib/billing/invoice";
+import { fmtLongDate } from "@/lib/format";
 
-// The gym's date, not the viewer's: the invoice date is a legal record (R-54).
-const date = (v: string | Date) => new Intl.DateTimeFormat("en-AU", { timeZone: gym.business.timezone, day: "numeric", month: "long", year: "numeric" }).format(new Date(v));
+// fmtLongDate uses the gym's time zone, not the viewer's: the invoice date is
+// a legal record (R-54).
 
 // Print-friendly tax invoice. Uses only the light palette so it prints the
 // same whatever theme the screen is in.
@@ -14,7 +14,7 @@ export function TaxInvoiceDocument({ invoice }: { invoice: Omit<TaxInvoice, "iss
         <div>
           <h1 className="font-display text-4xl font-bold">{invoice.title}</h1>
           <p className="mt-1 text-sm">
-            {invoice.number}, issued {date(invoice.issuedAt)}
+            {invoice.number}, issued {fmtLongDate(invoice.issuedAt)}
           </p>
         </div>
         <div className="text-sm sm:text-right">

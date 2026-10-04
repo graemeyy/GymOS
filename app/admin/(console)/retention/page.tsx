@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Download, Mail } from "lucide-react";
 import { useResource } from "@/lib/client/api";
 import { downloadCsv } from "@/lib/csv";
-import { daysSince, lastSeen } from "@/lib/client/format";
+import { daysSince, lastSeen } from "@/lib/format";
 import { PageHeader, Panel, StatusTag, Button } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
 import { DataList } from "@/components/ui/data-list";

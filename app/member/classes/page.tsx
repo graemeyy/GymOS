@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { fmtTime } from "@/lib/client/format";
+import { fmtDayHeading, fmtTime } from "@/lib/format";
 import { gym } from "@/lib/config/client";
 import { Button, IconButton, PageHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { useMe } from "@/components/member/member-shell";
+import { localDateIn } from "@/lib/dates";
+import { DAY_MS, HOUR_MS } from "@/lib/time";
 
 interface ClassRow {
   id: string;
@@ -29,9 +31,7 @@ interface Timetable {
   classes: ClassRow[];
 }
 
-const tz = gym.business.timezone;
-const dayKey = (d: string) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(d));
-const dayHeading = (d: string) => new Intl.DateTimeFormat("en-AU", { timeZone: tz, weekday: "long", day: "numeric", month: "long" }).format(new Date(d));
+const dayKey = (d: string) => localDateIn(gym.business.timezone, new Date(d));
 
 function startOfToday() {
   const d = new Date();
@@ -43,10 +43,10 @@ export default function MemberClassesPage() {
   const me = useMe();
   const [week, setWeek] = useState(0);
   const range = useMemo(() => {
-    const from = new Date(startOfToday().getTime() + week * 7 * 86_400_000);
-    const start = week === 0 ? new Date(Math.max(from.getTime(), Date.now() - 3_600_000)) : from;
+    const from = new Date(startOfToday().getTime() + week * 7 * DAY_MS);
+    const start = week === 0 ? new Date(Math.max(from.getTime(), Date.now() - HOUR_MS)) : from;
     start.setMinutes(0, 0, 0);
-    return { from: start.toISOString(), to: new Date(from.getTime() + 7 * 86_400_000).toISOString() };
+    return { from: start.toISOString(), to: new Date(from.getTime() + 7 * DAY_MS).toISOString() };
   }, [week]);
   const timetable = useResource<Timetable>(`/api/me/classes?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`);
   const toast = useToast();
@@ -111,7 +111,7 @@ export default function MemberClassesPage() {
               {[...days.entries()].map(([key, rows]) => (
                 <section key={key} aria-labelledby={`day-${key}`}>
                   <h2 id={`day-${key}`} className="mb-2 text-xl">
-                    {dayHeading(rows[0].startTime)}
+                    {fmtDayHeading(rows[0].startTime)}
                   </h2>
                   <ul className="divide-y divide-line rounded-lg border border-line bg-surface">
                     {rows.map((c) => (

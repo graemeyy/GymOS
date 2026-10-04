@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
-import { fmtDateTime } from "@/lib/client/format";
+import { fmtDateTime } from "@/lib/format";
 import { ORDER_STATUS_TEXT, ORDER_STATUS_TONE, type OrderStatusName } from "@/lib/shop/labels";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, LinkButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";

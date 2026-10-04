@@ -3,7 +3,7 @@ import type { MemberActor, StaffActor } from "@/lib/auth/session";
 import { ApiError } from "@/lib/http/errors";
 import { logAction, type Actor } from "@/lib/audit";
 import { gym } from "@/lib/config";
-import { DAY_MS, MINUTE_MS } from "@/lib/time";
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "@/lib/time";
 import { returnClassCredit, spendClassCredit } from "@/lib/membership/benefits";
 import { sendEmail, signature } from "@/lib/email";
 import { generateClasses } from "./timetable";
@@ -125,7 +125,7 @@ export async function cancelBooking(db: Db, actor: Actor, classId: string, membe
     const cls = await lockClass(tx, classId);
     const booking = await tx.classBooking.findUnique({ where: { classId_memberId: { classId, memberId } } });
     if (!booking) throw new ApiError("not_found", "No booking to cancel.");
-    const hoursBefore = (cls.startTime.getTime() - Date.now()) / 3_600_000;
+    const hoursBefore = (cls.startTime.getTime() - Date.now()) / HOUR_MS;
     const policy = gym.policies.classes;
     const late = hoursBefore < policy.cancelWithoutPenaltyHours;
     if (actor.kind === "member" && hoursBefore < 0) throw new ApiError("conflict", "This class has already started.");

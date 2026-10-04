@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Plus } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { fmtDate, fmtDateTime } from "@/lib/client/format";
+import { fmtDate, fmtDateTime } from "@/lib/format";
 import { gym } from "@/lib/config/client";
 import { localDateIn } from "@/lib/dates";
 import { Button, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";

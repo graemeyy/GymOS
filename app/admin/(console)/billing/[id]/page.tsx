@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { formatAud, parseDollarsToCents } from "@/lib/money";
-import { fmtDate, fmtDateTime, invoiceNo } from "@/lib/client/format";
+import { fmtDate, fmtDateTime, invoiceNo } from "@/lib/format";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, LinkButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";

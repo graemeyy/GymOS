@@ -6,7 +6,7 @@ import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { useDebounced } from "@/lib/client/use-debounced";
 import { formatAud } from "@/lib/money";
 import { gym } from "@/lib/config/client";
-import { fmtDate, invoiceNo } from "@/lib/client/format";
+import { fmtDate, invoiceNo } from "@/lib/format";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, LinkButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";

@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useParams, usePathname, useSearchParams } from "next/navigation";
 import { useResource } from "@/lib/client/api";
 import { useCart } from "@/lib/client/cart";
-import { fmtDate, fmtDateTime, invoiceNo } from "@/lib/client/format";
+import { fmtDate, fmtDateTime, invoiceNo } from "@/lib/format";
 import { formatAud } from "@/lib/money";
 import { gym } from "@/lib/config/client";
 import { ORDER_STATUS_TEXT, ORDER_STATUS_TONE, type OrderStatusName } from "@/lib/shop/labels";
 import { PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock } from "@/components/ui/feedback";
+import { MINUTE_MS } from "@/lib/time";
 
 interface Order {
   id: string;
@@ -65,7 +66,7 @@ function MyOrder() {
   useEffect(() => {
     if (!justPaid || !waiting) return;
     const timer = setInterval(() => void reload(), 3000);
-    const stop = setTimeout(() => clearInterval(timer), 60_000);
+    const stop = setTimeout(() => clearInterval(timer), MINUTE_MS);
     return () => {
       clearInterval(timer);
       clearTimeout(stop);

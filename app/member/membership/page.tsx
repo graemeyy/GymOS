@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { fmtDate, invoiceNo } from "@/lib/client/format";
+import { fmtDate, invoiceNo } from "@/lib/format";
 import { formatAud, INTERVAL_LABELS } from "@/lib/money";
 import { Button, LinkButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";

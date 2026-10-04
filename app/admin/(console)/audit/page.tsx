@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Download } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { fmtDateTime } from "@/lib/client/format";
+import { fmtDateTime } from "@/lib/format";
 import { Button, PageHeader, Panel } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { SelectField, TextField } from "@/components/ui/form";

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
-import { fmtTime } from "@/lib/client/format";
+import { fmtTime } from "@/lib/format";
 import { EQUIPMENT_TEXT, EQUIPMENT_TONE, STATUS_TEXT, STATUS_TONE, type MemberStatus } from "@/lib/client/labels";
 import { useStaff } from "@/components/admin/staff-session";
 import { PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";

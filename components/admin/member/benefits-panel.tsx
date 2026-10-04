@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { formatAud, parseDollarsToCents } from "@/lib/money";
-import { fmtDate, fmtDateTime } from "@/lib/client/format";
+import { fmtDate, fmtDateTime } from "@/lib/format";
 import { Button, Panel, PanelHeader } from "@/components/ui/primitives";
 import { AsyncBlock, useToast } from "@/components/ui/feedback";
 import { Dialog } from "@/components/ui/dialog";

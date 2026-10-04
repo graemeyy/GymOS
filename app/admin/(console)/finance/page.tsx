@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 import { useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
-import { fmtDate } from "@/lib/client/format";
+import { fmtDate } from "@/lib/format";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
 import { SelectField, TextField } from "@/components/ui/form";

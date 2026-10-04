@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Check, FileText, X } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
-import { fmtDate } from "@/lib/client/format";
+import { fmtDate } from "@/lib/format";
 import { EQUIPMENT_TEXT, EQUIPMENT_TONE } from "@/lib/client/labels";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";

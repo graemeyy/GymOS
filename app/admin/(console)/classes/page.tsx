@@ -4,14 +4,15 @@ import React, { useMemo, useState } from "react";
 import { CalendarPlus, ChevronLeft, ChevronRight, Trash2, Users } from "lucide-react";
 import Link from "next/link";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { zonedTimeToUtc } from "@/lib/dates";
+import { localDateIn, zonedTimeToUtc } from "@/lib/dates";
 import { gym } from "@/lib/config/client";
-import { fmtTime } from "@/lib/client/format";
+import { fmtDayHeading, fmtTime } from "@/lib/format";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, LinkButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
+import { DAY_MS, HOUR_MS } from "@/lib/time";
 
 interface Person {
   id: string;
@@ -30,8 +31,6 @@ interface ClassRow {
   waitlist: { id: string; memberId: string; member: Person }[];
 }
 
-const dayKey = new Intl.DateTimeFormat("en-CA", { timeZone: gym.business.timezone, year: "numeric", month: "2-digit", day: "2-digit" });
-const dayLabel = new Intl.DateTimeFormat("en-AU", { timeZone: gym.business.timezone, weekday: "long", day: "numeric", month: "long" });
 
 function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[]; onChange: () => void }) {
   const { can } = useStaff();
@@ -280,7 +279,7 @@ function NewClassDialog({ open, onClose, onSaved, trainers }: { open: boolean; o
   );
 }
 
-const WEEK = 7 * 86_400_000;
+const WEEK = 7 * DAY_MS;
 
 export default function ClassesPage() {
   const { can, me } = useStaff();
@@ -288,7 +287,7 @@ export default function ClassesPage() {
   const [mineOnly, setMineOnly] = useState<boolean | null>(null);
   const mine = mineOnly ?? me?.role === "TRAINER";
   // Rounded to the hour so the URL (and the fetch) doesn't change every render.
-  const from = new Date(Math.floor((Date.now() - 24 * 60 * 60 * 1000 + weekOffset * WEEK) / 3_600_000) * 3_600_000);
+  const from = new Date(Math.floor((Date.now() - DAY_MS + weekOffset * WEEK) / HOUR_MS) * HOUR_MS);
   const to = new Date(from.getTime() + WEEK + 24 * 60 * 60 * 1000);
   const classes = useResource<ClassRow[]>(me ? `/api/classes?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}${mine ? "&mine=1" : ""}` : null);
   const members = useResource<{ items: Person[] }>(can("classes:book") ? "/api/members?status=ACTIVE&take=500" : null);
@@ -298,7 +297,7 @@ export default function ClassesPage() {
   const days = useMemo(() => {
     const groups = new Map<string, ClassRow[]>();
     for (const c of classes.data ?? []) {
-      const key = dayKey.format(new Date(c.startTime));
+      const key = localDateIn(gym.business.timezone, new Date(c.startTime));
       groups.set(key, [...(groups.get(key) ?? []), c]);
     }
     return Array.from(groups.entries());
@@ -346,9 +345,9 @@ export default function ClassesPage() {
           ) : (
             <div className="space-y-6">
               {days.map(([key, rows]) => (
-                <Panel key={key} aria-label={dayLabel.format(new Date(rows[0].startTime))}>
+                <Panel key={key} aria-label={fmtDayHeading(rows[0].startTime)}>
                   <div className="flex items-center justify-between border-b border-line px-4 py-3">
-                    <h2 className="text-lg">{dayLabel.format(new Date(rows[0].startTime))}</h2>
+                    <h2 className="text-lg">{fmtDayHeading(rows[0].startTime)}</h2>
                     {rows.some((r) => r.bookings.length >= r.capacity) ? <StatusTag tone="warn">Some classes full</StatusTag> : null}
                   </div>
                   <ul>

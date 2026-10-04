@@ -7,7 +7,7 @@ import { Download, Pencil, UserPlus } from "lucide-react";
 import { useResource } from "@/lib/client/api";
 import { useDebounced } from "@/lib/client/use-debounced";
 import { downloadCsv } from "@/lib/csv";
-import { lastSeen, fmtDate } from "@/lib/client/format";
+import { lastSeen, fmtDate } from "@/lib/format";
 import { STATUS_TEXT, STATUS_TONE, type MemberStatus } from "@/lib/client/labels";
 import { useStaff } from "@/components/admin/staff-session";
 import { MemberFormDialog, type EditableMember, type PlanOption } from "@/components/admin/member-form-dialog";

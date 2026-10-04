@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Archive, Pencil, QrCode } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
-import { fmtDate, fmtDateTime, lastSeen } from "@/lib/client/format";
+import { fmtDate, fmtDateTime, lastSeen } from "@/lib/format";
 import { useStaff } from "@/components/admin/staff-session";
 import { MemberFormDialog } from "@/components/admin/member-form-dialog";
 import { MembershipPanel } from "@/components/admin/member/membership-panel";

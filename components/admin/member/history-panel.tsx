@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useResource } from "@/lib/client/api";
-import { fmtDate } from "@/lib/client/format";
+import { fmtDate } from "@/lib/format";
 import { Panel, PanelHeader } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
 

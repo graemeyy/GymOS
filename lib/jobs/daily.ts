@@ -8,7 +8,7 @@ import { retentionScore } from "@/lib/retention";
 import { anonymiseMember } from "@/lib/members/account";
 
 async function updateRetentionScores(db: Db, now: Date) {
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86_400_000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * DAY_MS);
   const members = await db.member.findMany({
     where: { archivedAt: null },
     select: {

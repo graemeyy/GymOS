@@ -6,6 +6,7 @@ import { financeSummary } from "@/lib/finance/reports";
 import { listPaymentsPaidBetween, listRefundsBetween } from "@/lib/finance/queries";
 import { resolveRange } from "@/lib/finance/range";
 import { ExportQuery } from "@/lib/finance/schema";
+import { invoiceNo } from "@/lib/format";
 
 const dollars = (cents: number) => (cents / 100).toFixed(2);
 const ymd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: gym.business.timezone }).format(d);
@@ -40,7 +41,7 @@ export const GET = staffRoute({ permission: "finance:view", query: ExportQuery }
     const rows = await listPaymentsPaidBetween(db, range.from, range.to);
     body = toCsv(rows, [
       { header: "Date", value: (p) => ymd(p.paidAt) },
-      { header: "Invoice", value: (p) => `INV-${String(p.invoiceNumber).padStart(6, "0")}` },
+      { header: "Invoice", value: (p) => invoiceNo(p.invoiceNumber) },
       { header: "Member", value: (p) => p.member.name ?? p.member.email },
       { header: "Type", value: (p) => p.kind },
       { header: "Description", value: (p) => p.description ?? p.planName ?? "" },
@@ -54,7 +55,7 @@ export const GET = staffRoute({ permission: "finance:view", query: ExportQuery }
     const rows = await listRefundsBetween(db, range.from, range.to);
     body = toCsv(rows, [
       { header: "Date", value: (r) => ymd(r.createdAt) },
-      { header: "Invoice", value: (r) => `INV-${String(r.payment.invoiceNumber).padStart(6, "0")}` },
+      { header: "Invoice", value: (r) => invoiceNo(r.payment.invoiceNumber) },
       { header: "Member", value: (r) => r.payment.member.name ?? r.payment.member.email },
       { header: "Amount incl. GST", value: (r) => dollars(r.amountCents) },
       { header: "GST", value: (r) => dollars(r.gstCents) },

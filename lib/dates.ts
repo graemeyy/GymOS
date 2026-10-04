@@ -45,18 +45,6 @@ export function zonedTimeToUtc(dateStr: string, timeStr: string, timeZone: strin
   return new Date(guess.getTime() - offsetMinutes(first, timeZone) * 60000);
 }
 
-export function formatDate(value: Date | string, timeZone: string) {
-  return new Intl.DateTimeFormat("en-AU", { timeZone, day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
-}
-
-export function formatDateTime(value: Date | string, timeZone: string) {
-  return new Intl.DateTimeFormat("en-AU", { timeZone, weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(value));
-}
-
-export function formatTime(value: Date | string, timeZone: string) {
-  return new Intl.DateTimeFormat("en-AU", { timeZone, hour: "numeric", minute: "2-digit" }).format(new Date(value));
-}
-
 // Adds calendar days to a YYYY-MM-DD date.
 export function addCalendarDays(date: string, days: number): string {
   const [y, m, d] = date.split("-").map(Number);
