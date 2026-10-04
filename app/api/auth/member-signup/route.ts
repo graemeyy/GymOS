@@ -16,7 +16,8 @@ const Body = z.object({
 export const POST = publicRoute({ body: Body, rateLimit: RATE_LIMITS.signup }, async ({ body, db }) => {
   const member = await signUpMember(db, body);
   const name = member.name ?? member.email;
-  const response = json({ kind: "member", name }, 201);
+  // previewLink only outside production, when email isn't set up (D-115).
+  const response = json({ kind: "member", name, ...(member.previewLink ? { previewLink: member.previewLink } : {}) }, 201);
   await setSessionCookie(response, { kind: "member", sub: member.id, name, ver: member.sessionVersion });
   return response;
 });

@@ -44,7 +44,10 @@ export async function createStaff(role: StaffRoleArg, overrides: { email?: strin
 
 // Members default to the Unlimited plan so class bookings in tests aren't
 // limited by credits; pass planSlug to test another plan.
-export async function createMember(overrides: Partial<{ email: string; name: string; password: string; status: "ACTIVE" | "PAUSED" | "PAST_DUE" | "CANCELED" | "PENDING"; stripeSubscriptionId: string; stripeCustomerId: string; planSlug: string }> = {}) {
+// Members are created with a confirmed email, as staff-added and existing
+// members are; pass emailVerified: false for an online sign-up that hasn't
+// confirmed yet (D-114).
+export async function createMember(overrides: Partial<{ email: string; name: string; password: string; status: "ACTIVE" | "PAUSED" | "PAST_DUE" | "CANCELED" | "PENDING"; stripeSubscriptionId: string; stripeCustomerId: string; planSlug: string; emailVerified: boolean }> = {}) {
   const plan = await prisma.membershipPlan.findUniqueOrThrow({ where: { slug: overrides.planSlug ?? "unlimited" } });
   return prisma.member.create({
     data: {
@@ -55,6 +58,7 @@ export async function createMember(overrides: Partial<{ email: string; name: str
       passwordHash: overrides.password ? await hashPassword(overrides.password) : null,
       stripeSubscriptionId: overrides.stripeSubscriptionId,
       stripeCustomerId: overrides.stripeCustomerId,
+      emailVerifiedAt: overrides.emailVerified === false ? null : new Date(),
     },
   });
 }

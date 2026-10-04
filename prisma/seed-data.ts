@@ -94,6 +94,9 @@ export async function seedDatabase(prisma: PrismaClient, opts: { password: strin
         onboardedAt: m.status === "PENDING" ? null : joined,
         passwordHash: m.login ? passwordHash : null,
         mustChangePassword: Boolean(m.login),
+        // The member who "signed up online yesterday" hasn't confirmed their
+        // email yet, so the banner can be seen (D-113).
+        emailVerifiedAt: m.status === "PENDING" ? null : joined,
         createdAt: joined,
         pastDueSince: m.status === "PAST_DUE" ? daysAgo(m.retentionScore > 50 ? 2 : 9) : null,
         amountOwingCents: m.status === "PAST_DUE" && plan ? plan.priceCents : 0,

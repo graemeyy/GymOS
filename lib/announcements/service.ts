@@ -70,7 +70,8 @@ export async function emailAnnouncement(db: Db, announcementId: string) {
   if (!where) return { sent: 0, alreadySent: false };
   const claimed = await db.announcement.updateMany({ where: { id: a.id, emailedAt: null }, data: { emailedAt: new Date() } });
   if (claimed.count === 0) return { sent: 0, alreadySent: true };
-  const recipients = await db.member.findMany({ where: { ...where, notifyAnnouncements: true }, select: { email: true, name: true } });
+  // Only addresses the member has confirmed (D-114).
+  const recipients = await db.member.findMany({ where: { ...where, notifyAnnouncements: true, emailVerifiedAt: { not: null } }, select: { email: true, name: true } });
   let sent = 0;
   for (const r of recipients) {
     const res = await sendEmail({

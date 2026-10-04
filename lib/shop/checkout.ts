@@ -1,4 +1,5 @@
 import { appUrl } from "@/lib/app-url";
+import { assertEmailVerified } from "@/lib/members/verification";
 import type Stripe from "stripe";
 import type { Db, Tx } from "@/lib/db";
 import { gym } from "@/lib/config";
@@ -17,6 +18,7 @@ import { MINUTE_MS } from "@/lib/time";
 // creates a pending order, and opens a Stripe Checkout page for it. Stock is
 // checked now and taken when payment succeeds.
 export async function startShopCheckout(db: Db, actor: Actor & { kind: "member" }, input: ShopCheckoutInput) {
+  await assertEmailVerified(db, actor.id);
   if (input.fulfilment === "SHIPPING" && gym.policies.shop.pickupOnly) {
     throw new ApiError("validation_failed", "Orders are collected from the gym; delivery isn't offered.", { fulfilment: "Pickup only" });
   }
