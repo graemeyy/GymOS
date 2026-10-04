@@ -203,7 +203,10 @@ describe("each staff role gets exactly its permissions", () => {
   it.each(matrix)("$role $name -> allowed: $allowed", async (c) => {
     const res = await call(c.handler, await makeRequest(c.method, c.path, { as: actors[c.role]!, body: c.body }), c.params);
     if (c.allowed) {
+      // Allowed means the handler ran and answered sensibly; a crash is not
+      // a pass (R-96).
       expect([401, 403]).not.toContain(res.status);
+      expect(res.status).toBeLessThan(500);
     } else {
       expect(res.status).toBe(403);
     }

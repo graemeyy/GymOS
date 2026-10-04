@@ -148,8 +148,9 @@ export async function isDatabaseEmpty(prisma: PrismaClient) {
   return members === 0 && staff === 0;
 }
 
-// Wipes only rows the seed itself creates. Used by `npm run db:seed -- --reset`
-// against a local database and by the end-to-end test setup.
+// Deletes every row in the tables the seed fills, seeded or not, children
+// before parents. Only `npm run db:seed -- --reset` against a local database
+// and the end-to-end test setup call it.
 export async function resetDatabase(prisma: PrismaClient) {
   await prisma.$transaction([
     prisma.announcement.deleteMany(),
@@ -171,7 +172,6 @@ export async function resetDatabase(prisma: PrismaClient) {
     prisma.class.deleteMany(),
     prisma.classTemplate.deleteMany(),
     prisma.checkIn.deleteMany(),
-    prisma.payment.deleteMany(),
     prisma.member.deleteMany(),
     prisma.shift.deleteMany(),
     prisma.staff.deleteMany(),
@@ -303,7 +303,10 @@ export async function seedDatabase(prisma: PrismaClient) {
   }
 
   // A handful of orders across the fulfilment states.
-  const buyers = await prisma.member.findMany({ where: { email: { in: ["charlotte.pham@example.com", "jack.osullivan@example.com", "priya.sharma@example.com"] } } });
+  // Looked up by email so each order goes to the intended buyer; findMany
+  // doesn't return rows in the order of the list.
+  const buyerEmails = ["charlotte.pham@example.com", "jack.osullivan@example.com", "priya.sharma@example.com"];
+  const buyers = await Promise.all(buyerEmails.map((email) => prisma.member.findUniqueOrThrow({ where: { email } })));
   const orderSpecs = [
     { buyer: 0, status: "PAID", fulfilment: "PICKUP", items: [["TEE-IB-M-BLK", 1], ["CHALK-250", 2]], daysAgo: 1 },
     { buyer: 1, status: "PACKED", fulfilment: "SHIPPING", items: [["WPI-1KG-CHOC", 1]], daysAgo: 2 },

@@ -47,3 +47,18 @@ describe("R-108 plain dates are gym-local days", () => {
     expect(saved.expiresAt?.toISOString()).toBe("2026-10-03T14:00:00.000Z");
   });
 });
+
+describe("R-95 seed data", () => {
+  it("gives each seeded order to its intended buyer, and reset clears everything", async () => {
+    const { seedDatabase, resetDatabase } = await import("@/prisma/seed-data");
+    await seedDatabase(prisma);
+    const ordersOf = async (email: string) =>
+      (await prisma.order.findMany({ where: { member: { email } }, select: { status: true }, orderBy: { createdAt: "asc" } })).map((o) => o.status).sort();
+    expect(await ordersOf("charlotte.pham@example.com")).toEqual(["COMPLETED", "PAID"]);
+    expect(await ordersOf("jack.osullivan@example.com")).toEqual(["PACKED", "REFUNDED"]);
+    expect(await ordersOf("priya.sharma@example.com")).toEqual(["PAID", "READY_FOR_PICKUP"]);
+    await resetDatabase(prisma);
+    expect(await prisma.member.count()).toBe(0);
+    expect(await prisma.payment.count()).toBe(0);
+  }, 60_000);
+});
