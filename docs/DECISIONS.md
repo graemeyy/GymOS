@@ -130,7 +130,7 @@ Decisions made while building GymOS without stopping to ask, with the reason and
 
 **D-056. The audit log is filterable and exportable, and records who, what and when.** (PR 2) Every change to members, plans, payments, refunds, products, orders, staff and announcements is logged with the actor's name kept in the row, so the record survives staff being removed.
 
-**D-057. Announcements email only members who opted in, and only once.** (PR 2) Members choose whether to receive announcement emails (`notifyAnnouncements`, default on for existing members). Publishing can send an email; a re-publish doesn't re-send unless the owner asks. Audience can be everyone, active members or a plan.
+**D-057. Announcements email only members who opted in, and only once.** (PR 2) Members choose whether to receive announcement emails (`notifyAnnouncements`, default on for existing members). Publishing can send an email; a re-publish doesn't re-send unless the owner asks. Audience can be active members, members on one plan, or staff only.
 
 **D-058. Email goes through Resend's HTTP API and does nothing without a key.** (PR 2) No SDK dependency. Without `RESEND_API_KEY` sends are logged as skipped; tests capture messages instead of sending.
 
