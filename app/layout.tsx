@@ -3,6 +3,7 @@ import { Atkinson_Hyperlegible_Next, Barlow_Condensed } from "next/font/google";
 import { gym } from "@/lib/config";
 import { themeInitScript } from "@/components/ui/theme";
 import { ToastProvider } from "@/components/ui/feedback";
+import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import "./globals.css";
 
 const body = Atkinson_Hyperlegible_Next({ subsets: ["latin"], variable: "--font-body", display: "swap", adjustFontFallback: false });
@@ -11,6 +12,7 @@ const display = Barlow_Condensed({ subsets: ["latin"], weight: ["500", "600", "7
 export const metadata: Metadata = {
   title: { default: gym.brand.name, template: `%s · ${gym.brand.shortName}` },
   description: gym.brand.tagline,
+  appleWebApp: { capable: true, title: gym.brand.shortName, statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
@@ -30,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ToastProvider>{children}</ToastProvider>
+        <RegisterServiceWorker />
       </body>
     </html>
   );

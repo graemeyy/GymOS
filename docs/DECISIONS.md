@@ -137,3 +137,39 @@ Decisions made while building GymOS without stopping to ask, with the reason and
 **D-059. All daily jobs run from the existing cron route.** (PR 2) `/api/cron/churn-shield` already had a Vercel cron entry and a secret. It now runs transitions, reminders, timetable generation, retention scoring and rate-limit clean-up. Renaming the route would mean changing the deployment's cron config, which this work doesn't touch.
 
 **D-060. Preview deployments don't run migrations.** (PR 1, added after PR 2 opened) Vercel builds a preview for every pull request branch, and the build command runs `prisma migrate deploy`. If the preview environment shares the production `DATABASE_URL`, an unmerged branch could change the production schema. The migration script now skips unless `VERCEL_ENV` is `production` or `ALLOW_PREVIEW_MIGRATIONS=true`. A preview against an un-migrated database may show errors on new screens; that is the safe failure.
+
+## Phase 3: member app and shop
+
+**D-061. Online sign-up creates a member with no access until a plan starts.** (PR 3) A new status, `PENDING` ("Not started"), means signed up but not paying. Check-in, class booking and plan changes all refuse it. Paying through Stripe Checkout, or staff starting the plan at the desk, makes the member active. Adding an enum value is additive; `down.sql` turns any pending members into cancelled ones before restoring the old type.
+
+**D-062. Sign-up never claims an existing email.** (PR 3) Many members were added by staff with no password. Without email verification, letting anyone "sign up" with that email would hand them someone else's account and payment history. The form says so and sends them to the front desk. Password reset and email verification by email are the follow-up (see the final report).
+
+**D-063. Acceptance of the terms and privacy policy is recorded per document and version.** (PR 3) `LegalAcceptance` stores which version, when, and in what context (sign-up, checkout, re-acceptance). When the owner publishes a new version in config, members are asked once, in a banner. Members added by staff before online sign-up existed are asked the first time they use the app.
+
+**D-064. Members self-serve only what they pay for online.** (PR 3) Plan changes from the member app go through the same service as staff changes, with the owner's proration and timing rules, and a preview that uses the same function as the change itself. Members billed at the front desk (no Stripe subscription) change plans there, because otherwise the new price would never be charged. Members can't choose "immediate" cancellation; the rules decide the date.
+
+**D-065. The member timetable never shows other members.** (PR 3) It shows spots left, the waitlist length and the member's own position. Waitlist promotion emails can be switched off; the booking still happens and shows in the app.
+
+**D-066. The QR pass is rendered on the server as an SVG, always black on white.** (PR 3) No QR library ships to the browser, and scanners read it in dark mode too. The pass shows even when the membership isn't active, because the scanner checks status at the door and the member needs to see why.
+
+**D-067. The shop is public to browse and members-only to buy.** (PR 3) Guest checkout would need a second identity model, addresses without accounts, and separate privacy handling. Signing in also lets the discount apply automatically. The cart is kept in the browser (variant IDs and quantities only) and is cleared after a successful payment.
+
+**D-068. Prices, discounts, shipping and GST are always worked out on the server.** (PR 3) The browser shows an estimate using the same pure pricing module (`lib/shop/pricing.ts`), but checkout ignores any price it sends. The member discount applies only while the membership is active. Each line goes to Stripe as one item at its discounted line total, so the amount charged equals the order total exactly.
+
+**D-069. Stock is checked at checkout and taken when payment succeeds.** (PR 3) Reserving stock for abandoned checkouts would lock items up; instead the webhook takes stock once, in the same transaction as the payment record. If something sold out in between, the payment is still recorded and the order is flagged for staff to refund or restock, so a payment is never lost. Abandoned checkouts are cancelled when Stripe reports the session expired (30 minutes).
+
+**D-070. Order emails are sent after the database commits.** (PR 3) The webhook collects emails to send and sends them once the transaction has succeeded, so a rolled-back event never emails anyone, and a retried one emails once. An email failure never makes Stripe retry. Order emails are transactional and go regardless of marketing preferences.
+
+**D-071. Account deletion erases personal details but keeps financial records.** (PR 3) The member row stays as an anonymous owner of payments, refunds and orders (kept for tax), with name, email, password, notes, delivery addresses, future bookings and waitlist places removed, and audit log entries scrubbed of name and email. Deletion is blocked while a paid membership is running (cancel first, under the gym's rules) or while orders are in progress. Stripe customer records aren't deleted from GymOS; the owner handles requests that extend to Stripe.
+
+**D-072. Data export includes staff notes.** (PR 3) Under APP 12, members can access personal information held about them, which includes notes staff write. The note field now tells staff that notes are included in a member's data download, and not to record health details without consent.
+
+**D-073. Retention periods are enforced by the daily job.** (PR 3) Check-ins older than `checkInHistoryMonths` are deleted, and members archived for longer than `archivedMemberMonths` are anonymised the same way as a deletion request. This keeps the privacy policy's promises true.
+
+**D-074. Email address changes go through the front desk.** (PR 3) Without verification, a typo would lock a member out, and a malicious change would redirect receipts. Members can change their name, preferences and password.
+
+**D-075. The PWA is deliberately small.** (PR 3) A manifest, generated icons, and a service worker that caches built assets and shows an offline page. API responses and staff pages are never cached, because they're personal and must be current. Offline access to the pass was considered and left out: it would mean storing a live pass token in the browser cache.
+
+**D-076. Legal pages are generated from config.** (PR 3) The terms and privacy policy read notice periods, cooling-off, pause limits, shop returns and retention periods from `config/gym.config.json`, so the documents and the app's behaviour can't drift apart. Until `legal.reviewedByLawyer` is true, both pages say they are templates.
+
+**D-077. Local `--reset` seeding recreates plans from config.** (PR 3) Plans that existed before the Phase 2 migration have zero benefits (the migration can't read config). Real deployments keep their plans and the owner sets benefits in Plans; local and test databases now start from config.

@@ -5,12 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiClientError } from "@/lib/client/api";
 import { Button } from "@/components/ui/primitives";
 import { FormMessage, TextField } from "@/components/ui/form";
-
-// Only same-site relative paths are accepted as a post-login destination.
-export function safeNext(value: string | null, fallback: string, prefix: string): string {
-  if (!value || !value.startsWith(prefix) || value.startsWith("//")) return fallback;
-  return value;
-}
+import { safeNext } from "@/lib/client/safe-next";
 
 export function SignInForm({ endpoint, home, prefix }: { endpoint: string; home: string; prefix: string }) {
   const router = useRouter();

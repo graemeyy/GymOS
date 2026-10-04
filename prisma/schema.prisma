@@ -25,6 +25,8 @@ enum Status {
   PAUSED
   CANCELED
   PAST_DUE
+  // Signed up online but hasn't started a plan yet. No access.
+  PENDING
 }
 
 enum EquipmentStatus {
@@ -86,6 +88,11 @@ model Member {
   lastFailedInvoiceId  String?
   qrVersion            Int               @default(0)
   notifyAnnouncements  Boolean           @default(true)
+  notifyWaitlist       Boolean           @default(true)
+  onboardedAt          DateTime?
+  // Set when a member's personal details were erased on request. The row
+  // stays so payments (kept for tax) still have an owner.
+  anonymisedAt         DateTime?
   status               Status            @default(ACTIVE)
   keycardIssued        Boolean           @default(false)
   lastCheckIn          DateTime?
@@ -108,6 +115,7 @@ model Member {
   events               MembershipEvent[]
   orders               Order[]
   reminders            PaymentReminder[]
+  legalAcceptances     LegalAcceptance[]
 
   @@index([status])
   @@index([planId])
@@ -523,6 +531,7 @@ model Order {
   trackingNumber          String?
   stripeCheckoutSessionId String?      @unique
   stockCommitted          Boolean      @default(false)
+  confirmationSentAt      DateTime?
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
   paidAt                  DateTime?
@@ -583,4 +592,24 @@ model Announcement {
   updatedAt   DateTime             @updatedAt
 
   @@index([publishedAt])
+}
+
+enum LegalDocument {
+  TERMS
+  PRIVACY
+}
+
+// Which version of the terms or privacy policy a member accepted, and when.
+// Kept if the member is anonymised (memberId is then still set, but the
+// member row holds no personal details).
+model LegalAcceptance {
+  id         String        @id @default(cuid())
+  memberId   String
+  member     Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  document   LegalDocument
+  version    String
+  context    String
+  acceptedAt DateTime      @default(now())
+
+  @@index([memberId, document, acceptedAt])
 }

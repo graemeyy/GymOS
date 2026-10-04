@@ -21,7 +21,7 @@ export function useFakeStripe(overrides: Record<string, (...args: unknown[]) => 
     },
     refunds: { create: handler("refunds.create", () => ({ id: `re_${calls.length}` })) },
     invoices: { pay: handler("invoices.pay", () => ({ id: "in_1", status: "paid" })) },
-    checkout: { sessions: { create: handler("checkout.sessions.create", () => ({ id: "cs_1", url: "https://checkout.stripe.com/test" })) } },
+    checkout: { sessions: { create: handler("checkout.sessions.create", () => ({ id: `cs_${calls.length}`, url: "https://checkout.stripe.com/test" })) } },
     billingPortal: { sessions: { create: handler("billingPortal.sessions.create", () => ({ url: "https://billing.stripe.com/test" })) } },
   };
   setStripeForTests(fake as unknown as StripeClient);

@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/http/errors";
 import { getStripe } from "./stripe";
 import { logAction, type Actor } from "@/lib/audit";
 import { markOrderRefunded } from "@/lib/shop/orders";
+import { sendOrderEmail } from "@/lib/shop/emails";
 
 export interface RefundInput {
   paymentId: string;
@@ -48,7 +49,8 @@ export async function refundPayment(db: Db, actor: Actor & { kind: "staff" }, in
   }
 
   const gst = gym.business.gstRegistered ? refundGst(payment.amount, payment.gstCents, input.amountCents) : 0;
-  return db.$transaction(async (tx) => {
+  let orderRefunded = false;
+  const refund = await db.$transaction(async (tx) => {
     // Guarded update: two refunds racing can't take the total past the payment.
     const updated = await tx.payment.updateMany({
       where: { id: payment.id, refundedCents: { lte: payment.amount - input.amountCents } },
@@ -62,7 +64,7 @@ export async function refundPayment(db: Db, actor: Actor & { kind: "staff" }, in
       data: { paymentId: payment.id, amountCents: input.amountCents, gstCents: gst, reason: input.reason, stripeRefundId, method: input.method, staffId: actor.id, staffName: actor.name },
     });
     if (payment.order && payment.refundedCents + input.amountCents >= payment.amount) {
-      await markOrderRefunded(tx, payment.order.id, input.reason, actor.name);
+      orderRefunded = await markOrderRefunded(tx, payment.order.id, input.reason, actor.name);
     }
     await logAction(tx, actor, {
       action: "billing.refunded",
@@ -72,4 +74,6 @@ export async function refundPayment(db: Db, actor: Actor & { kind: "staff" }, in
     });
     return refund;
   });
+  if (orderRefunded && payment.order) await sendOrderEmail(db, payment.order.id, "refunded").catch(() => undefined);
+  return refund;
 }

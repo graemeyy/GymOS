@@ -4,6 +4,7 @@ import { applyDueTransitions } from "@/lib/membership/service";
 import { sendPaymentReminders } from "@/lib/billing/reminders";
 import { generateClasses } from "@/lib/classes/timetable";
 import { retentionScore } from "@/lib/retention";
+import { anonymiseMember } from "@/lib/members/account";
 
 async function updateRetentionScores(db: Db, now: Date) {
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86_400_000);
@@ -33,11 +34,28 @@ async function updateRetentionScores(db: Db, now: Date) {
 // Everything that runs once a day (Vercel cron): membership transitions,
 // payment reminders, the class timetable, retention scores, and clean-up of
 // expired rate-limit counters. Each step is independent and idempotent.
+// Applies the retention periods in config (and promised in the privacy
+// policy): old check-ins are deleted, and members archived for longer than
+// the gym keeps personal details are anonymised. Payment records stay.
+export async function applyDataRetention(db: Db, now = new Date()) {
+  const r = gym.policies.dataRetention;
+  const monthsAgo = (months: number) => {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - months);
+    return d;
+  };
+  const checkIns = await db.checkIn.deleteMany({ where: { timestamp: { lt: monthsAgo(r.checkInHistoryMonths) } } });
+  const due = await db.member.findMany({ where: { archivedAt: { lt: monthsAgo(r.archivedMemberMonths) }, anonymisedAt: null }, select: { id: true }, take: 200 });
+  for (const m of due) await anonymiseMember(db, { kind: "system", name: "Data retention" }, m.id);
+  return { checkInsDeleted: checkIns.count, membersAnonymised: due.length };
+}
+
 export async function runDailyJobs(db: Db, now = new Date()) {
   const transitions = await applyDueTransitions(db, now);
   const reminders = await sendPaymentReminders(db, now);
   const timetable = await generateClasses(db, gym.business.timezone, 2, now);
   const retentionUpdated = await updateRetentionScores(db, now);
+  const retention = await applyDataRetention(db, now);
   const cleaned = await db.rateLimit.deleteMany({ where: { windowStart: { lt: new Date(now.getTime() - 86_400_000) } } });
-  return { ...transitions, ...reminders, classesCreated: timetable.created, retentionUpdated, rateLimitRowsCleaned: cleaned.count };
+  return { ...transitions, ...reminders, classesCreated: timetable.created, retentionUpdated, ...retention, rateLimitRowsCleaned: cleaned.count };
 }

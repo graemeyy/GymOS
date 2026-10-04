@@ -58,6 +58,23 @@ import * as announcements from "@/app/api/announcements/route";
 import * as announcementById from "@/app/api/announcements/[id]/route";
 import * as announcementPublish from "@/app/api/announcements/[id]/publish/route";
 import * as myAnnouncements from "@/app/api/me/announcements/route";
+import * as meTerms from "@/app/api/me/terms/route";
+import * as meOnboarding from "@/app/api/me/onboarding/route";
+import * as meMembership from "@/app/api/me/membership/route";
+import * as mePlan from "@/app/api/me/membership/plan/route";
+import * as mePause from "@/app/api/me/membership/pause/route";
+import * as meCancel from "@/app/api/me/membership/cancel/route";
+import * as meClasses from "@/app/api/me/classes/route";
+import * as meBooking from "@/app/api/me/classes/[id]/booking/route";
+import * as meWaitlist from "@/app/api/me/classes/[id]/waitlist/route";
+import * as mePass from "@/app/api/me/pass/route";
+import * as mePassword from "@/app/api/me/password/route";
+import * as meExport from "@/app/api/me/export/route";
+import * as meAccount from "@/app/api/me/account/route";
+import * as meInvoice from "@/app/api/me/payments/[id]/invoice/route";
+import * as meOrders from "@/app/api/me/orders/route";
+import * as meOrder from "@/app/api/me/orders/[id]/route";
+import * as shopCheckout from "@/app/api/shop/checkout/route";
 
 type Handler = Parameters<typeof call>[0];
 interface Case {
@@ -231,6 +248,42 @@ describe("member data isolation", () => {
     }
     const res = await call(checkout.POST, await makeRequest("POST", "/api/checkout", { as: actors.OWNER!, body: { planId: "x", acceptTerms: true } }));
     expect(res.status).toBe(401);
+  });
+
+  it("every member self-service endpoint refuses signed-out callers and staff", async () => {
+    type H = (r: Request, c: { params: Promise<Record<string, string>> }) => Promise<Response>;
+    const cases: [string, H, unknown?][] = [
+      ["GET", me.GET],
+      ["PATCH", me.PATCH, { name: "X" }],
+      ["POST", meTerms.POST],
+      ["POST", meOnboarding.POST],
+      ["GET", meMembership.GET],
+      ["POST", mePlan.POST, { planId: "x" }],
+      ["POST", mePause.POST, { from: "2030-01-01", until: "2030-01-15" }],
+      ["DELETE", mePause.DELETE],
+      ["POST", meCancel.POST, {}],
+      ["DELETE", meCancel.DELETE],
+      ["GET", meClasses.GET],
+      ["POST", meBooking.POST],
+      ["DELETE", meBooking.DELETE],
+      ["POST", meWaitlist.POST],
+      ["DELETE", meWaitlist.DELETE],
+      ["GET", mePass.GET],
+      ["POST", mePassword.POST, { current: "x", next: "long-enough-password" }],
+      ["GET", meExport.GET],
+      ["GET", meAccount.GET],
+      ["DELETE", meAccount.DELETE, { password: "x", confirm: "DELETE" }],
+      ["GET", meInvoice.GET],
+      ["GET", meOrders.GET],
+      ["GET", meOrder.GET],
+      ["POST", shopCheckout.POST, { lines: [{ variantId: "x", quantity: 1 }], fulfilment: "PICKUP" }],
+    ];
+    for (const [method, handler, body] of cases) {
+      for (const as of [null, actors.OWNER!, actors.FRONT_DESK!]) {
+        const res = await call(handler, await makeRequest(method, "/api/me/x", { as, body }), { id: ID });
+        expect(res.status, `${method} ${handler.name} as ${as ? "staff" : "nobody"}`).toBe(401);
+      }
+    }
   });
 
   it("a forged member token pointing at another member's id is refused (version mismatch)", async () => {

@@ -5,6 +5,12 @@ import { gym } from "@/lib/config";
 import { gstFromInclusive } from "@/lib/money";
 import { logAction } from "@/lib/audit";
 import { markOrderRefunded } from "@/lib/shop/orders";
+import { expireShopCheckout, recordShopPayment } from "@/lib/shop/checkout";
+import { sendOrderEmail, type OrderEmailKind } from "@/lib/shop/emails";
+
+// Emails to send once the transaction has committed, so a rolled-back event
+// never emails anyone and a retried one emails once.
+type After = { orderEmails: { orderId: string; kind: OrderEmailKind }[] };
 
 const SYSTEM = { kind: "system" as const, name: "Stripe" };
 
@@ -30,7 +36,12 @@ export function statusFromSubscription(sub: Pick<Stripe.Subscription, "status" |
   }
 }
 
-async function handleCheckoutCompleted(tx: Tx, session: Stripe.Checkout.Session) {
+async function handleCheckoutCompleted(tx: Tx, session: Stripe.Checkout.Session, after: After) {
+  if (session.mode === "payment") {
+    const result = await recordShopPayment(tx, session);
+    if (result?.confirmed) after.orderEmails.push({ orderId: result.orderId, kind: "confirmed" });
+    return;
+  }
   if (session.mode !== "subscription") return;
   const memberId = session.metadata?.memberId ?? session.client_reference_id;
   if (!memberId) return;
@@ -113,7 +124,7 @@ async function handleInvoicePaid(tx: Tx, invoice: Stripe.Invoice) {
 
 // Refunds made in the Stripe dashboard (or by GymOS) arrive here; each Stripe
 // refund is recorded once.
-async function handleChargeRefunded(tx: Tx, charge: Stripe.Charge) {
+async function handleChargeRefunded(tx: Tx, charge: Stripe.Charge, after: After) {
   const intentId = idOf(charge.payment_intent);
   if (!intentId) return;
   const payment = await tx.payment.findUnique({ where: { stripePaymentIntentId: intentId } });
@@ -128,10 +139,12 @@ async function handleChargeRefunded(tx: Tx, charge: Stripe.Charge) {
     });
     await tx.payment.update({ where: { id: payment.id }, data: { refundedCents: { increment: refund.amount } } });
   }
-  const after = await tx.payment.findUniqueOrThrow({ where: { id: payment.id } });
-  const fullyRefunded = after.refundedCents >= after.amount;
-  await tx.payment.update({ where: { id: payment.id }, data: { status: fullyRefunded ? "refunded" : after.refundedCents > 0 ? "partially_refunded" : after.status } });
-  if (fullyRefunded && payment.orderId) await markOrderRefunded(tx, payment.orderId, "Refunded in Stripe", "Stripe");
+  const updated = await tx.payment.findUniqueOrThrow({ where: { id: payment.id } });
+  const fullyRefunded = updated.refundedCents >= updated.amount;
+  await tx.payment.update({ where: { id: payment.id }, data: { status: fullyRefunded ? "refunded" : updated.refundedCents > 0 ? "partially_refunded" : updated.status } });
+  if (fullyRefunded && payment.orderId && (await markOrderRefunded(tx, payment.orderId, "Refunded in Stripe", "Stripe"))) {
+    after.orderEmails.push({ orderId: payment.orderId, kind: "refunded" });
+  }
 }
 
 async function handleInvoiceFailed(tx: Tx, invoice: Stripe.Invoice) {
@@ -161,13 +174,17 @@ export async function processStripeEvent(db: Db, event: Stripe.Event): Promise<"
     "invoice.payment_succeeded",
     "invoice.payment_failed",
     "charge.refunded",
+    "checkout.session.expired",
   ]);
+  const after: After = { orderEmails: [] };
   try {
     await db.$transaction(async (tx) => {
       await tx.stripeEvent.create({ data: { id: event.id, type: event.type } });
       switch (event.type) {
         case "checkout.session.completed":
-          return handleCheckoutCompleted(tx, event.data.object);
+          return handleCheckoutCompleted(tx, event.data.object, after);
+        case "checkout.session.expired":
+          return expireShopCheckout(tx, event.data.object);
         case "customer.subscription.updated":
           return handleSubscriptionChange(tx, event.data.object, false);
         case "customer.subscription.deleted":
@@ -178,12 +195,17 @@ export async function processStripeEvent(db: Db, event: Stripe.Event): Promise<"
         case "invoice.payment_failed":
           return handleInvoiceFailed(tx, event.data.object);
         case "charge.refunded":
-          return handleChargeRefunded(tx, event.data.object);
+          return handleChargeRefunded(tx, event.data.object, after);
       }
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return "duplicate";
     throw error;
+  }
+  for (const email of after.orderEmails) {
+    // An email failure must not make Stripe retry an event that has already
+    // been recorded.
+    await sendOrderEmail(db, email.orderId, email.kind).catch((error) => console.error("Order email failed:", error instanceof Error ? error.message : error));
   }
   return handled.has(event.type) ? "processed" : "ignored";
 }

@@ -20,11 +20,11 @@ Status key: **Built** means the app enforces or supports it. **Hook** means ther
 | # | Assumption | Status |
 | --- | --- | --- |
 | C-07 | Cancellation and refund rules are the owner's, set in `policies.cancellation` and `policies.shop` in config, not hard-coded. | Built (PR 1 config; PR 2 enforces cancellation, pause and plan-change rules for staff; PR 3 for members). |
-| C-08 | Consumer guarantees can't be excluded. Terms must not say "no refunds"; a member is entitled to a remedy if a service isn't provided with due care or isn't fit for purpose, whatever the gym's change-of-mind policy says. | Owner (the template terms in PR 3 will say this). |
+| C-08 | Consumer guarantees can't be excluded. Terms must not say "no refunds"; a member is entitled to a remedy if a service isn't provided with due care or isn't fit for purpose, whatever the gym's change-of-mind policy says. | Built (PR 3): the template terms state consumer guarantees can't be excluded; shop pages and order emails say faulty items are always covered. Owner to have reviewed. |
 | C-09 | Some states regulate fitness memberships directly, for example NSW's Fitness Services (Pre-paid Fees) legislation, which includes a cooling-off period and limits on pre-payment. Config has `coolingOffDays` (default 7) and `minimumTermWeeks`. The right values depend on the state and the contract. | Hook. Owner must confirm with a lawyer. |
 | C-10 | Unfair contract terms law applies to standard-form consumer contracts, including gym memberships (with penalties since November 2023). Membership terms need legal review. | Owner |
 | C-11 | Price rises for existing members need notice. The app applies a new plan price to new sign-ups only; existing Stripe subscriptions keep their price until changed. The settings screen tells the owner to give written notice. | Built (PR 1); notice emails are the owner's. |
-| C-12 | Members accept the current terms version before paying. Checkout requires `acceptTerms: true` and records the terms version in Stripe metadata and the audit log. | Built (PR 1, minimal). PR 3 adds a versioned, timestamped acceptance record and the terms page. |
+| C-12 | Members accept the current terms version before paying. Checkout requires `acceptTerms: true` and records the terms version in Stripe metadata and the audit log. | Built (PR 3): sign-up and checkout record a timestamped acceptance per document and version (`LegalAcceptance`); members are asked again when a version changes. |
 | C-13 | Direct debit, if used instead of cards, has its own rules (BECS). Phase 1 uses card payments through Stripe. | Owner |
 
 ## Privacy Act 1988 and the Australian Privacy Principles
@@ -34,13 +34,13 @@ Small businesses under $3 million turnover are often exempt from the Privacy Act
 | # | Assumption | Status |
 | --- | --- | --- |
 | C-14 | Collect only what's needed (APP 3). Members: name, email, plan, payment status, visits and bookings. No date of birth, address, gender or photo is collected. Card details stay with Stripe and never touch GymOS. | Built (PR 1) |
-| C-15 | Staff notes about members can contain sensitive or health information. The field is staff-only and labelled so. Staff should be trained not to record health details unless needed and consented to. | Hook / Owner |
+| C-15 | Staff notes about members can contain sensitive or health information. Notes are hidden in the member app but included in a member's data download (APP 12), and the field says so. Staff should be trained not to record health details unless needed and consented to. | Hook / Owner |
 | C-16 | Logs don't contain personal data. Prisma query logging (which wrote member emails to hosting logs) is off. Errors log a message, not request bodies. | Built (PR 1) |
-| C-17 | Retention periods are in config (`policies.dataRetention`) and will be explained on the privacy policy page. | Hook (PR 3 adds the page and automated clean-up). |
-| C-18 | Members can export their data and ask for their account to be deleted (APP 12 and 13). Deletion keeps financial records the law requires and removes or anonymises the rest. | PR 3 |
-| C-19 | A template Privacy Policy and Terms will ship, clearly marked as needing a lawyer's review. `legal.reviewedByLawyer` in config is `false` until that's done. | PR 3 |
+| C-17 | Retention periods are in config (`policies.dataRetention`) and will be explained on the privacy policy page. | Built (PR 3): the privacy policy shows the periods from config, and the daily job deletes old check-ins and anonymises long-archived members. |
+| C-18 | Members can export their data and ask for their account to be deleted (APP 12 and 13). Deletion keeps financial records the law requires and removes or anonymises the rest. | Built (PR 3): data export (JSON, includes staff notes) and account deletion in the member app. Deletion anonymises and keeps financial records. |
+| C-19 | A template Privacy Policy and Terms will ship, clearly marked as needing a lawyer's review. `legal.reviewedByLawyer` in config is `false` until that's done. | Built (PR 3): `/terms` and `/privacy` generated from config, with a "Template only" warning until `legal.reviewedByLawyer` is true. Owner must have them reviewed. |
 | C-20 | Data breaches likely to cause serious harm must be notified under the Notifiable Data Breaches scheme, if the gym is covered. | Owner |
-| C-21 | Hosting may be outside Australia (APP 8, cross-border disclosure). The privacy policy must say where data is stored. | Owner |
+| C-21 | Hosting may be outside Australia (APP 8, cross-border disclosure). The privacy policy must say where data is stored. | Owner: the privacy policy has a placeholder to list hosting providers and countries. |
 
 ## Supplements (shop)
 
@@ -55,5 +55,5 @@ Small businesses under $3 million turnover are often exempt from the Privacy Act
 | # | Assumption | Status |
 | --- | --- | --- |
 | C-25 | Accessibility: the main flows have zero axe violations (WCAG 2.1 A and AA rules) at 375px and 1440px. This isn't a full WCAG audit. | Built (PR 1, tested in CI) |
-| C-26 | Spam Act 2003: marketing emails need consent and an unsubscribe. Transactional emails (receipts, booking confirmations) don't. Announcements in PR 2 respect notification preferences. | Built (PR 2): announcement emails only go to members with announcements switched on. PR 3 adds the member-facing preference and unsubscribe. |
+| C-26 | Spam Act 2003: marketing emails need consent and an unsubscribe. Transactional emails (receipts, booking confirmations) don't. Announcements in PR 2 respect notification preferences. | Built (PR 2 and 3): announcement emails go only to members with "Gym news" on, and include a link to switch it off. Recommended follow-up: a one-click unsubscribe link that doesn't need signing in. |
 | C-27 | Staff passwords and member passwords are hashed with scrypt; no one, including the owner, can read them. | Built |

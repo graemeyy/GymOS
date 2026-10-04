@@ -1,4 +1,4 @@
-import type { MembershipEventType, Prisma } from "@prisma/client";
+import type { BillingInterval, MembershipEventType, Prisma } from "@prisma/client";
 import type { Db, Tx } from "@/lib/db";
 import { gym, type GymConfig } from "@/lib/config";
 import { ApiError } from "@/lib/http/errors";
@@ -62,6 +62,7 @@ export function validatePause(
 export async function pauseMembership(db: Db, actor: Actor, memberId: string, from: Date, until: Date) {
   const member = await loadMember(db, memberId);
   if (member.status === "CANCELED") throw new ApiError("conflict", "A cancelled membership can't be paused.");
+  if (member.status === "PENDING") throw new ApiError("conflict", "There's no membership to pause yet.");
   if (member.pausedUntil && member.pausedUntil > new Date()) throw new ApiError("conflict", "This membership already has a pause. Resume it first.");
   const pausesThisYear = await db.membershipEvent.count({ where: { memberId, type: "PAUSE_SCHEDULED", createdAt: { gte: new Date(Date.now() - 365 * DAY) } } });
   const days = validatePause({ from, until, pausesThisYear, byMember: actor.kind === "member" });
@@ -127,6 +128,7 @@ export function cancellationTerms(
 export async function requestCancellation(db: Db, actor: Actor, memberId: string, input: { reason?: string; immediate?: boolean }) {
   const member = await loadMember(db, memberId);
   if (member.status === "CANCELED") throw new ApiError("conflict", "This membership is already cancelled.");
+  if (member.status === "PENDING") throw new ApiError("conflict", "There's no membership to cancel.");
   if (member.cancelAt) throw new ApiError("conflict", "A cancellation is already booked. Withdraw it first to change the date.");
   if (actor.kind === "member" && !gym.policies.cancellation.allowMemberSelfCancel) {
     throw new ApiError("forbidden", "Please contact the gym to cancel.");
@@ -175,19 +177,53 @@ export async function withdrawCancellation(db: Db, actor: Actor, memberId: strin
 
 // ---------- Plan changes ----------
 
-export async function changePlan(db: Db, actor: Actor, memberId: string, newPlanId: string, now = new Date()) {
-  const member = await loadMember(db, memberId);
-  if (member.status === "CANCELED") throw new ApiError("conflict", "Start a new membership instead of changing a cancelled one.");
-  const plan = await db.membershipPlan.findFirst({ where: { id: newPlanId, active: true } });
-  if (!plan) throw new ApiError("validation_failed", "That plan isn't available.", { planId: "Not available" });
-  if (plan.id === member.planId) throw new ApiError("conflict", "That's already the current plan.");
+type LoadedMember = Awaited<ReturnType<typeof loadMember>>;
 
+export interface PlanChangePreview {
+  upgrade: boolean;
+  immediate: boolean;
+  effectiveAt: Date;
+  prorationCents: number;
+}
+
+// What changing to `plan` would do under the owner's rules, without doing it.
+// Used for the member's "change plan" screen and by changePlan itself, so the
+// preview and the result can't disagree.
+export function previewPlanChange(
+  member: { createdAt: Date; currentPeriodStart: Date | null; currentPeriodEnd: Date | null; membershipPlan: { priceCents: number; interval: BillingInterval } | null },
+  plan: { priceCents: number; interval: BillingInterval },
+  now = new Date()
+): PlanChangePreview {
   const current = member.membershipPlan;
   const upgrade = !current || plan.priceCents >= current.priceCents;
   const policy = gym.policies.planChanges;
   const immediate = upgrade ? policy.upgradeProration === "prorate_now" : policy.downgradeTiming === "immediate";
   const cycle = current ? currentCycle(member, current.interval, now) : null;
   const proration = immediate && current && cycle && current.interval === plan.interval ? prorationCents(current.priceCents, plan.priceCents, cycle.start, cycle.end, now) : 0;
+  return { upgrade, immediate, effectiveAt: immediate ? now : cycle?.end ?? now, prorationCents: proration };
+}
+
+// Members can only change a plan they pay for online. Someone who hasn't
+// started a membership goes through checkout instead, and someone who pays at
+// the front desk changes plans there (otherwise the new price would never be
+// charged).
+function assertMemberCanSelfServe(actor: Actor, member: LoadedMember) {
+  if (actor.kind !== "member") return;
+  if (member.status === "PENDING") throw new ApiError("conflict", "Start a membership first.");
+  if (!member.stripeSubscriptionId) throw new ApiError("conflict", "Your membership is managed at the front desk. Ask staff to make this change.");
+}
+
+export async function changePlan(db: Db, actor: Actor, memberId: string, newPlanId: string, now = new Date()) {
+  const member = await loadMember(db, memberId);
+  if (member.status === "CANCELED") throw new ApiError("conflict", "Start a new membership instead of changing a cancelled one.");
+  assertMemberCanSelfServe(actor, member);
+  const plan = await db.membershipPlan.findFirst({ where: { id: newPlanId, active: true } });
+  if (!plan) throw new ApiError("validation_failed", "That plan isn't available.", { planId: "Not available" });
+  if (plan.id === member.planId) throw new ApiError("conflict", "That's already the current plan.");
+  if (plan.id === member.pendingPlanId) throw new ApiError("conflict", "That change is already booked for your next billing date.");
+
+  const current = member.membershipPlan;
+  const { upgrade, immediate, effectiveAt, prorationCents: proration } = previewPlanChange(member, plan, now);
 
   if (member.stripeSubscriptionId) {
     // The new price is created on the fly from the plan (no Stripe price IDs
@@ -207,7 +243,6 @@ export async function changePlan(db: Db, actor: Actor, memberId: string, newPlan
     });
   }
 
-  const effectiveAt = immediate ? now : cycle?.end ?? now;
   await db.$transaction(async (tx) => {
     await tx.member.update({ where: { id: memberId }, data: immediate ? { planId: plan.id, pendingPlanId: null } : { pendingPlanId: plan.id } });
     await recordEvent(tx, memberId, actor, immediate ? "PLAN_CHANGED" : "PLAN_CHANGE_SCHEDULED", effectiveAt, {
