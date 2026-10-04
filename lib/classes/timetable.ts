@@ -1,4 +1,5 @@
-import type { Db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
+import type { Db, Tx } from "@/lib/db";
 import { localDateIn, zonedTimeToUtc } from "@/lib/dates";
 import { DAY_MS } from "@/lib/time";
 
@@ -21,7 +22,7 @@ export function upcomingDates(tz: string, days: number, now = new Date()): { dat
 // a class staff cancelled (kept as a cancelled row) isn't recreated, and
 // editing a template's time doesn't add a second class on days already
 // generated (R-05, R-32).
-export async function generateClasses(db: Db, tz: string, weeks = 2, now = new Date()) {
+export async function generateClasses(db: Db | Tx, tz: string, weeks = 2, now = new Date()) {
   const templates = await db.classTemplate.findMany({ where: { active: true }, include: { trainer: { select: { name: true } } } });
   if (templates.length === 0) return { created: 0 };
   const dates = upcomingDates(tz, weeks * 7, now);
@@ -30,18 +31,17 @@ export async function generateClasses(db: Db, tz: string, weeks = 2, now = new D
     select: { templateId: true, startTime: true },
   });
   const taken = new Set(existing.map((c) => `${c.templateId}|${localDateIn(tz, c.startTime)}`));
-  let created = 0;
+  const rows: Prisma.ClassCreateManyInput[] = [];
   for (const { date, weekday } of dates) {
     for (const t of templates.filter((x) => x.weekday === weekday)) {
       if (taken.has(`${t.id}|${date}`)) continue;
       const startTime = zonedTimeToUtc(date, t.startTime, tz);
       if (startTime <= now) continue;
-      const result = await db.class.createMany({
-        data: [{ name: t.name, templateId: t.id, trainerId: t.trainerId, instructor: t.trainer?.name ?? null, startTime, durationMinutes: t.durationMinutes, capacity: t.capacity }],
-        skipDuplicates: true,
-      });
-      created += result.count;
+      rows.push({ name: t.name, templateId: t.id, trainerId: t.trainerId, instructor: t.trainer?.name ?? null, startTime, durationMinutes: t.durationMinutes, capacity: t.capacity });
     }
   }
-  return { created };
+  if (rows.length === 0) return { created: 0 };
+  // One statement, so generating inside a transaction stays well within its time limit.
+  const result = await db.class.createMany({ data: rows, skipDuplicates: true });
+  return { created: result.count };
 }
