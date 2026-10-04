@@ -1,12 +1,12 @@
 # GymOS
 
-The software an independent gym runs on. Staff manage members, plans, classes, check-in and payments; members manage their own membership. Built for Australian gyms: prices in AUD with GST included, tax invoices with an ABN, and cancellation rules set by the owner.
+The software an independent gym runs on. Staff manage members, plans, classes, check-in, payments, the shop and announcements; members join online, manage their own membership, book classes, show a QR pass at the door and buy from the shop. Installable on a phone as a web app. Built for Australian gyms: prices in AUD with GST included, tax invoices with an ABN, and cancellation rules set by the owner.
 
 The gym's name, ABN, address, hours, plans and policies all live in one validated file, [`config/gym.config.json`](config/gym.config.json), so a new gym can adopt the app without code changes.
 
 ## Stack
 
-Next.js 15 (App Router) and React 19, TypeScript (strict), Prisma 5 with PostgreSQL, Tailwind CSS 3 with design tokens, Zod for every input and environment variable, Stripe (test mode) for subscriptions, Vitest and Playwright with axe for tests. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) once it exists, [docs/DECISIONS.md](docs/DECISIONS.md) for why things are the way they are, and [docs/DESIGN.md](docs/DESIGN.md) for the design system.
+Next.js 15 (App Router) and React 19, TypeScript (strict), Prisma 5 with PostgreSQL, Tailwind CSS 3 with design tokens, Zod for every input and environment variable, Stripe (test mode) for subscriptions and shop payments, Vitest and Playwright with axe for tests. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it fits together, [docs/DECISIONS.md](docs/DECISIONS.md) for why things are the way they are, and [docs/DESIGN.md](docs/DESIGN.md) for the design system.
 
 ## Run it locally
 
@@ -29,7 +29,9 @@ Demo accounts from the seed, all with the password `ironbark-demo-2026`:
 | Manager | manager@example.com | /admin/login |
 | Front desk | frontdesk@example.com | /admin/login |
 | Trainer | trainer@example.com | /admin/login |
-| Member | charlotte.pham@example.com | /login |
+| Member (Unlimited plan, 10% shop discount) | charlotte.pham@example.com | /login |
+| Member (Standard plan) | jack.osullivan@example.com | /login |
+| Signed up online, no plan yet | oliver.brandt@example.com | /login |
 
 To start again from scratch on a local database: `npm run db:seed -- --reset`. The seed refuses to run with `NODE_ENV=production`, never touches a database that already has members or staff, and only allows `--reset` against a local or test database.
 
@@ -46,7 +48,7 @@ STRIPE_WEBHOOK_SECRET=whsec_...      # from `stripe listen --forward-to localhos
 
 Live keys are refused at startup unless `STRIPE_ALLOW_LIVE_KEYS=true`.
 
-Webhook events the app handles: `checkout.session.completed`, `customer.subscription.updated` and `.deleted`, `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed` and `charge.refunded`.
+Webhook events the app handles: `checkout.session.completed`, `customer.subscription.updated` and `.deleted`, `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed`, `charge.refunded` and `checkout.session.expired` (abandoned shop checkouts). Test a shop payment with card `4242 4242 4242 4242`.
 
 ### Email (optional)
 
