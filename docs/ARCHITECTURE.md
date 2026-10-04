@@ -50,19 +50,20 @@ Migrations are in `prisma/migrations`. Each has a hand-written `down.sql` for ro
 
 ## Business rules live in services
 
-Route handlers stay thin and call services in `lib/`:
+Route handlers stay thin and call `lib/<domain>/`: reads in `queries.ts`, writes and rules in `service.ts`, input schemas in `schema.ts`. Each write and its audit entry share one transaction. Lint stops pages, components and route handlers touching Prisma (D-089, D-090):
 
 | Area | Module | Notes |
 | --- | --- | --- |
 | Membership changes | `lib/membership/service.ts` | Pause, resume, cancel (cooling-off, notice, minimum term), plan changes with proration, and the daily transitions. Used by both staff and member routes. |
-| Benefits | `lib/membership/benefits.ts`, `cycle.ts` | Ledger balances per billing cycle (Stripe's period, or rolling from the join date). |
+| Benefits | `lib/membership/benefits.ts`, `cycle.ts` | Ledger balances per billing cycle, counted from when the membership started, in the gym's time zone. |
 | Classes | `lib/classes/service.ts`, `timetable.ts` | Every booking path locks the class row (`SELECT ... FOR UPDATE`), so classes can't be overbooked. Waitlist promotion uses savepoints. |
 | Check-in | `lib/checkin/service.ts`, `qr.ts` | Signed QR passes (`GYM1.`) with a version that reissuing bumps. Grace period for overdue payments. |
 | Billing | `lib/billing/*` | Stripe client (lazy, test keys only), webhook processing, refunds (GST pro rata, idempotency key, guarded update), reminders, tax invoices. |
-| Shop | `lib/shop/*` | `pricing.ts` (shared by server and browser), `checkout.ts` (Stripe Checkout, webhook payment, expiry), `orders.ts` (status changes, stock), `emails.ts`, `catalogue.ts`. |
+| Shop | `lib/shop/*` | `pricing.ts`, `limits.ts` and `labels.ts` (shared by server and browser), `queries.ts`, `service.ts`, `checkout.ts` (Stripe Checkout, webhook payment, expiry), `orders.ts` (status changes, stock), `emails.ts`. |
 | Finance | `lib/finance/*` | Summaries by month, BAS quarter and financial year, AUD only. CSV exports neutralise spreadsheet formulas (`lib/csv.ts`). |
 | Members | `lib/members/*` | Sign-up, password change, data export, erasure and anonymisation. |
 | Legal | `lib/legal.ts` | Current document versions and acceptance records. |
+| Plans, staff, settings, announcements, audit log | `lib/plans/*`, `lib/staff/*`, `lib/settings/*`, `lib/announcements/*`, `lib/audit-log/*` | Queries, services and schemas per area; `lib/plans/perks.ts` is the one wording for plan benefits. |
 | Daily jobs | `lib/jobs/daily.ts` | Transitions, reminders, timetable generation, retention scores, data retention, rate-limit clean-up. |
 
 ## Stripe
@@ -95,6 +96,8 @@ Two layers, both validated at startup:
 
 ## Tests
 
+- **Component** (`*.test.tsx` beside the page or component, jsdom): UI behaviour such as double submits, stale responses and dialogs.
+- **Characterisation** (`tests/integration/characterisation.test.ts`): the shape of every GET response, pinned before the PR 5 rewrite.
 - **Unit** (`lib/**/*.test.ts`): money and GST, dates, BAS and financial-year periods, membership rules, billing, webhook status mapping, CSV, QR tokens, sessions and passwords, permissions, the route wrapper, environment and config schemas, shop pricing, sign-in redirects.
 - **Integration** (`tests/integration`): route handlers against a real PostgreSQL test database, with a fake Stripe client and signed webhook payloads. Covers permissions for every route, member data isolation, webhooks, refunds, finance, classes and credits, shop checkout and stock, sign-up, self-service and erasure.
 - **End to end** (`tests/e2e`): Playwright against a production build on a seeded throwaway database, at 375px and 1440px, with axe accessibility checks on every main page. `E2E_SCREENSHOTS=1` writes the screenshots in `docs/screenshots`.
@@ -104,5 +107,7 @@ Two layers, both validated at startup:
 
 - **New gym:** edit `config/gym.config.json`, run `npm run check:config`, see the README.
 - **New staff permission:** add it to `lib/auth/permissions.ts`, use it in `staffRoute`, and add the route to the matrix in `tests/integration/rbac.test.ts`.
-- **New member action:** add a service function in `lib/`, a `memberRoute` under `app/api/me`, and add the route to the member-route refusal test.
+- **New member action:** add a service function in `lib/<domain>/service.ts`, a `memberRoute` under `app/api/me`, and add the route to the member-route refusal test.
+- **New write that logs an audit entry:** do both inside one `db.$transaction` and add a case to `tests/integration/atomic-*.test.ts`.
+- **Changing data from the browser:** use `useMutation` from `lib/client/api.ts`.
 - **New Stripe event:** handle it in `lib/billing/webhook.ts` inside the transaction, and add a signed-payload test.
