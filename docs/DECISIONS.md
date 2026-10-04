@@ -241,3 +241,22 @@ Decisions made while building GymOS without stopping to ask, with the reason and
 **D-107. A route can need any one of several permissions.** (PR 6) Stock and equipment lists used to need their own read permissions, which the brief's list doesn't have. Rather than open them to every staff member (Trainers couldn't see them before), those routes need "Handle shop orders" or "Edit products, stock and equipment", so the same people as before can see them. `staffRoute` takes one permission, a list meaning any of them, or `null` for any active staff member.
 
 **D-108. Read-only screens stay open to every staff member where nothing private is on them.** (PR 6) The schedule, timetable, shift roster, announcements, plans list and the Roles page are visible to any active staff member, so everyone can see what's on and what their role allows. Anything about money on those screens (dashboard revenue, plan member counts) still needs `finance.view`.
+
+**D-116. A refund that fails after it was made is reversed (R-25).** (PR C) When Stripe sends `charge.refund.updated` or `refund.updated` with the refund `failed` or `canceled`:
+- **The refund row.** It stays on record, marked with `failedAt` and Stripe's `failureReason`.
+- **The payment.** Its refunded total and status go back as if the refund hadn't happened (`succeeded` when nothing else is refunded).
+- **Finance.** Reports stop counting it. They exclude failed refunds by when the refund was made, so if a BAS for that period was already lodged, the reversal goes in the next one.
+- **Shop orders.** One already marked refunded stays refunded: its stock is back on the shelf and the customer was told. So the audit entry (`billing.refund_failed`, with before and after) says what to follow up, and the payment page shows the refund as "Failed: not returned to the customer".
+- **Repeats.** Either event name, delivered any number of times, reverses the refund once.
+- **Unknown refunds.** A refund GymOS never recorded is ignored, because `charge.refunded` already skips refunds that have failed.
+- **Testing.** All of this is tested with Stripe's event shapes. It can't be triggered with test cards, so docs/STRIPE-TESTING.md (7.6) says what to look for if it happens.
+
+**D-117. `npm run stripe:check` confirms test mode without showing secrets.** (PR C) It reads the environment (and `.env` if present). It fails on:
+- a missing or live secret key, or anything that isn't a Stripe secret key;
+- a missing or malformed webhook secret;
+
+and warns if `STRIPE_ALLOW_LIVE_KEYS` is on. It then prints the webhook URL, the API version (2023-10-16) and the events the endpoint must send, from the same list the webhook handler uses (`lib/billing/events.ts`).
+
+With `--remote` it also asks Stripe, read-only and only with a test-mode key, whether an enabled test-mode endpoint points at the site, sends every needed event and uses the right API version. `--url` checks a different site, such as production from a laptop.
+
+It describes keys by kind, never by value, and strips anything key-shaped from Stripe's error messages. A test runs the script with a fake live key and checks the key isn't in the output. The site URL follows the same order as PR A's link helper, written out here so this change stands alone.

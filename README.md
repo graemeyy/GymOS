@@ -51,7 +51,9 @@ Live keys are refused at startup unless `STRIPE_ALLOW_LIVE_KEYS=true`.
 
 Create the webhook endpoint with Stripe API version `2023-10-16`, the version the app is written against. Events with another version are still processed, and a warning is logged so the mismatch is noticed.
 
-Webhook events the app handles: `checkout.session.completed`, `customer.subscription.updated` and `.deleted`, `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed`, `charge.refunded` and `checkout.session.expired` (abandoned shop checkouts). Test a shop payment with card `4242 4242 4242 4242`.
+`npm run stripe:check` checks the keys are test mode and lists the webhook events the endpoint must send, without printing any key. Add `-- --remote` to also check the endpoint in your Stripe account. The events are listed in `lib/billing/events.ts`: checkout, subscription, invoice and refund events, including `charge.refund.updated` / `refund.updated` for refunds that fail later.
+
+To test every payment flow on a deployed site, follow [docs/STRIPE-TESTING.md](docs/STRIPE-TESTING.md).
 
 ### Email (optional)
 
