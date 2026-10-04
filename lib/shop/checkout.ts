@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type Stripe from "stripe";
 import type { Db, Tx } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -9,37 +8,8 @@ import { gstFromInclusive } from "@/lib/money";
 import { logAction, type Actor } from "@/lib/audit";
 import { commitStock, priceOrder } from "./orders";
 import { variantLabel } from "./labels";
-
-const AU_STATES = ["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"] as const;
-
-export const ShippingAddress = z.object({
-  line1: z.string().trim().min(1, "Required").max(120),
-  line2: z.string().trim().max(120).optional(),
-  suburb: z.string().trim().min(1, "Required").max(60),
-  state: z.enum(AU_STATES, { error: "Choose a state or territory" }),
-  postcode: z.string().trim().regex(/^\d{4}$/, "Four digits"),
-});
-
-export const ShopCheckoutBody = z
-  .object({
-    lines: z
-      .array(z.object({ variantId: z.string().min(1).max(64), quantity: z.number().int().min(1).max(20) }))
-      .min(1, "Your cart is empty")
-      .max(30),
-    fulfilment: z.enum(["PICKUP", "SHIPPING"]),
-    shippingAddress: ShippingAddress.optional(),
-  })
-  .refine((b) => b.fulfilment === "PICKUP" || b.shippingAddress, { message: "Add a delivery address", path: ["shippingAddress"] });
-
-export type ShopCheckoutInput = z.infer<typeof ShopCheckoutBody>;
-
-// The discount the member gets right now: their plan's shop discount while
-// their membership is active. Signed-up members without a plan, and paused,
-// overdue or cancelled memberships, pay the normal price.
-export async function memberShopDiscount(db: Db | Tx, memberId: string): Promise<number> {
-  const member = await db.member.findUniqueOrThrow({ where: { id: memberId }, select: { status: true, membershipPlan: { select: { shopDiscountPercent: true } } } });
-  return member.status === "ACTIVE" ? member.membershipPlan?.shopDiscountPercent ?? 0 : 0;
-}
+import { memberShopDiscount } from "./queries";
+import type { ShopCheckoutInput } from "./schema";
 
 // Prices the cart on the server (the browser's prices are never trusted),
 // creates a pending order, and opens a Stripe Checkout page for it. Stock is
@@ -141,8 +111,17 @@ export async function startShopCheckout(db: Db, actor: Actor & { kind: "member" 
     await db.order.delete({ where: { id: order.id } });
     throw new ApiError("upstream_failed", "Stripe didn't return a payment link. Nothing was charged. Try again.");
   }
-  await db.order.update({ where: { id: order.id }, data: { stripeCheckoutSessionId: session.id } });
-  await logAction(db, actor, { action: "order.checkout_started", targetType: "Order", targetId: order.id, details: { number: order.number, totalCents: priced.totalCents, discountPercent } });
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.order.update({ where: { id: order.id }, data: { stripeCheckoutSessionId: session.id } });
+      await logAction(tx, actor, { action: "order.checkout_started", targetType: "Order", targetId: order.id, details: { number: order.number, totalCents: priced.totalCents, discountPercent } });
+    });
+  } catch (error) {
+    // The payment link is never handed out, so the pending order goes, as it
+    // does when Stripe fails (R-98).
+    await db.order.delete({ where: { id: order.id } });
+    throw error;
+  }
   return { url: session.url, orderId: order.id };
 }
 
