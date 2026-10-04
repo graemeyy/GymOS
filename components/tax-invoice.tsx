@@ -1,5 +1,5 @@
 import { formatAud } from "@/lib/money";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import type { TaxInvoice } from "@/lib/billing/invoice";
 
 // The gym's date, not the viewer's: the invoice date is a legal record (R-54).

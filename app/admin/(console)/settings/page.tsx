@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { gym, formatAddress } from "@/lib/config";
+import { gym, formatAddress } from "@/lib/config/client";
 import { formatAud } from "@/lib/money";
 import { can, ROLE_LABELS, STAFF_ROLES, type Permission, type StaffRoleName } from "@/lib/auth/permissions";
 import { PERMISSION_TEXT } from "@/lib/auth/permission-text";

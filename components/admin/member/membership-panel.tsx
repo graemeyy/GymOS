@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import { formatAud, INTERVAL_LABELS } from "@/lib/money";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { fmtDate } from "@/lib/client/format";
 import { STATUS_TEXT, STATUS_TONE } from "@/lib/client/labels";
 import { Button, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";

@@ -13,12 +13,12 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
+    "db:seed": "tsx --conditions=react-server --env-file-if-exists=.env prisma/seed.ts",
     "check:config": "tsx scripts/check-config.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx --conditions=react-server prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
@@ -28,6 +28,7 @@
     "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "server-only": "0.0.1",
     "stripe": "14.25.0",
     "tailwind-merge": "^2.2.1",
     "zod": "4.6.5"

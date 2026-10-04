@@ -6,7 +6,7 @@ import { Trash2 } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { useCart } from "@/lib/client/cart";
 import { formatAud } from "@/lib/money";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { priceOrder } from "@/lib/shop/pricing";
 import type { Catalogue } from "@/lib/shop/catalogue";
 import { cn } from "@/lib/client/cn";

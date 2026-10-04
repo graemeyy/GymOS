@@ -3,11 +3,12 @@ import { hashPassword } from "../lib/auth/password";
 import { gstFromInclusive } from "../lib/money";
 import { syncPlansFromConfig } from "../lib/plans";
 import { gym } from "../lib/config";
+import { DEMO_PASSWORD } from "./demo";
 
 // Fictional data only. Every name, email and number below is made up; emails
 // use the reserved example.com domain.
 
-export const DEMO_PASSWORD = "ironbark-demo-2026";
+export { DEMO_PASSWORD };
 
 export const DEMO_STAFF = [
   { name: "Mel Hartigan", email: "owner@example.com", role: "OWNER" },

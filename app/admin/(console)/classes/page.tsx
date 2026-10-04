@@ -5,7 +5,7 @@ import { CalendarPlus, ChevronLeft, ChevronRight, Trash2, Users } from "lucide-r
 import Link from "next/link";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { zonedTimeToUtc } from "@/lib/dates";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { fmtTime } from "@/lib/client/format";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, LinkButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";

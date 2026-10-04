@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { fmtTime } from "@/lib/client/format";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { Button, IconButton, PageHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { useMe } from "@/components/member/member-shell";

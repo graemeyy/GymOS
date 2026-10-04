@@ -1,4 +1,4 @@
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 
 // A bumper plate seen face-on: the gym's initials sit where the collar would.
 export function PlateMark({ size = 32 }: { size?: number }) {

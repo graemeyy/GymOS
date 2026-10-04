@@ -10,7 +10,7 @@ import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { Dialog } from "@/components/ui/dialog";
 import { FormMessage, TextareaField, TextField } from "@/components/ui/form";
 import { useMe } from "@/components/member/member-shell";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { addCalendarDays, localDateIn } from "@/lib/dates";
 import { MembershipLine } from "@/components/member/membership-summary";
 import type { Interval } from "@/components/member/types";

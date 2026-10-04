@@ -1,3 +1,4 @@
+import "server-only";
 import { z } from "zod";
 
 const optionalSecret = (min: number, label: string) =>

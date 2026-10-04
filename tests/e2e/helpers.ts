@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { DEMO_PASSWORD } from "../../prisma/seed-data";
+import { DEMO_PASSWORD } from "../../prisma/demo";
 
 export { DEMO_PASSWORD };
 

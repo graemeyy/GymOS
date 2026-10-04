@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Plus } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { fmtDate, fmtDateTime } from "@/lib/client/format";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { localDateIn } from "@/lib/dates";
 import { Button, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";

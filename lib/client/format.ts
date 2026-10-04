@@ -1,4 +1,4 @@
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 
 // Browser-side date formatting in the gym's timezone, so staff in another
 // zone still see gym-local times.

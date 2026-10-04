@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { addCalendarDays, zonedTimeToUtc } from "@/lib/dates";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { fmtDateTime, fmtTime } from "@/lib/client/format";
 import { ROLE_LABELS, type StaffRoleName } from "@/lib/auth/permissions";
 import { useStaff } from "@/components/admin/staff-session";

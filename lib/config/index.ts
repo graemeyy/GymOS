@@ -1,5 +1,6 @@
 import rawConfig from "@/config/gym.config.json";
 import { gymConfigSchema, type GymConfig } from "./schema";
+import { formatAddress as formatAddressOf } from "./address";
 
 export function parseGymConfig(input: unknown): GymConfig {
   const result = gymConfigSchema.safeParse(input);
@@ -14,9 +15,6 @@ export function parseGymConfig(input: unknown): GymConfig {
 // start rather than a random request later.
 export const gym: GymConfig = parseGymConfig(rawConfig);
 
-export function formatAddress(cfg: GymConfig = gym): string {
-  const a = cfg.business.address;
-  return [a.line1, a.line2, `${a.suburb} ${a.state} ${a.postcode}`].filter(Boolean).join(", ");
-}
+export const formatAddress = (cfg: GymConfig = gym) => formatAddressOf(cfg);
 
 export * from "./schema";

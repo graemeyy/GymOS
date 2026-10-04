@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { formatAud, INTERVAL_LABELS, parseDollarsToCents } from "@/lib/money";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";

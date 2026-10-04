@@ -7,7 +7,7 @@ import { useResource } from "@/lib/client/api";
 import { useCart } from "@/lib/client/cart";
 import { fmtDate, fmtDateTime, invoiceNo } from "@/lib/client/format";
 import { formatAud } from "@/lib/money";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { ORDER_STATUS_TEXT, ORDER_STATUS_TONE, type OrderStatusName } from "@/lib/shop/labels";
 import { PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock } from "@/components/ui/feedback";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/token";
 import { Wordmark } from "@/components/ui/logo";
 import { LinkButton } from "@/components/ui/primitives";
