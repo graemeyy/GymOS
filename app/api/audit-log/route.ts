@@ -1,10 +1,9 @@
-import { z } from "zod";
-import { staffRoute, json, zId } from "@/lib/http/route";
+import { staffRoute, json } from "@/lib/http/route";
+import { AuditQuery, auditWhere } from "@/lib/audit-query";
 
-const Query = z.object({ take: z.coerce.number().int().min(1).max(200).default(50), cursor: zId.optional() });
-
-export const GET = staffRoute({ permission: "audit:read", query: Query }, async ({ query, db }) => {
+export const GET = staffRoute({ permission: "audit:read", query: AuditQuery }, async ({ query, db }) => {
   const rows = await db.auditLog.findMany({
+    where: auditWhere(query),
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: query.take + 1,
     ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),

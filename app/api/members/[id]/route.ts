@@ -5,6 +5,7 @@ import { can } from "@/lib/auth/permissions";
 import { hideRevenueFromFrontDesk } from "@/lib/auth/session";
 import { logAction } from "@/lib/audit";
 import { archiveMember, assertPlan, assertReferrer, MEMBER_STATUSES } from "@/lib/members/service";
+import { currentCycle } from "@/lib/membership/cycle";
 
 export const GET = staffRoute({ permission: "members:read" }, async ({ params, db, staff }) => {
   const now = new Date();
@@ -18,6 +19,18 @@ export const GET = staffRoute({ permission: "members:read" }, async ({ params, d
       status: true,
       planId: true,
       membershipPlan: { select: { id: true, name: true, priceCents: true, interval: true } },
+      pendingPlan: { select: { id: true, name: true } },
+      currentPeriodStart: true,
+      currentPeriodEnd: true,
+      pausedFrom: true,
+      pausedUntil: true,
+      cancelAt: true,
+      cancelledAt: true,
+      cancelReason: true,
+      pastDueSince: true,
+      amountOwingCents: true,
+      lastFailedInvoiceId: true,
+      stripeSubscriptionId: true,
       keycardIssued: true,
       lastCheckIn: true,
       retentionScore: true,
@@ -26,7 +39,11 @@ export const GET = staffRoute({ permission: "members:read" }, async ({ params, d
       createdAt: true,
       checkIns: { orderBy: { timestamp: "desc" }, take: 20, select: { id: true, location: true, timestamp: true } },
       payments: showPayments
-        ? { orderBy: { createdAt: "desc" }, take: 20, select: { id: true, amount: true, gstCents: true, currency: true, status: true, createdAt: true } }
+        ? {
+            orderBy: { createdAt: "desc" },
+            take: 20,
+            select: { id: true, amount: true, gstCents: true, currency: true, status: true, createdAt: true, invoiceNumber: true, refundedCents: true, kind: true, description: true },
+          }
         : false,
       classBookings: {
         where: { class: { startTime: { gte: now } } },
@@ -43,7 +60,20 @@ export const GET = staffRoute({ permission: "members:read" }, async ({ params, d
     },
   });
   if (!member) throw new ApiError("not_found", "Member not found.");
-  return json({ ...member, payments: showPayments ? member.payments : null });
+  const { stripeSubscriptionId, lastFailedInvoiceId, ...rest } = member;
+  const nextBillingDate =
+    member.status === "CANCELED" || member.archivedAt
+      ? null
+      : member.membershipPlan
+        ? currentCycle({ createdAt: member.createdAt, currentPeriodStart: member.currentPeriodStart, currentPeriodEnd: member.currentPeriodEnd }, member.membershipPlan.interval, now).end
+        : null;
+  return json({
+    ...rest,
+    nextBillingDate,
+    hasSubscription: Boolean(stripeSubscriptionId),
+    canRetryPayment: Boolean(lastFailedInvoiceId),
+    payments: showPayments ? member.payments : null,
+  });
 });
 
 const UpdateBody = z

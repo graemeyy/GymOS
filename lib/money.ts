@@ -31,7 +31,8 @@ const audWholeFormatter = new Intl.NumberFormat("en-AU", {
 });
 
 export function formatAud(cents: number, opts: { whole?: boolean } = {}): string {
-  const dollars = cents / 100;
+  // Avoid "-$0.00" for negative zero.
+  const dollars = cents === 0 ? 0 : cents / 100;
   return opts.whole ? audWholeFormatter.format(dollars) : audFormatter.format(dollars);
 }
 

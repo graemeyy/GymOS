@@ -21,3 +21,5 @@ export function lastSeen(v: string | null): string {
   if (d === 1) return "Yesterday";
   return `${d} days ago`;
 }
+
+export const invoiceNo = (n: number) => `INV-${String(n).padStart(6, "0")}`;

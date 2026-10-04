@@ -41,49 +41,153 @@ enum BillingInterval {
 }
 
 model MembershipPlan {
-  id            String          @id @default(cuid())
-  slug          String          @unique
-  name          String
-  description   String?
-  priceCents    Int
-  interval      BillingInterval @default(MONTH)
-  stripePriceId String?         @unique
-  active        Boolean         @default(true)
-  sortOrder     Int             @default(0)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  members       Member[]
+  id                   String          @id @default(cuid())
+  slug                 String          @unique
+  name                 String
+  description          String?
+  priceCents           Int
+  interval             BillingInterval @default(MONTH)
+  stripePriceId        String?         @unique
+  active               Boolean         @default(true)
+  sortOrder            Int             @default(0)
+  // Benefits per billing cycle. A null classCreditsPerCycle means unlimited.
+  classCreditsPerCycle Int?
+  guestPassesPerCycle  Int             @default(0)
+  shopDiscountPercent  Int             @default(0)
+  guestRateCents       Int             @default(0)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  members              Member[]        @relation("CurrentPlan")
+  pendingFor           Member[]        @relation("PendingPlan")
+  announcements        Announcement[]
 }
 
 model Member {
-  id                   String          @id @default(cuid())
-  email                String          @unique
+  id                   String            @id @default(cuid())
+  email                String            @unique
   name                 String?
-  stripeCustomerId     String?         @unique
-  stripeSubscriptionId String?         @unique
-  plan                 Plan            @default(BASIC)
+  stripeCustomerId     String?           @unique
+  stripeSubscriptionId String?           @unique
+  plan                 Plan              @default(BASIC)
   planId               String?
-  membershipPlan       MembershipPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
-  status               Status          @default(ACTIVE)
-  keycardIssued        Boolean         @default(false)
+  membershipPlan       MembershipPlan?   @relation("CurrentPlan", fields: [planId], references: [id], onDelete: SetNull)
+  // A downgrade or upgrade that takes effect at the next billing date.
+  pendingPlanId        String?
+  pendingPlan          MembershipPlan?   @relation("PendingPlan", fields: [pendingPlanId], references: [id], onDelete: SetNull)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  pausedFrom           DateTime?
+  pausedUntil          DateTime?
+  cancelAt             DateTime?
+  cancelledAt          DateTime?
+  cancelReason         String?
+  pastDueSince         DateTime?
+  amountOwingCents     Int               @default(0)
+  lastFailedInvoiceId  String?
+  qrVersion            Int               @default(0)
+  notifyAnnouncements  Boolean           @default(true)
+  status               Status            @default(ACTIVE)
+  keycardIssued        Boolean           @default(false)
   lastCheckIn          DateTime?
-  retentionScore       Int             @default(100)
+  retentionScore       Int               @default(100)
   notes                String?
   passwordHash         String?
-  sessionVersion       Int             @default(0)
+  sessionVersion       Int               @default(0)
   archivedAt           DateTime?
   referredById         String?
-  referredBy           Member?         @relation("MemberReferrals", fields: [referredById], references: [id], onDelete: SetNull)
-  referrals            Member[]        @relation("MemberReferrals")
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
+  referredBy           Member?           @relation("MemberReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals            Member[]          @relation("MemberReferrals")
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
   checkIns             CheckIn[]
   payments             Payment[]
   classBookings        ClassBooking[]
   classWaitlist        ClassWaitlist[]
+  memberNotes          MemberNote[]
+  ledger               BenefitLedger[]
+  events               MembershipEvent[]
+  orders               Order[]
+  reminders            PaymentReminder[]
 
   @@index([status])
   @@index([planId])
+  @@index([createdAt])
+  @@index([cancelledAt])
+}
+
+// Staff notes about a member, with who wrote them. Staff-only.
+model MemberNote {
+  id        String   @id @default(cuid())
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  staffId   String?
+  staffName String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([memberId, createdAt])
+}
+
+enum LedgerKind {
+  CLASS_CREDIT
+  GUEST_PASS
+  ACCOUNT_CREDIT
+}
+
+// Every change to a member's class credits, guest passes or account credit:
+// manual adjustments by staff, credits used by bookings, credits returned on
+// cancellation. Balances for the current cycle are the plan allowance plus
+// the sum of entries since the cycle started.
+model BenefitLedger {
+  id        String     @id @default(cuid())
+  memberId  String
+  member    Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  kind      LedgerKind
+  delta     Int
+  reason    String
+  refType   String?
+  refId     String?
+  staffId   String?
+  createdAt DateTime   @default(now())
+
+  @@index([memberId, kind, createdAt])
+}
+
+enum MembershipEventType {
+  JOINED
+  PLAN_CHANGED
+  PLAN_CHANGE_SCHEDULED
+  PAUSE_SCHEDULED
+  RESUMED
+  CANCEL_REQUESTED
+  CANCEL_WITHDRAWN
+  CANCELLED
+}
+
+model MembershipEvent {
+  id          String              @id @default(cuid())
+  memberId    String
+  member      Member              @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  type        MembershipEventType
+  effectiveAt DateTime            @default(now())
+  details     Json?
+  actorName   String
+  createdAt   DateTime            @default(now())
+
+  @@index([memberId, createdAt])
+  @@index([type, effectiveAt])
+}
+
+// One reminder per member, per overdue episode, per reminder day.
+model PaymentReminder {
+  id           String   @id @default(cuid())
+  memberId     String
+  member       Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  pastDueSince DateTime
+  day          Int
+  sentAt       DateTime @default(now())
+
+  @@unique([memberId, pastDueSince, day])
 }
 
 model CheckIn {
@@ -91,6 +195,7 @@ model CheckIn {
   memberId  String
   member    Member   @relation(fields: [memberId], references: [id])
   location  String   @default("Main Entrance")
+  method    String   @default("MANUAL")
   timestamp DateTime @default(now())
 
   @@index([memberId, timestamp])
@@ -100,20 +205,52 @@ model CheckIn {
 // Money received from a member. The table is still called "Payout" in the
 // database (the original, misleading name); @@map keeps that without a rename.
 model Payment {
-  id              String   @id @default(cuid())
-  memberId        String
-  member          Member   @relation(fields: [memberId], references: [id])
-  amount          Int
-  gstCents        Int      @default(0)
-  currency        String   @default("aud")
-  status          String
-  stripeInvoiceId String?  @unique
-  description     String?
-  createdAt       DateTime @default(now())
+  id                    String      @id @default(cuid())
+  memberId              String
+  member                Member      @relation(fields: [memberId], references: [id])
+  amount                Int
+  gstCents              Int         @default(0)
+  currency              String      @default("aud")
+  status                String
+  stripeInvoiceId       String?     @unique
+  stripePaymentIntentId String?     @unique
+  description           String?
+  kind                  PaymentKind @default(MEMBERSHIP)
+  // Sequential tax invoice number, assigned by the database.
+  invoiceNumber         Int         @unique @default(autoincrement())
+  refundedCents         Int         @default(0)
+  planName              String?
+  orderId               String?     @unique
+  order                 Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdAt             DateTime    @default(now())
+  refunds               Refund[]
 
   @@index([createdAt])
   @@index([memberId, createdAt])
   @@map("Payout")
+}
+
+enum PaymentKind {
+  MEMBERSHIP
+  SHOP
+  OTHER
+}
+
+model Refund {
+  id             String   @id @default(cuid())
+  paymentId      String
+  payment        Payment  @relation(fields: [paymentId], references: [id])
+  amountCents    Int
+  gstCents       Int
+  reason         String
+  stripeRefundId String?  @unique
+  // MANUAL refunds were paid back outside Stripe (cash, bank transfer).
+  method         String   @default("STRIPE")
+  staffId        String?
+  staffName      String
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model Equipment {
@@ -153,6 +290,10 @@ model Class {
   id              String          @id @default(cuid())
   name            String
   instructor      String?
+  trainerId       String?
+  trainer         Staff?          @relation("ClassTrainer", fields: [trainerId], references: [id], onDelete: SetNull)
+  templateId      String?
+  template        ClassTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
   startTime       DateTime
   durationMinutes Int             @default(45)
   capacity        Int             @default(20)
@@ -160,7 +301,25 @@ model Class {
   bookings        ClassBooking[]
   waitlist        ClassWaitlist[]
 
+  @@unique([templateId, startTime])
   @@index([startTime])
+  @@index([trainerId, startTime])
+}
+
+// A weekly timetable slot. "Generate" turns templates into dated classes.
+model ClassTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  trainerId       String?
+  trainer         Staff?   @relation("TemplateTrainer", fields: [trainerId], references: [id], onDelete: SetNull)
+  // 0 = Monday ... 6 = Sunday, in the gym's timezone.
+  weekday         Int
+  startTime       String
+  durationMinutes Int      @default(45)
+  capacity        Int      @default(16)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  classes         Class[]
 }
 
 enum BookingStatus {
@@ -170,13 +329,15 @@ enum BookingStatus {
 }
 
 model ClassBooking {
-  id        String        @id @default(cuid())
-  classId   String
-  class     Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
-  memberId  String
-  member    Member        @relation(fields: [memberId], references: [id])
-  status    BookingStatus @default(BOOKED)
-  createdAt DateTime      @default(now())
+  id         String        @id @default(cuid())
+  classId    String
+  class      Class         @relation(fields: [classId], references: [id], onDelete: Cascade)
+  memberId   String
+  member     Member        @relation(fields: [memberId], references: [id])
+  status     BookingStatus @default(BOOKED)
+  // True when this booking used one of the member's class credits.
+  usedCredit Boolean       @default(false)
+  createdAt  DateTime      @default(now())
 
   @@unique([classId, memberId])
   @@index([memberId])
@@ -234,16 +395,19 @@ enum StaffRole {
 }
 
 model Staff {
-  id             String     @id @default(cuid())
-  email          String     @unique
+  id             String          @id @default(cuid())
+  email          String          @unique
   name           String
   passwordHash   String
-  role           StaffRole  @default(FRONT_DESK)
-  sessionVersion Int        @default(0)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  role           StaffRole       @default(FRONT_DESK)
+  sessionVersion Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   auditLogs      AuditLog[]
   shifts         Shift[]
+  classes        Class[]         @relation("ClassTrainer")
+  templates      ClassTemplate[] @relation("TemplateTrainer")
+  announcements  Announcement[]
 }
 
 model Shift {
@@ -284,4 +448,139 @@ model RateLimit {
   key         String   @id
   windowStart DateTime
   count       Int      @default(0)
+}
+
+enum ProductCategory {
+  APPAREL
+  SUPPLEMENTS
+  ACCESSORIES
+  OTHER
+}
+
+model Product {
+  id          String           @id @default(cuid())
+  name        String
+  slug        String           @unique
+  description String?
+  category    ProductCategory
+  imageUrl    String?
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  variants    ProductVariant[]
+}
+
+model ProductVariant {
+  id         String      @id @default(cuid())
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  size       String?
+  colour     String?
+  flavour    String?
+  sku        String      @unique
+  priceCents Int
+  stockQty   Int         @default(0)
+  active     Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  orderItems OrderItem[]
+
+  @@index([productId])
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PACKED
+  READY_FOR_PICKUP
+  SHIPPED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum Fulfilment {
+  PICKUP
+  SHIPPING
+}
+
+model Order {
+  id                      String       @id @default(cuid())
+  number                  Int          @unique @default(autoincrement())
+  memberId                String?
+  member                  Member?      @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  email                   String
+  customerName            String
+  status                  OrderStatus  @default(PENDING_PAYMENT)
+  fulfilment              Fulfilment   @default(PICKUP)
+  subtotalCents           Int
+  discountCents           Int          @default(0)
+  shippingCents           Int          @default(0)
+  totalCents              Int
+  gstCents                Int
+  discountPercent         Int          @default(0)
+  shippingAddress         Json?
+  trackingNumber          String?
+  stripeCheckoutSessionId String?      @unique
+  stockCommitted          Boolean      @default(false)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  paidAt                  DateTime?
+  items                   OrderItem[]
+  events                  OrderEvent[]
+  payment                 Payment?
+
+  @@index([status, createdAt])
+  @@index([memberId, createdAt])
+}
+
+model OrderItem {
+  id             String          @id @default(cuid())
+  orderId        String
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId      String
+  variant        ProductVariant  @relation(fields: [variantId], references: [id])
+  productName    String
+  variantLabel   String
+  category       ProductCategory
+  unitPriceCents Int
+  quantity       Int
+  lineTotalCents Int
+}
+
+model OrderEvent {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  note      String?
+  actorName String
+  createdAt DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+enum AnnouncementAudience {
+  ALL_ACTIVE
+  PLAN
+  STAFF_ONLY
+}
+
+model Announcement {
+  id          String               @id @default(cuid())
+  title       String
+  body        String
+  audience    AnnouncementAudience @default(ALL_ACTIVE)
+  planId      String?
+  plan        MembershipPlan?      @relation(fields: [planId], references: [id], onDelete: SetNull)
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  emailedAt   DateTime?
+  emailCount  Int                  @default(0)
+  createdById String?
+  createdBy   Staff?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([publishedAt])
 }

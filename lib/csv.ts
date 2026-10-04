@@ -3,8 +3,17 @@ export interface CsvColumn<T> {
   value: (row: T) => string | number | null | undefined;
 }
 
-function escapeCsvCell(value: string): string {
-  if (/[",\n]/.test(value)) {
+// A cell starting with = + - @ (or a tab/return) can run as a formula in
+// Excel and Sheets. Text like that gets a leading apostrophe; plain numbers
+// such as "-12.50" are left alone so they stay numbers.
+function neutraliseFormula(value: string): string {
+  if (/^[=+\-@\t\r]/.test(value) && !/^-?\d+(\.\d+)?$/.test(value)) return `'${value}`;
+  return value;
+}
+
+export function escapeCsvCell(raw: string): string {
+  const value = neutraliseFormula(raw);
+  if (/[",\r\n]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;

@@ -1,5 +1,5 @@
 import { memberRoute, json } from "@/lib/http/route";
-import { benefitsForSlug } from "@/lib/plans";
+import { benefitsOf } from "@/lib/plans";
 
 // The signed-in member's own record. The member ID always comes from the
 // session, never from the request.
@@ -13,9 +13,9 @@ export const GET = memberRoute({}, async ({ db, member }) => {
       status: true,
       createdAt: true,
       stripeCustomerId: true,
-      membershipPlan: { select: { id: true, slug: true, name: true, priceCents: true, interval: true } },
+      membershipPlan: { select: { id: true, slug: true, name: true, priceCents: true, interval: true, classCreditsPerCycle: true, guestPassesPerCycle: true, shopDiscountPercent: true, guestRateCents: true } },
     },
   });
   const { stripeCustomerId, ...rest } = me;
-  return json({ ...rest, hasCardOnFile: Boolean(stripeCustomerId), benefits: benefitsForSlug(me.membershipPlan?.slug) });
+  return json({ ...rest, hasCardOnFile: Boolean(stripeCustomerId), benefits: benefitsOf(me.membershipPlan) });
 });
