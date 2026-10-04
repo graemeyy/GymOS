@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { api, ApiClientError } from "@/lib/client/api";
+import { api, useMutation } from "@/lib/client/api";
 import { Button } from "@/components/ui/primitives";
 import { FormMessage, TextField } from "@/components/ui/form";
 
@@ -11,27 +11,21 @@ export function SignUpForm() {
   const router = useRouter();
   const params = useSearchParams();
   const [form, setForm] = useState({ name: "", email: "", password: "", acceptTerms: false });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [fields, setFields] = useState<Record<string, string>>({});
-
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    setFields({});
-    try {
-      await api("/api/auth/member-signup", { body: form });
+  // Stays busy after success, while the browser moves to the next step.
+  const [redirecting, setRedirecting] = useState(false);
+  const signUp = useMutation((body: typeof form) => api("/api/auth/member-signup", { body }), {
+    onSuccess: () => {
+      setRedirecting(true);
       const plan = params.get("plan");
       router.push(plan && /^[a-z0-9-]{1,60}$/.test(plan) ? `/member/welcome?plan=${plan}` : "/member/welcome");
       router.refresh();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setFields(e.fields);
-        setError(e.message);
-      } else setError("Sign-up failed. Try again.");
-      setBusy(false);
-    }
+    },
+  });
+  const { error, fields } = signUp;
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void signUp.run(form);
   };
 
   return (
@@ -78,7 +72,7 @@ export function SignUpForm() {
         ) : null}
       </div>
       {error && !Object.keys(fields).length ? <FormMessage>{error}</FormMessage> : null}
-      <Button type="submit" busy={busy} className="w-full">
+      <Button type="submit" busy={signUp.busy || redirecting} className="w-full">
         Create account
       </Button>
       <p className="text-sm text-ink-soft">We only ask for what we need to run your membership. You choose a plan and pay on the next step.</p>

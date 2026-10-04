@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CalendarDays, Home, QrCode, ShoppingBag, UserRound } from "lucide-react";
-import { api, useResource, type Resource } from "@/lib/client/api";
+import { api, useMutation, useResource, type Resource } from "@/lib/client/api";
 import { cn } from "@/lib/client/cn";
 import { Button } from "@/components/ui/primitives";
 import { Wordmark } from "@/components/ui/logo";
@@ -110,19 +110,17 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
 }
 
 function TermsBanner({ onAccepted }: { onAccepted: () => void }) {
-  const [busy, setBusy] = useState(false);
   const toast = useToast();
-  const accept = async () => {
-    setBusy(true);
-    try {
-      await api("/api/me/terms", { method: "POST" });
+  // Stays busy after success until the banner goes away.
+  const [accepted, setAccepted] = useState(false);
+  const accept = useMutation(() => api("/api/me/terms", { method: "POST" }), {
+    onSuccess: () => {
+      setAccepted(true);
       toast("Thanks. Your acceptance is recorded.");
       onAccepted();
-    } catch {
-      toast("That didn't save. Try again.", "bad");
-      setBusy(false);
-    }
-  };
+    },
+    onError: () => toast("That didn't save. Try again.", "bad"),
+  });
   return (
     <section aria-label="Updated terms" className="border-b border-line bg-plate-tint">
       <div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -137,7 +135,7 @@ function TermsBanner({ onAccepted }: { onAccepted: () => void }) {
           </Link>
           .
         </p>
-        <Button onClick={accept} busy={busy} className="shrink-0">
+        <Button onClick={() => void accept.run()} busy={accept.busy || accepted} className="shrink-0">
           I accept
         </Button>
       </div>

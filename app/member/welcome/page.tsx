@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatAud, INTERVAL_LABELS } from "@/lib/money";
 import { cn } from "@/lib/client/cn";
 import { Button, PageHeader } from "@/components/ui/primitives";
@@ -40,38 +40,46 @@ function Welcome() {
   const router = useRouter();
   const toast = useToast();
   const [chosen, setChosen] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"card" | "desk" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Set once a payment choice succeeds, so its button stays busy while the
+  // browser moves on.
+  const [leaving, setLeaving] = useState<"card" | "desk" | null>(null);
 
   const preferred = plans.data?.find((p) => p.slug === params.get("plan"))?.id ?? null;
   const selected = chosen ?? preferred;
 
-  const payByCard = async () => {
-    if (!selected) return setError("Choose a membership first.");
-    setBusy("card");
-    setError(null);
-    try {
-      const { url } = await api<{ url: string }>("/api/checkout", { body: { planId: selected, acceptTerms: true } });
+  const card = useMutation(
+    async (planId: string) => {
+      const { url } = await api<{ url: string }>("/api/checkout", { body: { planId, acceptTerms: true } });
       await api("/api/me/onboarding", { method: "POST" }).catch(() => undefined);
-      window.location.assign(url);
-    } catch (e) {
-      setError(e instanceof ApiClientError ? e.message : "Couldn't start the payment. Try again.");
-      setBusy(null);
+      return url;
+    },
+    {
+      onSuccess: (url) => {
+        setLeaving("card");
+        window.location.assign(url);
+      },
+      onError: (e) => setError(e.message),
     }
-  };
+  );
 
-  const payAtDesk = async () => {
-    setBusy("desk");
-    try {
-      await api("/api/me/onboarding", { method: "POST" });
+  const desk = useMutation(() => api("/api/me/onboarding", { method: "POST" }), {
+    onSuccess: async () => {
+      setLeaving("desk");
       await me.reload();
       toast("All set. Bring a card or cash to the front desk and staff will start your membership.");
       router.push("/member");
-    } catch {
-      setError("That didn't save. Try again.");
-      setBusy(null);
-    }
+    },
+    onError: () => setError("That didn't save. Try again."),
+  });
+
+  const payByCard = () => {
+    if (!selected) return setError("Choose a membership first.");
+    setError(null);
+    void card.run(selected);
   };
+
+  const anyBusy = card.busy || desk.busy || leaving !== null;
 
   return (
     <div>
@@ -120,10 +128,10 @@ function Welcome() {
           . Card payments are handled by Stripe; the gym never sees your card number.
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button onClick={payByCard} busy={busy === "card"} disabled={busy !== null} className="sm:min-w-[12rem]">
+          <Button onClick={payByCard} busy={card.busy || leaving === "card"} disabled={anyBusy} className="sm:min-w-[12rem]">
             Pay by card
           </Button>
-          <Button variant="secondary" onClick={payAtDesk} busy={busy === "desk"} disabled={busy !== null}>
+          <Button variant="secondary" onClick={() => void desk.run()} busy={desk.busy || leaving === "desk"} disabled={anyBusy}>
             I&apos;ll pay at the front desk
           </Button>
         </div>
