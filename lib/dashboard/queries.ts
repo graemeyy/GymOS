@@ -3,6 +3,7 @@ import { monthlyEquivalentCents } from "@/lib/money";
 import { startOfTodayIn } from "@/lib/dates";
 import { DAY_MS, HOUR_MS } from "@/lib/time";
 import { gym } from "@/lib/config";
+import { AT_RISK_BELOW } from "@/lib/retention";
 
 type Revenue = { mrrCents: number; last30Cents: number; byPlan: { name: string; cents: number }[]; byProduct: { name: string; cents: number }[] };
 
@@ -22,7 +23,7 @@ export async function getDashboardStats(db: Db, showRevenue: boolean, now = new 
     db.member.aggregate({ where: { status: "PAST_DUE", archivedAt: null }, _sum: { amountOwingCents: true } }),
     db.checkIn.count({ where: { timestamp: { gte: startOfDay } } }),
     db.checkIn.findMany({ where: { timestamp: { gte: since7 } }, select: { timestamp: true } }),
-    db.member.count({ where: { status: "ACTIVE", archivedAt: null, retentionScore: { lt: 40 } } }),
+    db.member.count({ where: { status: "ACTIVE", archivedAt: null, retentionScore: { lt: AT_RISK_BELOW } } }),
     db.equipment.count({ where: { status: { in: ["WARNING", "OFFLINE"] } } }),
     db.order.count({ where: { status: { in: ["PAID", "PACKED", "READY_FOR_PICKUP"] } } }),
   ]);

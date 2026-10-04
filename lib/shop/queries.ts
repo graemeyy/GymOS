@@ -3,6 +3,7 @@ import { gym } from "@/lib/config";
 import { variantLabel } from "./labels";
 import type { Catalogue } from "./catalogue";
 import type { OrderListFilter, ProductListFilter } from "./schema";
+import { LOW_STOCK_AT, MAX_PER_ITEM } from "./limits";
 
 // The discount the member gets right now: their plan's shop discount while
 // their membership is active. Signed-up members without a plan, and paused,
@@ -41,8 +42,8 @@ export async function getCatalogue(memberId: string | null, where: { slug?: stri
         label: variantLabel(v),
         priceCents: v.priceCents,
         available: v.stockQty > 0,
-        lowStock: v.stockQty > 0 && v.stockQty <= 3,
-        maxQuantity: Math.min(v.stockQty, 20),
+        lowStock: v.stockQty > 0 && v.stockQty <= LOW_STOCK_AT,
+        maxQuantity: Math.min(v.stockQty, MAX_PER_ITEM),
       })),
     })),
   };

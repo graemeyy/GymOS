@@ -10,6 +10,7 @@ import { STATUS_TEXT, STATUS_TONE, type MemberStatus } from "@/lib/client/labels
 import { Button, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
 import { cn } from "@/lib/client/cn";
+import { AT_RISK_BELOW } from "@/lib/retention";
 
 interface Result {
   granted: boolean;
@@ -132,7 +133,7 @@ export default function CheckInPage() {
               </div>
               {result.warning ? <p className="mt-2 font-medium text-ink">{result.warning}</p> : null}
               {!result.member.keycardIssued ? <p className="mt-2 text-sm text-ink">No keycard issued yet.</p> : null}
-              {result.member.retentionScore < 40 ? <p className="mt-1 text-sm text-ink">Hasn&apos;t been in much lately. A quick hello helps.</p> : null}
+              {result.member.retentionScore < AT_RISK_BELOW ? <p className="mt-1 text-sm text-ink">Hasn&apos;t been in much lately. A quick hello helps.</p> : null}
             </section>
           ) : null}
           </div>

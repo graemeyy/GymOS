@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import { MAX_PER_ITEM } from "@/lib/shop/limits";
 
 // The cart lives in this browser only (localStorage). It holds variant IDs
 // and quantities, never prices: the server prices everything at checkout.
@@ -28,7 +29,7 @@ function read(): CartLine[] {
     if (Array.isArray(parsed)) {
       lines = parsed
         .filter((l): l is CartLine => typeof l?.variantId === "string" && Number.isInteger(l?.quantity) && l.quantity > 0)
-        .map((l) => ({ variantId: l.variantId, quantity: Math.min(l.quantity, 20) }));
+        .map((l) => ({ variantId: l.variantId, quantity: Math.min(l.quantity, MAX_PER_ITEM) }));
     }
   } catch {
     lines = EMPTY;
@@ -59,7 +60,7 @@ export function useCart() {
   const lines = useSyncExternalStore(subscribe, read, () => EMPTY);
   const setQuantity = useCallback((variantId: string, quantity: number) => {
     const current = read();
-    const next = quantity <= 0 ? current.filter((l) => l.variantId !== variantId) : current.some((l) => l.variantId === variantId) ? current.map((l) => (l.variantId === variantId ? { ...l, quantity: Math.min(quantity, 20) } : l)) : [...current, { variantId, quantity: Math.min(quantity, 20) }];
+    const next = quantity <= 0 ? current.filter((l) => l.variantId !== variantId) : current.some((l) => l.variantId === variantId) ? current.map((l) => (l.variantId === variantId ? { ...l, quantity: Math.min(quantity, MAX_PER_ITEM) } : l)) : [...current, { variantId, quantity: Math.min(quantity, MAX_PER_ITEM) }];
     write(next);
   }, []);
   const add = useCallback((variantId: string, quantity = 1) => {

@@ -10,6 +10,8 @@ import { commitStock, priceOrder } from "./orders";
 import { variantLabel } from "./labels";
 import { memberShopDiscount } from "./queries";
 import type { ShopCheckoutInput } from "./schema";
+import { STRIPE_MINIMUM_CENTS } from "./limits";
+import { MINUTE_MS } from "@/lib/time";
 
 // Prices the cart on the server (the browser's prices are never trusted),
 // creates a pending order, and opens a Stripe Checkout page for it. Stock is
@@ -40,7 +42,7 @@ export async function startShopCheckout(db: Db, actor: Actor & { kind: "member" 
     discountPercent,
     input.fulfilment
   );
-  if (priced.totalCents < 50) throw new ApiError("validation_failed", "The order total is too small to pay by card.");
+  if (priced.totalCents < STRIPE_MINIMUM_CENTS) throw new ApiError("validation_failed", "The order total is too small to pay by card.");
 
   const byId = new Map(variants.map((v) => [v.id, v]));
   const order = await db.order.create({
@@ -94,9 +96,9 @@ export async function startShopCheckout(db: Db, actor: Actor & { kind: "member" 
         metadata: { orderId: order.id, memberId: actor.id, kind: "shop" },
         payment_intent_data: { metadata: { orderId: order.id } },
         ...(member.stripeCustomerId ? { customer: member.stripeCustomerId } : { customer_email: member.email }),
-        // Stripe's shortest allowed expiry. An abandoned order is cancelled
-        // when Stripe reports it expired.
-        expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+        // Stripe's shortest allowed expiry, 30 minutes. An abandoned order is
+        // cancelled when Stripe reports it expired.
+        expires_at: Math.floor((Date.now() + 30 * MINUTE_MS) / 1000),
         success_url: `${appUrl}/member/orders/${order.id}?paid=1`,
         cancel_url: `${appUrl}/shop/cart`,
       },

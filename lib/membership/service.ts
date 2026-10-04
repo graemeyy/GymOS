@@ -10,8 +10,7 @@ import { currentCycle } from "./cycle";
 import { prorationCents } from "./proration";
 import { monthlyEquivalentCents } from "@/lib/money";
 import { countPausesInLastYear } from "./queries";
-
-const DAY = 86_400_000;
+import { DAY_MS } from "@/lib/time";
 
 type Policies = GymConfig["policies"];
 
@@ -58,8 +57,8 @@ export function validatePause(
   now = new Date()
 ) {
   if (input.byMember && !policy.allowMemberSelfPause) throw new ApiError("forbidden", "Pauses are arranged at the front desk.");
-  const days = Math.round((input.until.getTime() - input.from.getTime()) / DAY);
-  if (input.from.getTime() < now.getTime() - DAY) throw new ApiError("validation_failed", "A pause can't start in the past.", { from: "Choose today or later" });
+  const days = Math.round((input.until.getTime() - input.from.getTime()) / DAY_MS);
+  if (input.from.getTime() < now.getTime() - DAY_MS) throw new ApiError("validation_failed", "A pause can't start in the past.", { from: "Choose today or later" });
   if (days < policy.minDays) throw new ApiError("validation_failed", `A pause must be at least ${policy.minDays} days.`, { until: `At least ${policy.minDays} days` });
   if (days > policy.maxDays) throw new ApiError("validation_failed", `A pause can be at most ${policy.maxDays} days.`, { until: `At most ${policy.maxDays} days` });
   if (input.pausesThisYear >= policy.maxPausesPerYear) {
@@ -131,11 +130,11 @@ export function cancellationTerms(
   policy: Policies["cancellation"] = gym.policies.cancellation,
   now = new Date()
 ): CancellationTerms {
-  const withinCoolingOff = now.getTime() - joinedAt.getTime() < policy.coolingOffDays * DAY;
+  const withinCoolingOff = now.getTime() - joinedAt.getTime() < policy.coolingOffDays * DAY_MS;
   if (opts.immediate) return { effectiveAt: now, withinCoolingOff, reason: "immediate" };
   if (withinCoolingOff) return { effectiveAt: now, withinCoolingOff, reason: "cooling_off" };
-  const afterNotice = new Date(now.getTime() + policy.noticeDays * DAY);
-  const minimumEnd = new Date(joinedAt.getTime() + policy.minimumTermWeeks * 7 * DAY);
+  const afterNotice = new Date(now.getTime() + policy.noticeDays * DAY_MS);
+  const minimumEnd = new Date(joinedAt.getTime() + policy.minimumTermWeeks * 7 * DAY_MS);
   return minimumEnd > afterNotice
     ? { effectiveAt: minimumEnd, withinCoolingOff, reason: "minimum_term" }
     : { effectiveAt: afterNotice, withinCoolingOff, reason: "notice" };

@@ -3,8 +3,7 @@ import { gym } from "@/lib/config";
 import { formatAud } from "@/lib/money";
 import { env } from "@/lib/env";
 import { sendEmail, signature } from "@/lib/email";
-
-const DAY = 86_400_000;
+import { DAY_MS } from "@/lib/time";
 
 // Sends each configured reminder once per overdue episode. Stripe's own
 // Smart Retries keep retrying the card; these emails ask the member to update
@@ -17,7 +16,7 @@ export async function sendPaymentReminders(db: Db, now = new Date()) {
   });
   let sent = 0;
   for (const m of members) {
-    const overdueDays = Math.floor((now.getTime() - m.pastDueSince!.getTime()) / DAY);
+    const overdueDays = Math.floor((now.getTime() - m.pastDueSince!.getTime()) / DAY_MS);
     const due = days.filter((d) => d <= overdueDays);
     if (due.length === 0) continue;
     const day = due[due.length - 1];
@@ -64,5 +63,5 @@ export function listOverdueMembers(db: Db) {
 // owner, so the front desk can let them in and remind them.
 export function withinGracePeriod(pastDueSince: Date | null, now = new Date()): boolean {
   if (!pastDueSince) return false;
-  return now.getTime() - pastDueSince.getTime() < gym.policies.failedPayments.suspendAccessAfterDays * DAY;
+  return now.getTime() - pastDueSince.getTime() < gym.policies.failedPayments.suspendAccessAfterDays * DAY_MS;
 }

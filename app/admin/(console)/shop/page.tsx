@@ -10,6 +10,7 @@ import { useStaff } from "@/components/admin/staff-session";
 import { IconButton, LinkButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { SelectField } from "@/components/ui/form";
+import { LOW_STOCK_AT } from "@/lib/shop/limits";
 
 interface Variant {
   id: string;
@@ -109,7 +110,7 @@ export default function ShopProductsPage() {
                           </span>
                           <span className="flex items-center gap-3">
                             <span className="tabular">{formatAud(v.priceCents)}</span>
-                            {v.stockQty === 0 ? <StatusTag tone="bad">Sold out</StatusTag> : v.stockQty <= 3 ? <StatusTag tone="warn">{v.stockQty} left</StatusTag> : <span className="tabular w-14 text-right text-sm text-ink-soft">{v.stockQty} in stock</span>}
+                            {v.stockQty === 0 ? <StatusTag tone="bad">Sold out</StatusTag> : v.stockQty <= LOW_STOCK_AT ? <StatusTag tone="warn">{v.stockQty} left</StatusTag> : <span className="tabular w-14 text-right text-sm text-ink-soft">{v.stockQty} in stock</span>}
                             {can("inventory:adjust") ? (
                               <span className="flex">
                                 <IconButton label={`One less ${p.name} ${variantLabel(v)}`} disabled={v.stockQty === 0} onClick={() => adjust(v, -1)}>

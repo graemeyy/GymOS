@@ -4,8 +4,8 @@ import { RATE_LIMITS } from "@/lib/rate-limit";
 import { listRecentCheckIns } from "@/lib/checkin/queries";
 import { checkInByQuery } from "@/lib/checkin/service";
 
-// Front-desk check-in. Staff only: this used to be public and leaked member
-// details to anyone who guessed an email (audit S2).
+// Front-desk check-in. Staff only, so member details never reach the public
+// (audit S2).
 export const GET = staffRoute({ permission: "checkin:scan" }, async ({ db }) => json(await listRecentCheckIns(db)));
 
 const Body = z.object({ query: z.string().trim().min(1, "Scan a pass or enter a member ID or email").max(2000) });

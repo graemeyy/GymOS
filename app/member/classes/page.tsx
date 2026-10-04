@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { api, useMutation, useResource } from "@/lib/client/api";
+import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { fmtDayHeading, fmtTime } from "@/lib/format";
 import { gym } from "@/lib/config/client";
 import { Button, IconButton, PageHeader, StatusTag } from "@/components/ui/primitives";
@@ -49,8 +49,28 @@ export default function MemberClassesPage() {
     return { from: start.toISOString(), to: new Date(from.getTime() + 7 * DAY_MS).toISOString() };
   }, [week]);
   const timetable = useResource<Timetable>(`/api/me/classes?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`);
-  const reload = async () => {
-    await Promise.all([timetable.reload(), me.reload()]);
+  const toast = useToast();
+  // One entry per pending class: a single busy ID let a second booking
+  // re-enable the first while it was still being sent (R-61).
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
+
+  const act = async (cls: ClassRow, method: "POST" | "DELETE", kind: "booking" | "waitlist") => {
+    setBusyIds((ids) => new Set(ids).add(cls.id));
+    try {
+      const res = await api<{ late?: boolean; creditReturned?: boolean }>(`/api/me/classes/${cls.id}/${kind}`, { method });
+      if (kind === "booking" && method === "POST") toast(`Booked: ${cls.name} at ${fmtTime(cls.startTime)}.`);
+      if (kind === "booking" && method === "DELETE") toast(res.late && !res.creditReturned ? "Booking cancelled. It was a late cancellation, so the class credit was used." : "Booking cancelled.");
+      if (kind === "waitlist") toast(method === "POST" ? "You're on the waitlist. We'll book you in if a spot opens." : "Left the waitlist.");
+      await Promise.all([timetable.reload(), me.reload()]);
+    } catch (e) {
+      toast(e instanceof ApiClientError ? e.message : "That didn't work. Try again.", "bad");
+    } finally {
+      setBusyIds((ids) => {
+        const next = new Set(ids);
+        next.delete(cls.id);
+        return next;
+      });
+    }
   };
 
   const credits = me.data?.usage.classCreditsRemaining;
@@ -109,7 +129,7 @@ export default function MemberClassesPage() {
                         <div className="flex items-center gap-3 pl-[5.75rem] sm:justify-end sm:pl-0">
                           {c.booked ? <StatusTag tone="good">Booked</StatusTag> : null}
                           {c.waitlistPosition ? <StatusTag tone="warn">{`Waitlist #${c.waitlistPosition}`}</StatusTag> : null}
-                          <ClassAction cls={c} onDone={reload} />
+                          <ClassAction cls={c} busy={busyIds.has(c.id)} onAct={act} />
                         </div>
                       </li>
                     ))}
@@ -124,47 +144,31 @@ export default function MemberClassesPage() {
   );
 }
 
-// Each row has its own mutation, so several classes can be booked at once
-// and one finishing doesn't re-enable another that's still being sent (R-61).
-function ClassAction({ cls, onDone }: { cls: ClassRow; onDone: () => Promise<void> }) {
-  const toast = useToast();
-  const action = useMutation(
-    (method: "POST" | "DELETE", kind: "booking" | "waitlist") => api<{ late?: boolean; creditReturned?: boolean }>(`/api/me/classes/${cls.id}/${kind}`, { method }),
-    {
-      onSuccess: async (res, method, kind) => {
-        if (kind === "booking" && method === "POST") toast(`Booked: ${cls.name} at ${fmtTime(cls.startTime)}.`);
-        if (kind === "booking" && method === "DELETE") toast(res.late && !res.creditReturned ? "Booking cancelled. It was a late cancellation, so the class credit was used." : "Booking cancelled.");
-        if (kind === "waitlist") toast(method === "POST" ? "You're on the waitlist. We'll book you in if a spot opens." : "Left the waitlist.");
-        await onDone();
-      },
-      onError: (e) => toast(e.message, "bad"),
-    }
-  );
-  const busy = action.busy;
+function ClassAction({ cls, busy, onAct }: { cls: ClassRow; busy: boolean; onAct: (c: ClassRow, m: "POST" | "DELETE", k: "booking" | "waitlist") => void }) {
   const started = new Date(cls.startTime).getTime() <= Date.now();
   if (started) return <span className="text-sm text-ink-soft">Started</span>;
   const label = `${cls.name} at ${fmtTime(cls.startTime)}`;
   if (cls.booked)
     return (
-      <Button variant="secondary" busy={busy} onClick={() => void action.run("DELETE", "booking")} aria-label={`Cancel booking for ${label}`}>
+      <Button variant="secondary" busy={busy} onClick={() => onAct(cls, "DELETE", "booking")} aria-label={`Cancel booking for ${label}`}>
         Cancel booking
       </Button>
     );
   if (cls.waitlistPosition)
     return (
-      <Button variant="ghost" busy={busy} onClick={() => void action.run("DELETE", "waitlist")} aria-label={`Leave waitlist for ${label}`}>
+      <Button variant="ghost" busy={busy} onClick={() => onAct(cls, "DELETE", "waitlist")} aria-label={`Leave waitlist for ${label}`}>
         Leave waitlist
       </Button>
     );
   if (!cls.bookingOpen) return <span className="text-sm text-ink-soft">Booking not open yet</span>;
   if (cls.spotsLeft > 0)
     return (
-      <Button busy={busy} onClick={() => void action.run("POST", "booking")} aria-label={`Book ${label}`}>
+      <Button busy={busy} onClick={() => onAct(cls, "POST", "booking")} aria-label={`Book ${label}`}>
         Book
       </Button>
     );
   return (
-    <Button variant="secondary" busy={busy} onClick={() => void action.run("POST", "waitlist")} aria-label={`Join waitlist for ${label}`}>
+    <Button variant="secondary" busy={busy} onClick={() => onAct(cls, "POST", "waitlist")} aria-label={`Join waitlist for ${label}`}>
       Join waitlist
     </Button>
   );

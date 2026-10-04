@@ -1,5 +1,8 @@
 import { DAY_MS } from "@/lib/time";
 
+/** Members scoring below this are flagged as likely to leave. */
+export const AT_RISK_BELOW = 40;
+
 // Retention score, 0 to 100. Half from how recently the member visited, half
 // from how often they came in the last 30 days, minus a penalty for classes
 // they booked and didn't attend.

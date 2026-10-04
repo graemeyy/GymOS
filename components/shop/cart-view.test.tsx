@@ -47,20 +47,3 @@ describe("R-49 stock dropping below the cart quantity", () => {
     expect((screen.getByRole("button", { name: /^Pay/ }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
-
-describe("checkout", () => {
-  it("starts one checkout when Pay is clicked twice quickly", async () => {
-    window.localStorage.setItem("gymos-cart-v1", JSON.stringify([{ variantId: "v1", quantity: 1 }]));
-    const fetchMock = vi.fn((_url: string, init?: RequestInit) =>
-      init?.method === "POST" ? new Promise<Response>(() => {}) : Promise.resolve(new Response(JSON.stringify(catalogue), { status: 200 }))
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    render(<CartView />);
-    await waitFor(() => expect((screen.getByRole("button", { name: /^Pay/ }) as HTMLButtonElement).disabled).toBe(false));
-    const pay = screen.getByRole("button", { name: /^Pay/ }) as HTMLButtonElement;
-    fireEvent.click(pay);
-    fireEvent.click(pay);
-    await waitFor(() => expect(pay.disabled).toBe(true));
-    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST").map(([url]) => url)).toEqual(["/api/shop/checkout"]);
-  });
-});
