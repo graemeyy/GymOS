@@ -135,3 +135,5 @@ Decisions made while building GymOS without stopping to ask, with the reason and
 **D-058. Email goes through Resend's HTTP API and does nothing without a key.** (PR 2) No SDK dependency. Without `RESEND_API_KEY` sends are logged as skipped; tests capture messages instead of sending.
 
 **D-059. All daily jobs run from the existing cron route.** (PR 2) `/api/cron/churn-shield` already had a Vercel cron entry and a secret. It now runs transitions, reminders, timetable generation, retention scoring and rate-limit clean-up. Renaming the route would mean changing the deployment's cron config, which this work doesn't touch.
+
+**D-060. Preview deployments don't run migrations.** (PR 1, added after PR 2 opened) Vercel builds a preview for every pull request branch, and the build command runs `prisma migrate deploy`. If the preview environment shares the production `DATABASE_URL`, an unmerged branch could change the production schema. The migration script now skips unless `VERCEL_ENV` is `production` or `ALLOW_PREVIEW_MIGRATIONS=true`. A preview against an un-migrated database may show errors on new screens; that is the safe failure.
