@@ -134,6 +134,12 @@ export async function deletionBlockers(db: Db, memberId: string): Promise<Deleti
 export async function eraseMember(db: Db, actor: Actor, memberId: string) {
   const blockers = await deletionBlockers(db, memberId);
   if (blockers.length > 0) throw new ApiError("conflict", blockers[0].message);
+  await anonymiseMember(db, actor.kind === "member" ? { kind: "system", name: "Member request" } : actor, memberId);
+}
+
+// The erasure itself, without the checks. Also used by the retention job for
+// members archived longer than the gym keeps personal details.
+export async function anonymiseMember(db: Db, actor: Actor, memberId: string) {
   const now = new Date();
   await db.$transaction(async (tx) => {
     await tx.classBooking.deleteMany({ where: { memberId, class: { startTime: { gt: now } } } });
@@ -172,7 +178,7 @@ export async function eraseMember(db: Db, actor: Actor, memberId: string) {
         data: { ...(row.staffName.startsWith("Member: ") ? { staffName: `Member: ${ERASED}` } : {}), ...(details !== undefined ? { details } : {}) },
       });
     }
-    await logAction(tx, actor.kind === "member" ? { kind: "system", name: "Member request" } : actor, { action: "member.erased", targetType: "Member", targetId: memberId });
+    await logAction(tx, actor, { action: "member.erased", targetType: "Member", targetId: memberId });
   });
 }
 

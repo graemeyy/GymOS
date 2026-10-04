@@ -28,6 +28,8 @@ async function main() {
     if (reset) {
       if (!isLocalDatabase(url)) throw new Error("--reset is only allowed against a local or test database.");
       await resetDatabase(prisma);
+      // Start plans from config too, so benefits match the current config.
+      await prisma.membershipPlan.deleteMany();
     } else if (!(await isDatabaseEmpty(prisma))) {
       console.info("Database already has members or staff. Nothing seeded. Use --reset on a local database to start over.");
       return;

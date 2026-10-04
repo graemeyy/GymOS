@@ -42,7 +42,7 @@ export function NotesPanel({ memberId, archived }: { memberId: string; archived:
       <PanelHeader id="notes-heading" title="Staff notes" />
       {can("members:write") && !archived ? (
         <form onSubmit={add} className="space-y-3 border-b border-line px-4 py-3">
-          <TextareaField label="Add a note" rows={2} value={body} hint="Staff only. Don't record health details unless the member has agreed." onChange={(e) => setBody(e.target.value)} />
+          <TextareaField label="Add a note" rows={2} value={body} hint="Not shown in the member app, but included if the member downloads their data. Don't record health details unless they've agreed." onChange={(e) => setBody(e.target.value)} />
           {error ? <FormMessage>{error}</FormMessage> : null}
           <Button type="submit" variant="secondary" busy={busy} disabled={!body.trim()}>
             Save note

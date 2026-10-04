@@ -2,6 +2,7 @@ import type { PrismaClient, ProductCategory, Status } from "@prisma/client";
 import { hashPassword } from "../lib/auth/password";
 import { gstFromInclusive } from "../lib/money";
 import { syncPlansFromConfig } from "../lib/plans";
+import { gym } from "../lib/config";
 
 // Fictional data only. Every name, email and number below is made up; emails
 // use the reserved example.com domain.
@@ -51,13 +52,15 @@ export const DEMO_MEMBERS: SeedMember[] = [
   { name: "Hamish Fraser", email: "hamish.fraser@example.com", plan: "off-peak", status: "ACTIVE", retentionScore: 58, lastSeenDays: 7, visitsPerWeek: 2 },
   { name: "Mei Tanaka", email: "mei.tanaka@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 71, lastSeenDays: 1, visitsPerWeek: 3 },
   { name: "Riley Dunstan", email: "riley.dunstan@example.com", plan: "standard", status: "PAST_DUE", retentionScore: 48, lastSeenDays: 4, visitsPerWeek: 2 },
+  // Signed up online yesterday and hasn't chosen a plan yet.
+  { name: "Oliver Brandt", email: "oliver.brandt@example.com", plan: "", status: "PENDING", retentionScore: 100, lastSeenDays: null, visitsPerWeek: 0, login: true },
 ];
 
 const CLASSES = [
   { name: "Barbell Basics", instructor: "Lachie Brennan", day: 0, hourUtc: 20, durationMinutes: 60, capacity: 10 },
   { name: "Conditioning", instructor: "Lachie Brennan", day: 1, hourUtc: 7, durationMinutes: 45, capacity: 16 },
   { name: "Mobility", instructor: "Tom Nguyen", day: 1, hourUtc: 22, durationMinutes: 45, capacity: 12 },
-  { name: "Strongman Saturday", instructor: "Lachie Brennan", day: 3, hourUtc: 22, durationMinutes: 75, capacity: 8 },
+  { name: "Strongman", instructor: "Lachie Brennan", day: 3, hourUtc: 22, durationMinutes: 75, capacity: 8 },
   { name: "Conditioning", instructor: "Lachie Brennan", day: 4, hourUtc: 7, durationMinutes: 45, capacity: 16 },
 ];
 
@@ -66,7 +69,7 @@ const TEMPLATES = [
   { name: "Barbell Basics", trainer: "Lachie Brennan", weekday: 1, startTime: "18:00", durationMinutes: 60, capacity: 10 },
   { name: "Mobility", trainer: "Tom Nguyen", weekday: 2, startTime: "07:00", durationMinutes: 45, capacity: 12 },
   { name: "Conditioning", trainer: "Lachie Brennan", weekday: 3, startTime: "06:00", durationMinutes: 45, capacity: 16 },
-  { name: "Strongman Saturday", trainer: "Lachie Brennan", weekday: 5, startTime: "09:00", durationMinutes: 75, capacity: 8 },
+  { name: "Strongman", trainer: "Lachie Brennan", weekday: 5, startTime: "09:00", durationMinutes: 75, capacity: 8 },
 ];
 
 type SeedVariant = { sku: string; priceCents: number; stockQty: number; size?: string; colour?: string; flavour?: string };
@@ -193,7 +196,7 @@ export async function seedDatabase(prisma: PrismaClient) {
   const memberIds: string[] = [];
   for (const [i, m] of DEMO_MEMBERS.entries()) {
     const plan = plans.get(m.plan);
-    const joined = daysAgo(400 - i * 25);
+    const joined = m.status === "PENDING" ? daysAgo(1) : daysAgo(400 - i * 25);
     const member = await prisma.member.create({
       data: {
         name: m.name,
@@ -202,7 +205,8 @@ export async function seedDatabase(prisma: PrismaClient) {
         planId: plan?.id ?? null,
         retentionScore: m.retentionScore,
         lastCheckIn: m.lastSeenDays === null ? null : daysAgo(m.lastSeenDays, 2),
-        keycardIssued: m.status !== "CANCELED",
+        keycardIssued: m.status !== "CANCELED" && m.status !== "PENDING",
+        onboardedAt: m.status === "PENDING" ? null : joined,
         passwordHash: m.login ? passwordHash : null,
         createdAt: joined,
         pastDueSince: m.status === "PAST_DUE" ? daysAgo(m.retentionScore > 50 ? 2 : 9) : null,
@@ -216,7 +220,15 @@ export async function seedDatabase(prisma: PrismaClient) {
     if (m.notes) {
       await prisma.memberNote.create({ data: { memberId: member.id, staffName: "Aisha Rahman", body: m.notes, createdAt: daysAgo(3) } });
     }
-    await prisma.membershipEvent.create({ data: { memberId: member.id, type: "JOINED", effectiveAt: joined, actorName: "Aisha Rahman", createdAt: joined } });
+    if (m.status !== "PENDING") {
+      await prisma.membershipEvent.create({ data: { memberId: member.id, type: "JOINED", effectiveAt: joined, actorName: "Aisha Rahman", createdAt: joined } });
+    }
+    // Members who use the app have accepted the current documents.
+    if (m.login || m.status === "PENDING") {
+      await prisma.legalAcceptance.createMany({
+        data: (["TERMS", "PRIVACY"] as const).map((document) => ({ memberId: member.id, document, version: document === "TERMS" ? gym.legal.termsVersion : gym.legal.privacyVersion, context: m.status === "PENDING" ? "signup" : "reaccept", acceptedAt: joined })),
+      });
+    }
     if (m.status === "CANCELED") {
       await prisma.membershipEvent.create({ data: { memberId: member.id, type: "CANCELLED", effectiveAt: daysAgo(12), details: { reason: "Moving interstate" }, actorName: "Tom Nguyen" } });
     }
