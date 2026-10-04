@@ -1,7 +1,7 @@
 import type { PrismaClient, ProductCategory, Status } from "@prisma/client";
 import { hashPassword } from "../lib/auth/password";
 import { gstFromInclusive } from "../lib/money";
-import { syncPlansFromConfig } from "../lib/plans";
+import { syncPlansFromConfig } from "../lib/plans/service";
 import { gym } from "../lib/config";
 import { DEMO_PASSWORD } from "./demo";
 

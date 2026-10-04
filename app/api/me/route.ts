@@ -1,5 +1,5 @@
 import { memberRoute, json } from "@/lib/http/route";
-import { benefitsOf } from "@/lib/plans";
+import { benefitsOf } from "@/lib/plans/queries";
 import { getBenefitUsage } from "@/lib/membership/benefits";
 import { outstandingAcceptances } from "@/lib/legal";
 import { ProfileBody } from "@/lib/members/schema";

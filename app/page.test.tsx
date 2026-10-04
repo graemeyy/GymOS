@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
-vi.mock("@/lib/plans", () => ({ listPlans: async () => [], benefitsOf: () => [] }));
+vi.mock("@/lib/plans/queries", () => ({ listPlans: async () => [], benefitsOf: () => [] }));
 vi.mock("@/components/public/site-chrome", () => ({ SiteHeader: () => null, SiteFooter: () => null }));
 const { default: HomePage } = await import("./page");
 

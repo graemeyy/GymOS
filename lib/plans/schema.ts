@@ -15,3 +15,6 @@ export const PlanFields = {
 
 export const CreatePlanBody = z.object({ ...PlanFields, description: PlanFields.description.optional(), active: PlanFields.active.default(true) });
 export const UpdatePlanBody = z.object(PlanFields).partial().refine((b) => Object.keys(b).length > 0, "Nothing to update");
+
+export type CreatePlanInput = z.infer<typeof CreatePlanBody>;
+export type UpdatePlanInput = z.infer<typeof UpdatePlanBody>;

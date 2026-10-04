@@ -4,7 +4,7 @@ import { gym } from "@/lib/config";
 import { formatAud } from "@/lib/money";
 import { currentMemberId } from "@/lib/auth/server-session";
 import { getCatalogue } from "@/lib/shop/queries";
-import { listPlans } from "@/lib/plans";
+import { listPlans } from "@/lib/plans/queries";
 import { CATEGORY_TEXT } from "@/lib/shop/labels";
 import { PageHeader } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/ui/feedback";

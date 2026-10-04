@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { createSessionToken, SESSION_COOKIE } from "@/lib/auth/token";
 import { hashPassword } from "@/lib/auth/password";
 import { resetDatabase } from "@/prisma/seed-data";
-import { syncPlansFromConfig } from "@/lib/plans";
+import { syncPlansFromConfig } from "@/lib/plans/service";
 
 export { prisma };
 

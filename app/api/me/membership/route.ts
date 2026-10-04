@@ -1,6 +1,6 @@
 import { memberRoute, json } from "@/lib/http/route";
 import { gym } from "@/lib/config";
-import { listPlans } from "@/lib/plans";
+import { listPlans } from "@/lib/plans/queries";
 import { cancellationTerms, previewPlanChange } from "@/lib/membership/service";
 import { countPausesInLastYear, getMembershipForMember } from "@/lib/membership/queries";
 
