@@ -34,6 +34,8 @@ export default defineConfig({
       CRON_SECRET: "e2e-cron-secret-0123456789",
       STRIPE_SECRET_KEY: "",
       STRIPE_WEBHOOK_SECRET: "",
+      // Email isn't set up in the tests, so single-use links show on screen (D-115).
+      SHOW_EMAIL_LINKS: "true",
     },
   },
 });

@@ -26,4 +26,5 @@ export interface Me {
   usage: { classCreditsRemaining: number | null; guestPassesRemaining: number | null; cycleEnd: string | null };
   outstandingAcceptances: ("TERMS" | "PRIVACY")[];
   mustChangePassword: boolean;
+  emailVerifiedAt: string | null;
 }
