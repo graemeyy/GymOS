@@ -1,11 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { prisma } from "@/lib/db";
 import { gym } from "@/lib/config";
 import { formatAud } from "@/lib/money";
 import { currentMemberId } from "@/lib/auth/server-session";
-import { getCatalogue } from "@/lib/shop/catalogue";
-import { listPlans } from "@/lib/plans";
+import { getCatalogue } from "@/lib/shop/queries";
+import { listPlans } from "@/lib/plans/queries";
 import { CATEGORY_TEXT } from "@/lib/shop/labels";
 import { PageHeader } from "@/components/ui/primitives";
 import { EmptyState } from "@/components/ui/feedback";
@@ -15,7 +14,7 @@ export const metadata: Metadata = { title: "Shop" };
 export const dynamic = "force-dynamic";
 
 export default async function ShopPage() {
-  const [catalogue, plans] = await Promise.all([getCatalogue(prisma, await currentMemberId()), listPlans(prisma)]);
+  const [catalogue, plans] = await Promise.all([getCatalogue(await currentMemberId()), listPlans()]);
   const bestDiscount = Math.max(0, ...plans.map((p) => p.shopDiscountPercent));
   const groups = Object.entries(CATEGORY_TEXT)
     .map(([category, label]) => ({ category, label, products: catalogue.products.filter((p) => p.category === category) }))

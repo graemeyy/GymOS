@@ -1,3 +1,4 @@
+import "server-only";
 import { z } from "zod";
 
 const optionalSecret = (min: number, label: string) =>
@@ -15,7 +16,7 @@ export const serverEnvSchema = z
     NEXT_PUBLIC_APP_URL: z.url().default("http://localhost:3000"),
     STRIPE_SECRET_KEY: z
       .string()
-      .regex(/^(sk|rk)_(test|live)_/, "STRIPE_SECRET_KEY must start with sk_test_ or rk_test_")
+      .regex(/^(sk|rk)_(test|live)_/, "STRIPE_SECRET_KEY must start with sk_test_ or rk_test_ (live keys, sk_live_ or rk_live_, also need STRIPE_ALLOW_LIVE_KEYS=true)")
       .optional()
       .or(z.literal("").transform(() => undefined)),
     STRIPE_WEBHOOK_SECRET: z

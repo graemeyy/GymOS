@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { AuthFrame } from "@/components/auth/auth-frame";
 import { Button } from "@/components/ui/primitives";
 import { FormMessage, TextField } from "@/components/ui/form";
@@ -13,25 +13,18 @@ export default function SetupPage() {
   const router = useRouter();
   const status = useResource<{ needsSetup: boolean; tokenRequired: boolean }>("/api/auth/bootstrap");
   const [form, setForm] = useState({ name: "", email: "", password: "", setupToken: "" });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setErrors({});
-    setMessage(null);
-    try {
-      await api("/api/auth/bootstrap", { body: { ...form, setupToken: form.setupToken || undefined } });
+  // Stays busy after the account is created while the page moves to sign-in.
+  const [created, setCreated] = useState(false);
+  const create = useMutation((body: typeof form) => api("/api/auth/bootstrap", { body: { ...body, setupToken: body.setupToken || undefined } }), {
+    onSuccess: () => {
+      setCreated(true);
       router.push("/admin/login");
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-      }
-      setBusy(false);
-    }
+    },
+  });
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void create.run(form);
   };
 
   if (status.loading) return <AuthFrame title="Set up"><LoadingRows rows={3} /></AuthFrame>;
@@ -53,14 +46,14 @@ export default function SetupPage() {
     <AuthFrame title="Create the owner account">
       <p className="mb-4 text-sm text-ink-soft">This form only works once, while no staff accounts exist.</p>
       <form onSubmit={submit} className="space-y-4" noValidate>
-        <TextField label="Your name" autoComplete="name" required value={form.name} error={errors.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <TextField label="Email" type="email" autoComplete="email" required value={form.email} error={errors.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <TextField label="Password" type="password" autoComplete="new-password" required hint="At least 10 characters." value={form.password} error={errors.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+        <TextField label="Your name" autoComplete="name" required value={form.name} error={create.fields.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <TextField label="Email" type="email" autoComplete="email" required value={form.email} error={create.fields.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <TextField label="Password" type="password" autoComplete="new-password" required hint="At least 10 characters." value={form.password} error={create.fields.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
         {status.data?.tokenRequired ? (
-          <TextField label="Setup token" autoComplete="off" required hint="The SETUP_TOKEN value from the hosting settings." value={form.setupToken} error={errors.setupToken} onChange={(e) => setForm({ ...form, setupToken: e.target.value })} />
+          <TextField label="Setup token" autoComplete="off" required hint="The SETUP_TOKEN value from the hosting settings." value={form.setupToken} error={create.fields.setupToken} onChange={(e) => setForm({ ...form, setupToken: e.target.value })} />
         ) : null}
-        {message ? <FormMessage>{message}</FormMessage> : null}
-        <Button type="submit" busy={busy} className="w-full">
+        {create.error ? <FormMessage>{create.error}</FormMessage> : null}
+        <Button type="submit" busy={create.busy || created} className="w-full">
           Create owner account
         </Button>
       </form>

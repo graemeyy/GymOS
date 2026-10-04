@@ -1,4 +1,4 @@
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { applyDiscount, gstFromInclusive } from "@/lib/money";
 
 // Pure pricing rules, shared by checkout on the server and the cart's

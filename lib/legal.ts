@@ -1,6 +1,8 @@
 import type { LegalDocument } from "@prisma/client";
 import type { Db, Tx } from "@/lib/db";
+import type { MemberActor } from "@/lib/auth/session";
 import { gym } from "@/lib/config";
+import { logAction } from "@/lib/audit";
 
 export function currentVersions(): Record<LegalDocument, string> {
   return { TERMS: gym.legal.termsVersion, PRIVACY: gym.legal.privacyVersion };
@@ -25,4 +27,13 @@ export async function outstandingAcceptances(db: Db | Tx, memberId: string): Pro
   });
   const done = new Set(accepted.map((a) => a.document));
   return (Object.keys(versions) as LegalDocument[]).filter((d) => !done.has(d));
+}
+
+export async function acceptCurrentTerms(db: Db, member: MemberActor) {
+  await db.$transaction(async (tx) => {
+    const outstanding = await outstandingAcceptances(tx, member.id);
+    if (outstanding.length === 0) return;
+    await recordAcceptance(tx, member.id, "reaccept", outstanding);
+    await logAction(tx, member, { action: "member.terms_accepted", targetType: "Member", targetId: member.id, details: { documents: outstanding, termsVersion: gym.legal.termsVersion, privacyVersion: gym.legal.privacyVersion } });
+  });
 }

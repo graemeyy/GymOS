@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { parseDollarsToCents } from "@/lib/money";
 import { CATEGORY_TEXT, PRODUCT_CATEGORIES, type Category } from "@/lib/shop/labels";
 import { Button, IconButton, PageHeader, Panel, PanelHeader } from "@/components/ui/primitives";
@@ -63,8 +63,31 @@ export default function ProductEditorPage() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  // Stays busy after archiving while the page moves to the shop.
+  const [archived, setArchived] = useState(false);
+
+  const save = useMutation((body: Record<string, unknown>) => api<ProductData>(isNew ? "/api/products" : `/api/products/${id}`, { method: isNew ? "POST" : "PUT", body }), {
+    onSuccess: (saved) => {
+      setWarnings(saved.claimWarnings);
+      toast(isNew ? "Product added" : "Product saved");
+      if (isNew) router.replace(`/admin/shop/products/${saved.id}`);
+      else void existing.reload();
+    },
+    onError: (e) => {
+      setErrors(e.fields);
+      setMessage(e.message);
+    },
+  });
+
+  const archive = useMutation(() => api(`/api/products/${id}`, { method: "DELETE" }), {
+    onSuccess: () => {
+      setArchived(true);
+      toast("Product archived");
+      router.push("/admin/shop");
+    },
+    onError: (e) => toast(e.message, "bad"),
+  });
 
   useEffect(() => {
     const p = existing.data;
@@ -76,12 +99,11 @@ export default function ProductEditorPage() {
 
   const setVariant = (key: string, patch: Partial<VariantForm>) => setVariants((vs) => vs.map((v) => (v.key === key ? { ...v, ...patch } : v)));
 
-  const submit = async (event: React.FormEvent) => {
+  const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const priced = variants.map((v) => ({ v, cents: parseDollarsToCents(v.price) }));
     const bad = priced.find((x) => !x.cents);
     if (bad) return setErrors({ [`price-${bad.v.key}`]: "Enter a price like 35.00" });
-    setBusy(true);
     setErrors({});
     setMessage(null);
     const body = {
@@ -92,30 +114,7 @@ export default function ProductEditorPage() {
       active: form.active,
       variants: priced.map(({ v, cents }) => ({ id: v.id, size: v.size || null, colour: v.colour || null, flavour: v.flavour || null, sku: v.sku, priceCents: cents, stockQty: Number(v.stockQty) || 0, active: v.active })),
     };
-    try {
-      const saved = await api<ProductData>(isNew ? "/api/products" : `/api/products/${id}`, { method: isNew ? "POST" : "PUT", body });
-      setWarnings(saved.claimWarnings);
-      toast(isNew ? "Product added" : "Product saved");
-      if (isNew) router.replace(`/admin/shop/products/${saved.id}`);
-      else void existing.reload();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const archive = async () => {
-    try {
-      await api(`/api/products/${id}`, { method: "DELETE" });
-      toast("Product archived");
-      router.push("/admin/shop");
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't archive the product.", "bad");
-    }
+    void save.run(body);
   };
 
   if (!isNew && existing.error) return <ErrorState message={existing.error.message} onRetry={existing.reload} />;
@@ -192,12 +191,12 @@ export default function ProductEditorPage() {
         </Panel>
         {message ? <FormMessage>{message}</FormMessage> : null}
         <div className="flex gap-2">
-          <Button type="submit" busy={busy}>
+          <Button type="submit" busy={save.busy}>
             {isNew ? "Add product" : "Save product"}
           </Button>
         </div>
       </form>
-      <ConfirmDialog open={archiveOpen} onCancel={() => setArchiveOpen(false)} onConfirm={archive} title={`Archive ${form.name}?`} confirmLabel="Archive product" body="It disappears from the shop. Past orders keep it." />
+      <ConfirmDialog open={archiveOpen} onCancel={() => setArchiveOpen(false)} onConfirm={() => void archive.run()} busy={archive.busy || archived} title={`Archive ${form.name}?`} confirmLabel="Archive product" body="It disappears from the shop. Past orders keep it." />
     </>
   );
 }

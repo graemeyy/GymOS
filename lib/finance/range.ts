@@ -2,6 +2,7 @@ import { z } from "zod";
 import { gym } from "@/lib/config";
 import { addCalendarDays, zonedTimeToUtc } from "@/lib/dates";
 import { ApiError } from "@/lib/http/errors";
+import { DAY_MS } from "@/lib/time";
 import { standardPeriods } from "./periods";
 
 export const RangeQuery = z.object({
@@ -20,7 +21,7 @@ export function resolveRange(q: z.infer<typeof RangeQuery>) {
     // long when daylight saving starts or ends (R-22).
     const to = zonedTimeToUtc(addCalendarDays(q.to, 1), "00:00", tz);
     if (to <= from) throw new ApiError("validation_failed", "The end date must be on or after the start date.", { to: "Too early" });
-    if (to.getTime() - from.getTime() > 3 * 366 * 86_400_000) throw new ApiError("validation_failed", "Choose a range of three years or less.", { to: "Too long" });
+    if (to.getTime() - from.getTime() > 3 * 366 * DAY_MS) throw new ApiError("validation_failed", "Choose a range of three years or less.", { to: "Too long" });
     return { from, to, label: `${q.from} to ${q.to}` };
   }
   const periods = standardPeriods(tz);

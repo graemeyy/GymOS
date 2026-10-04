@@ -2,10 +2,10 @@
 
 import React, { useState } from "react";
 import { Check, FileText, X } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
-import { fmtDate } from "@/lib/client/format";
-import { EQUIPMENT_TEXT, EQUIPMENT_TONE } from "@/lib/client/labels";
+import { fmtDate } from "@/lib/format";
+import { EQUIPMENT_TEXT, EQUIPMENT_TONE } from "@/lib/equipment/labels";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
@@ -30,22 +30,10 @@ interface Approval {
 
 export default function EquipmentPage() {
   const { can } = useStaff();
-  const toast = useToast();
   const equipment = useResource<Equipment[]>("/api/equipment");
   const approvals = useResource<Approval[]>("/api/agent-actions");
-  const [busyId, setBusyId] = useState<string | null>(null);
-
-  const act = async (id: string, fn: () => Promise<unknown>, success: string) => {
-    setBusyId(id);
-    try {
-      await fn();
-      toast(success);
-      await Promise.all([equipment.reload(), approvals.reload()]);
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "That didn't work.", "bad");
-    } finally {
-      setBusyId(null);
-    }
+  const reloadAll = async () => {
+    await Promise.all([equipment.reload(), approvals.reload()]);
   };
 
   const pending = approvals.data?.filter((a) => a.status === "PENDING") ?? [];
@@ -63,18 +51,7 @@ export default function EquipmentPage() {
                   <p className="font-medium">{a.title}</p>
                   <p className="text-sm text-ink-soft">{a.description}</p>
                 </div>
-                {can("equipment:manage") ? (
-                  <div className="flex shrink-0 gap-2">
-                    {/* Both buttons wait for either answer, so an order can't be
-                        approved and rejected at once (R-57). */}
-                    <Button variant="secondary" busy={busyId === `${a.id}:approve`} disabled={busyId === `${a.id}:reject`} onClick={() => act(`${a.id}:approve`, () => api("/api/agent-actions", { method: "PATCH", body: { id: a.id, status: "APPROVED" } }), "Approved")}>
-                      <Check className="h-4 w-4" aria-hidden="true" /> Approve
-                    </Button>
-                    <Button variant="ghost" busy={busyId === `${a.id}:reject`} disabled={busyId === `${a.id}:approve`} onClick={() => act(`${a.id}:reject`, () => api("/api/agent-actions", { method: "PATCH", body: { id: a.id, status: "REJECTED" } }), "Rejected")}>
-                      <X className="h-4 w-4" aria-hidden="true" /> Reject
-                    </Button>
-                  </div>
-                ) : null}
+                {can("equipment:manage") ? <ApprovalButtons approval={a} onDone={reloadAll} /> : null}
               </li>
             ))}
           </ul>
@@ -111,9 +88,7 @@ export default function EquipmentPage() {
                   can("equipment:manage")
                     ? (e) =>
                         e.status === "OFFLINE" ? (
-                          <IconButton label={`Draft a purchase order for ${e.name}`} disabled={busyId === e.id} onClick={() => act(e.id, () => api(`/api/equipment/${e.id}/po`, { method: "POST" }), "Purchase order drafted")}>
-                            <FileText className="h-4 w-4" aria-hidden="true" />
-                          </IconButton>
+                          <DraftOrderButton equipment={e} onDone={reloadAll} />
                         ) : null
                     : undefined
                 }
@@ -123,5 +98,52 @@ export default function EquipmentPage() {
         </AsyncBlock>
       </Panel>
     </>
+  );
+}
+
+// Each row owns its own request, so acting on one row never blocks another.
+function ApprovalButtons({ approval, onDone }: { approval: Approval; onDone: () => Promise<void> }) {
+  const toast = useToast();
+  const [answer, setAnswer] = useState<"APPROVED" | "REJECTED" | null>(null);
+  const decide = useMutation(
+    (status: "APPROVED" | "REJECTED") => {
+      setAnswer(status);
+      return api("/api/agent-actions", { method: "PATCH", body: { id: approval.id, status } });
+    },
+    {
+      onSuccess: async (_result, status) => {
+        toast(status === "APPROVED" ? "Approved" : "Rejected");
+        await onDone();
+      },
+      onError: (e) => toast(e.message, "bad"),
+    }
+  );
+  return (
+    <div className="flex shrink-0 gap-2">
+      {/* Both buttons wait for either answer, so an order can't be approved
+          and rejected at once (R-57). */}
+      <Button variant="secondary" busy={decide.busy && answer === "APPROVED"} disabled={decide.busy && answer === "REJECTED"} onClick={() => void decide.run("APPROVED")}>
+        <Check className="h-4 w-4" aria-hidden="true" /> Approve
+      </Button>
+      <Button variant="ghost" busy={decide.busy && answer === "REJECTED"} disabled={decide.busy && answer === "APPROVED"} onClick={() => void decide.run("REJECTED")}>
+        <X className="h-4 w-4" aria-hidden="true" /> Reject
+      </Button>
+    </div>
+  );
+}
+
+function DraftOrderButton({ equipment, onDone }: { equipment: Equipment; onDone: () => Promise<void> }) {
+  const toast = useToast();
+  const draft = useMutation(() => api(`/api/equipment/${equipment.id}/po`, { method: "POST" }), {
+    onSuccess: async () => {
+      toast("Purchase order drafted");
+      await onDone();
+    },
+    onError: (e) => toast(e.message, "bad"),
+  });
+  return (
+    <IconButton label={`Draft a purchase order for ${equipment.name}`} disabled={draft.busy} onClick={() => void draft.run()}>
+      <FileText className="h-4 w-4" aria-hidden="true" />
+    </IconButton>
   );
 }

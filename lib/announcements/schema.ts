@@ -11,3 +11,7 @@ export const AnnouncementBody = z
     expiresAt: zGymDateEnd.nullable().optional(),
   })
   .refine((b) => b.audience !== "PLAN" || Boolean(b.planId), { message: "Choose a plan", path: ["planId"] });
+
+export const PublishAnnouncementBody = z.object({ email: z.boolean().default(false) });
+
+export type AnnouncementInput = z.infer<typeof AnnouncementBody>;

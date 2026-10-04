@@ -22,10 +22,6 @@ export function getStripe(): StripeClient {
   return client;
 }
 
-export function isStripeConfigured(): boolean {
-  return Boolean(override) || Boolean(env().STRIPE_SECRET_KEY);
-}
-
 export function setStripeForTests(fake: StripeClient | null) {
   override = fake;
 }

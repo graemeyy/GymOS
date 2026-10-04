@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, QrCode } from "lucide-react";
 import { useResource } from "@/lib/client/api";
-import { fmtDate, fmtDateTime } from "@/lib/client/format";
+import { fmtDate, fmtDateTime } from "@/lib/format";
 import { formatAud } from "@/lib/money";
 import { ORDER_STATUS_TEXT, ORDER_STATUS_TONE, type OrderStatusName } from "@/lib/shop/labels";
 import { LinkButton, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";

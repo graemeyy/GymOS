@@ -1,4 +1,5 @@
 import { formatAud } from "@/lib/money";
+import { fmtWeekdayOfDate } from "@/lib/format";
 
 // A ranked list with proportional bars: readable on a phone, no chart library,
 // and the numbers are real text (accessible and copyable).
@@ -25,7 +26,6 @@ export function BarList({ rows, money = true, empty }: { rows: { name: string; v
 // Seven small columns for daily counts.
 export function DayColumns({ days }: { days: { date: string; count: number }[] }) {
   const max = Math.max(...days.map((d) => d.count), 1);
-  const label = new Intl.DateTimeFormat("en-AU", { weekday: "short", timeZone: "UTC" });
   return (
     <div className="px-4 py-4">
       <ol className="flex h-28 items-end gap-2" aria-label="Check-ins per day, last 7 days">
@@ -33,7 +33,7 @@ export function DayColumns({ days }: { days: { date: string; count: number }[] }
           <li key={d.date} className="flex flex-1 flex-col items-center justify-end gap-1">
             <span className="tabular text-xs font-medium">{d.count}</span>
             <span aria-hidden="true" className="w-full rounded-sm bg-plate" style={{ height: `${Math.max(4, (d.count / max) * 80)}px` }} />
-            <span className="text-xs text-ink-soft">{label.format(new Date(`${d.date}T00:00:00Z`))}</span>
+            <span className="text-xs text-ink-soft">{fmtWeekdayOfDate(d.date)}</span>
           </li>
         ))}
       </ol>

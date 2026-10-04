@@ -1,11 +1,10 @@
 import { staffRoute } from "@/lib/http/route";
 import { toCsv } from "@/lib/csv";
-import { AuditQuery, auditWhere } from "@/lib/audit-query";
-import { logAction } from "@/lib/audit";
+import { AuditQuery } from "@/lib/audit-log/schema";
+import { exportAuditLog } from "@/lib/audit-log/service";
 
 export const GET = staffRoute({ permission: "audit:read", query: AuditQuery }, async ({ query, db, staff }) => {
-  const rows = await db.auditLog.findMany({ where: auditWhere(query), orderBy: { createdAt: "desc" }, take: 10_000 });
-  await logAction(db, staff, { action: "audit.exported", targetType: "AuditLog", details: { rows: rows.length } });
+  const rows = await exportAuditLog(db, staff, query);
   const csv = toCsv(rows, [
     { header: "When (UTC)", value: (r) => r.createdAt.toISOString() },
     { header: "Who", value: (r) => r.staffName },

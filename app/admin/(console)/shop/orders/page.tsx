@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
-import { fmtDateTime } from "@/lib/client/format";
+import { fmtDateTime } from "@/lib/format";
 import { ORDER_STATUSES, ORDER_STATUS_TEXT, ORDER_STATUS_TONE, type OrderStatusName } from "@/lib/shop/labels";
 import { PageHeader, Panel, StatusTag, LinkButton } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";

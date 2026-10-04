@@ -1,147 +1,13 @@
-import type { PrismaClient, ProductCategory, Status } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../lib/auth/password";
 import { gstFromInclusive } from "../lib/money";
-import { syncPlansFromConfig } from "../lib/plans";
+import { syncPlansFromConfig } from "../lib/plans/service";
 import { gym } from "../lib/config";
+import { DAY_MS } from "../lib/time";
+import { DEMO_PASSWORD } from "./demo";
+import { CLASSES, daysAgo, DEMO_MEMBERS, DEMO_STAFF, EQUIPMENT, inDays, INVENTORY, PRODUCTS, TEMPLATES } from "./seed-fixtures";
 
-// Fictional data only. Every name, email and number below is made up; emails
-// use the reserved example.com domain.
-
-export const DEMO_PASSWORD = "ironbark-demo-2026";
-
-export const DEMO_STAFF = [
-  { name: "Mel Hartigan", email: "owner@example.com", role: "OWNER" },
-  { name: "Tom Nguyen", email: "manager@example.com", role: "MANAGER" },
-  { name: "Aisha Rahman", email: "frontdesk@example.com", role: "FRONT_DESK" },
-  { name: "Lachie Brennan", email: "trainer@example.com", role: "TRAINER" },
-] as const;
-
-const DAY = 86_400_000;
-const daysAgo = (days: number, hours = 0) => new Date(Date.now() - days * DAY - hours * 3_600_000);
-
-function inDays(days: number, hourUtc: number, minute = 0) {
-  const d = new Date(Date.now() + days * DAY);
-  d.setUTCHours(hourUtc, minute, 0, 0);
-  return d;
-}
-
-type SeedMember = {
-  name: string;
-  email: string;
-  plan: string;
-  status: Status;
-  retentionScore: number;
-  lastSeenDays: number | null;
-  visitsPerWeek: number;
-  login?: boolean;
-  notes?: string;
-};
-
-export const DEMO_MEMBERS: SeedMember[] = [
-  { name: "Charlotte Pham", email: "charlotte.pham@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 96, lastSeenDays: 0, visitsPerWeek: 5, login: true },
-  { name: "Jack O'Sullivan", email: "jack.osullivan@example.com", plan: "standard", status: "ACTIVE", retentionScore: 88, lastSeenDays: 1, visitsPerWeek: 4, login: true },
-  { name: "Priya Sharma", email: "priya.sharma@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 91, lastSeenDays: 0, visitsPerWeek: 5 },
-  { name: "Mitchell Greaves", email: "mitchell.greaves@example.com", plan: "standard", status: "PAST_DUE", retentionScore: 54, lastSeenDays: 2, visitsPerWeek: 2, notes: "Card declined on last renewal." },
-  { name: "Ngaio Tipene", email: "ngaio.tipene@example.com", plan: "off-peak", status: "ACTIVE", retentionScore: 79, lastSeenDays: 1, visitsPerWeek: 3 },
-  { name: "Daniel Kowalski", email: "daniel.kowalski@example.com", plan: "standard", status: "ACTIVE", retentionScore: 31, lastSeenDays: 15, visitsPerWeek: 1, notes: "Asked about pausing over summer." },
-  { name: "Grace Liu", email: "grace.liu@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 85, lastSeenDays: 0, visitsPerWeek: 4 },
-  { name: "Sam Whitlock", email: "sam.whitlock@example.com", plan: "off-peak", status: "CANCELED", retentionScore: 12, lastSeenDays: 60, visitsPerWeek: 0 },
-  { name: "Olivia Marchetti", email: "olivia.marchetti@example.com", plan: "standard", status: "PAUSED", retentionScore: 45, lastSeenDays: 21, visitsPerWeek: 0 },
-  { name: "Ben Adeyemi", email: "ben.adeyemi@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 93, lastSeenDays: 0, visitsPerWeek: 5 },
-  { name: "Tahlia Moore", email: "tahlia.moore@example.com", plan: "standard", status: "ACTIVE", retentionScore: 67, lastSeenDays: 3, visitsPerWeek: 2 },
-  { name: "Hamish Fraser", email: "hamish.fraser@example.com", plan: "off-peak", status: "ACTIVE", retentionScore: 58, lastSeenDays: 7, visitsPerWeek: 2 },
-  { name: "Mei Tanaka", email: "mei.tanaka@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 71, lastSeenDays: 1, visitsPerWeek: 3 },
-  { name: "Riley Dunstan", email: "riley.dunstan@example.com", plan: "standard", status: "PAST_DUE", retentionScore: 48, lastSeenDays: 4, visitsPerWeek: 2 },
-  // Signed up online yesterday and hasn't chosen a plan yet.
-  { name: "Oliver Brandt", email: "oliver.brandt@example.com", plan: "", status: "PENDING", retentionScore: 100, lastSeenDays: null, visitsPerWeek: 0, login: true },
-];
-
-const CLASSES = [
-  { name: "Barbell Basics", instructor: "Lachie Brennan", day: 0, hourUtc: 20, durationMinutes: 60, capacity: 10 },
-  { name: "Conditioning", instructor: "Lachie Brennan", day: 1, hourUtc: 7, durationMinutes: 45, capacity: 16 },
-  { name: "Mobility", instructor: "Tom Nguyen", day: 1, hourUtc: 22, durationMinutes: 45, capacity: 12 },
-  { name: "Strongman", instructor: "Lachie Brennan", day: 3, hourUtc: 22, durationMinutes: 75, capacity: 8 },
-  { name: "Conditioning", instructor: "Lachie Brennan", day: 4, hourUtc: 7, durationMinutes: 45, capacity: 16 },
-];
-
-const TEMPLATES = [
-  { name: "Conditioning", trainer: "Lachie Brennan", weekday: 0, startTime: "06:00", durationMinutes: 45, capacity: 16 },
-  { name: "Barbell Basics", trainer: "Lachie Brennan", weekday: 1, startTime: "18:00", durationMinutes: 60, capacity: 10 },
-  { name: "Mobility", trainer: "Tom Nguyen", weekday: 2, startTime: "07:00", durationMinutes: 45, capacity: 12 },
-  { name: "Conditioning", trainer: "Lachie Brennan", weekday: 3, startTime: "06:00", durationMinutes: 45, capacity: 16 },
-  { name: "Strongman", trainer: "Lachie Brennan", weekday: 5, startTime: "09:00", durationMinutes: 75, capacity: 8 },
-];
-
-type SeedVariant = { sku: string; priceCents: number; stockQty: number; size?: string; colour?: string; flavour?: string };
-const PRODUCTS: { name: string; slug: string; description: string; category: ProductCategory; variants: SeedVariant[] }[] = [
-  {
-    name: "Ironbark tee",
-    slug: "ironbark-tee",
-    description: "Heavyweight cotton tee with the plate logo on the chest.",
-    category: "APPAREL",
-    variants: [
-      { sku: "TEE-IB-S-BLK", size: "S", colour: "Black", priceCents: 3500, stockQty: 6 },
-      { sku: "TEE-IB-M-BLK", size: "M", colour: "Black", priceCents: 3500, stockQty: 10 },
-      { sku: "TEE-IB-L-BLK", size: "L", colour: "Black", priceCents: 3500, stockQty: 8 },
-      { sku: "TEE-IB-M-WHT", size: "M", colour: "White", priceCents: 3500, stockQty: 0 },
-    ],
-  },
-  {
-    name: "Ironbark hoodie",
-    slug: "ironbark-hoodie",
-    description: "Midweight fleece hoodie with a kangaroo pocket.",
-    category: "APPAREL",
-    variants: [
-      { sku: "HOOD-IB-M-GRY", size: "M", colour: "Grey", priceCents: 7500, stockQty: 4 },
-      { sku: "HOOD-IB-L-GRY", size: "L", colour: "Grey", priceCents: 7500, stockQty: 3 },
-    ],
-  },
-  {
-    name: "Whey protein isolate 1 kg",
-    slug: "whey-protein-isolate-1kg",
-    description: "Whey protein isolate powder. 1 kg bag, about 33 serves. See the label for ingredients, allergens and nutrition information.",
-    category: "SUPPLEMENTS",
-    variants: [
-      { sku: "WPI-1KG-CHOC", flavour: "Chocolate", priceCents: 6995, stockQty: 12 },
-      { sku: "WPI-1KG-VAN", flavour: "Vanilla", priceCents: 6995, stockQty: 5 },
-    ],
-  },
-  {
-    name: "Creatine monohydrate 300 g",
-    slug: "creatine-monohydrate-300g",
-    description: "Unflavoured creatine monohydrate powder, 300 g tub. See the label for directions and warnings.",
-    category: "SUPPLEMENTS",
-    variants: [{ sku: "CREA-300", priceCents: 3995, stockQty: 9 }],
-  },
-  {
-    name: "Lifting straps",
-    slug: "lifting-straps",
-    description: "Cotton lifting straps, sold as a pair.",
-    category: "ACCESSORIES",
-    variants: [{ sku: "STRAPS-STD", priceCents: 2500, stockQty: 15 }],
-  },
-  {
-    name: "Chalk block 250 g",
-    slug: "chalk-block-250g",
-    description: "Magnesium carbonate block chalk.",
-    category: "ACCESSORIES",
-    variants: [{ sku: "CHALK-250", priceCents: 800, stockQty: 30 }],
-  },
-];
-
-const EQUIPMENT = [
-  { name: "Treadmill 4", serialNumber: "TM-2021-004", status: "OFFLINE", lastServicedAt: daysAgo(60), partNeeded: "Drive belt", estimatedCost: 18900 },
-  { name: "Cable crossover (left)", serialNumber: "CC-2019-011", status: "WARNING", lastServicedAt: daysAgo(40), partNeeded: "Coated steel cable, 3.5 m", estimatedCost: 12400 },
-  { name: "Rower 2", serialNumber: "RW-2020-002", status: "OPERATIONAL", lastServicedAt: daysAgo(10), partNeeded: null, estimatedCost: null },
-  { name: "Power rack A", serialNumber: "PR-2018-001", status: "OPERATIONAL", lastServicedAt: daysAgo(5), partNeeded: null, estimatedCost: null },
-  { name: "Assault bike 3", serialNumber: "AB-2022-003", status: "WARNING", lastServicedAt: daysAgo(50), partNeeded: "Fan belt", estimatedCost: 6500 },
-] as const;
-
-const INVENTORY = [
-  { name: "Chalk block", category: "Consumables", sku: "CON-CHALK", quantity: 40, reorderLevel: 15, unitCostCents: 250 },
-  { name: "Disinfectant spray 5 L", category: "Cleaning", sku: "CLN-SPRAY5", quantity: 3, reorderLevel: 4, unitCostCents: 3200 },
-  { name: "Paper towel roll", category: "Cleaning", sku: "CLN-TOWEL", quantity: 24, reorderLevel: 12, unitCostCents: 180 },
-];
+export { DEMO_PASSWORD, DEMO_MEMBERS, DEMO_STAFF };
 
 export async function isDatabaseEmpty(prisma: PrismaClient) {
   const [members, staff] = await Promise.all([prisma.member.count(), prisma.staff.count()]);
@@ -213,7 +79,7 @@ export async function seedDatabase(prisma: PrismaClient) {
         amountOwingCents: m.status === "PAST_DUE" && plan ? plan.priceCents : 0,
         cancelledAt: m.status === "CANCELED" ? daysAgo(12) : null,
         pausedFrom: m.status === "PAUSED" ? daysAgo(10) : null,
-        pausedUntil: m.status === "PAUSED" ? new Date(Date.now() + 20 * DAY) : null,
+        pausedUntil: m.status === "PAUSED" ? new Date(Date.now() + 20 * DAY_MS) : null,
       },
     });
     memberIds.push(member.id);
@@ -286,6 +152,35 @@ export async function seedDatabase(prisma: PrismaClient) {
     await prisma.classTemplate.create({ data: { ...slot, trainerId: trainers.get(trainer) ?? null } });
   }
 
+  await seedShop(prisma);
+
+  // Goodwill adjustment and an announcement.
+  await prisma.benefitLedger.create({ data: { memberId: memberIds[1], kind: "CLASS_CREDIT", delta: 2, reason: "Class cancelled by the gym last week", refType: "adjustment" } });
+  await prisma.announcement.create({
+    data: {
+      title: "Long weekend hours",
+      body: "We're open 8am to 12pm on the public holiday Monday. Classes are back to normal on Tuesday.",
+      publishedAt: daysAgo(1),
+      expiresAt: new Date(Date.now() + 7 * DAY_MS),
+    },
+  });
+
+  for (const e of EQUIPMENT) await prisma.equipment.create({ data: { ...e } });
+  for (const item of INVENTORY) await prisma.inventoryItem.create({ data: item });
+  await prisma.gymSettings.create({ data: { id: "singleton" } });
+
+  const owner = await prisma.staff.findUniqueOrThrow({ where: { email: "owner@example.com" } });
+  const frontDesk = await prisma.staff.findUniqueOrThrow({ where: { email: "frontdesk@example.com" } });
+  for (let d = 0; d < 5; d++) {
+    await prisma.shift.create({ data: { staffId: frontDesk.id, startTime: inDays(d, 19), endTime: inDays(d + 1, 3), notes: d === 0 ? "Opening shift" : null } });
+  }
+  await prisma.shift.create({ data: { staffId: owner.id, startTime: inDays(1, 22), endTime: inDays(2, 6) } });
+
+  return { staff: DEMO_STAFF.length, members: DEMO_MEMBERS.length, classes: CLASSES.length };
+}
+
+// Products with variants, and a handful of orders across the fulfilment states.
+async function seedShop(prisma: PrismaClient) {
   // Shop: fictional products. Descriptions make no health or performance claims.
   const variantIds: Record<string, string> = {};
   for (const p of PRODUCTS) {
@@ -381,28 +276,4 @@ export async function seedDatabase(prisma: PrismaClient) {
       });
     }
   }
-
-  // Goodwill adjustment and an announcement.
-  await prisma.benefitLedger.create({ data: { memberId: memberIds[1], kind: "CLASS_CREDIT", delta: 2, reason: "Class cancelled by the gym last week", refType: "adjustment" } });
-  await prisma.announcement.create({
-    data: {
-      title: "Long weekend hours",
-      body: "We're open 8am to 12pm on the public holiday Monday. Classes are back to normal on Tuesday.",
-      publishedAt: daysAgo(1),
-      expiresAt: new Date(Date.now() + 7 * DAY),
-    },
-  });
-
-  for (const e of EQUIPMENT) await prisma.equipment.create({ data: { ...e } });
-  for (const item of INVENTORY) await prisma.inventoryItem.create({ data: item });
-  await prisma.gymSettings.create({ data: { id: "singleton" } });
-
-  const owner = await prisma.staff.findUniqueOrThrow({ where: { email: "owner@example.com" } });
-  const frontDesk = await prisma.staff.findUniqueOrThrow({ where: { email: "frontdesk@example.com" } });
-  for (let d = 0; d < 5; d++) {
-    await prisma.shift.create({ data: { staffId: frontDesk.id, startTime: inDays(d, 19), endTime: inDays(d + 1, 3), notes: d === 0 ? "Opening shift" : null } });
-  }
-  await prisma.shift.create({ data: { staffId: owner.id, startTime: inDays(1, 22), endTime: inDays(2, 6) } });
-
-  return { staff: DEMO_STAFF.length, members: DEMO_MEMBERS.length, classes: CLASSES.length };
 }

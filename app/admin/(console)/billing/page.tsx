@@ -2,11 +2,11 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { useDebounced } from "@/lib/client/use-debounced";
 import { formatAud } from "@/lib/money";
-import { gym } from "@/lib/config";
-import { fmtDate, invoiceNo } from "@/lib/client/format";
+import { gym } from "@/lib/config/client";
+import { fmtDate, invoiceNo } from "@/lib/format";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, LinkButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
@@ -47,23 +47,26 @@ function statusTag(p: Payment) {
   return <StatusTag tone="good">Paid</StatusTag>;
 }
 
+// Its own mutation per row, so retrying one member doesn't block another.
+function RetryPayment({ memberId, onDone }: { memberId: string; onDone: () => void }) {
+  const toast = useToast();
+  const retry = useMutation(() => api<{ paid: boolean }>(`/api/members/${memberId}/retry-payment`, { method: "POST" }), {
+    onSuccess: (res) => {
+      toast(res.paid ? "Payment went through" : "Retry sent to Stripe");
+      void onDone();
+    },
+    onError: (e) => toast(e.message, "bad"),
+  });
+  return (
+    <Button variant="secondary" busy={retry.busy} onClick={() => void retry.run()}>
+      Retry
+    </Button>
+  );
+}
+
 function OverduePanel() {
   const { can } = useStaff();
-  const toast = useToast();
   const overdue = useResource<Overdue[]>("/api/billing/overdue");
-  const [busy, setBusy] = useState<string | null>(null);
-  const retry = async (id: string) => {
-    setBusy(id);
-    try {
-      const res = await api<{ paid: boolean }>(`/api/members/${id}/retry-payment`, { method: "POST" });
-      toast(res.paid ? "Payment went through" : "Retry sent to Stripe");
-      void overdue.reload();
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Retry failed.", "bad");
-    } finally {
-      setBusy(null);
-    }
-  };
   return (
     <Panel aria-labelledby="overdue-heading" className="mb-6">
       <PanelHeader id="overdue-heading" title="Overdue payments" />
@@ -103,9 +106,7 @@ function OverduePanel() {
                 can("billing:manage")
                   ? (m) =>
                       m.canRetry ? (
-                        <Button variant="secondary" busy={busy === m.id} onClick={() => retry(m.id)}>
-                          Retry
-                        </Button>
+                        <RetryPayment memberId={m.id} onDone={overdue.reload} />
                       ) : null
                   : undefined
               }

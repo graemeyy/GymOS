@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { Pencil, Plus } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { formatAud, INTERVAL_LABELS, parseDollarsToCents } from "@/lib/money";
-import { gym } from "@/lib/config";
+import { api, useMutation, useResource } from "@/lib/client/api";
+import { formatPlanPrice, INTERVAL_LABELS, parseDollarsToCents, type Interval } from "@/lib/money";
+import { gym } from "@/lib/config/client";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
@@ -12,8 +12,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField, TextareaField } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
 import { DataList } from "@/components/ui/data-list";
+import { planPerks } from "@/lib/plans/perks";
 
-type Interval = keyof typeof INTERVAL_LABELS;
 interface Plan {
   id: string;
   name: string;
@@ -31,17 +31,7 @@ interface Plan {
 
 const blank = { name: "", description: "", price: "", interval: "WEEK" as Interval, active: true, unlimited: false, classes: "0", guestPasses: "0", discount: "0", guestRate: "" };
 
-function benefitsText(p: Plan) {
-  const n = INTERVAL_LABELS[p.interval].noun;
-  return [
-    p.classCreditsPerCycle === null ? "Unlimited classes" : p.classCreditsPerCycle > 0 ? `${p.classCreditsPerCycle} classes per ${n}` : "No classes included",
-    p.guestPassesPerCycle ? `${p.guestPassesPerCycle} guest pass per ${n}` : null,
-    p.shopDiscountPercent ? `${p.shopDiscountPercent}% off shop` : null,
-    p.guestRateCents ? `guests ${formatAud(p.guestRateCents)}` : null,
-  ]
-    .filter(Boolean)
-    .join(", ");
-}
+const benefitsText = (p: Plan) => planPerks(p, p.interval, { includeGuestRate: true }).join(", ");
 
 export default function PlansPage() {
   const { can } = useStaff();
@@ -53,7 +43,21 @@ export default function PlansPage() {
   const [form, setForm] = useState(blank);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+
+  const save = useMutation(
+    (target: Plan | null, body: Record<string, unknown>) => api(target ? `/api/plans/${target.id}` : "/api/admin/plans", { method: target ? "PUT" : "POST", body }),
+    {
+      onSuccess: (_result, target) => {
+        toast(target ? "Plan saved" : "Plan created");
+        setOpen(false);
+        void plans.reload();
+      },
+      onError: (e) => {
+        setErrors(e.fields);
+        setMessage(e.message);
+      },
+    }
+  );
 
   const openForm = (p: Plan | null) => {
     setEditing(p);
@@ -78,7 +82,7 @@ export default function PlansPage() {
     setOpen(true);
   };
 
-  const submit = async (event: React.FormEvent) => {
+  const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const priceCents = parseDollarsToCents(form.price);
     const guestRateCents = form.guestRate.trim() ? parseDollarsToCents(form.guestRate) : 0;
@@ -86,7 +90,6 @@ export default function PlansPage() {
     if (priceCents === null || priceCents === 0) fieldErrors.priceCents = "Enter a price like 29.95";
     if (guestRateCents === null) fieldErrors.guestRateCents = "Enter an amount like 20.00";
     if (Object.keys(fieldErrors).length) return setErrors(fieldErrors);
-    setBusy(true);
     setErrors({});
     setMessage(null);
     const body = {
@@ -100,19 +103,7 @@ export default function PlansPage() {
       shopDiscountPercent: Number(form.discount) || 0,
       guestRateCents,
     };
-    try {
-      await api(editing ? `/api/plans/${editing.id}` : "/api/admin/plans", { method: editing ? "PUT" : "POST", body });
-      toast(editing ? "Plan saved" : "Plan created");
-      setOpen(false);
-      void plans.reload();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-      }
-    } finally {
-      setBusy(false);
-    }
+    void save.run(editing, body);
   };
 
   return (
@@ -153,7 +144,7 @@ export default function PlansPage() {
                       </div>
                     ),
                   },
-                  { header: "Price", cell: (p) => <span className="tabular">{formatAud(p.priceCents)} per {INTERVAL_LABELS[p.interval].noun}</span> },
+                  { header: "Price", cell: (p) => <span className="tabular">{formatPlanPrice(p.priceCents, p.interval)}</span> },
                   { header: "Members", align: "right", cell: (p) => <span className="tabular">{p.memberCount ?? "Hidden"}</span> },
                 ]}
                 actions={
@@ -186,7 +177,7 @@ export default function PlansPage() {
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" form="plan-form" busy={busy}>
+            <Button type="submit" form="plan-form" busy={save.busy}>
               {editing ? "Save plan" : "Create plan"}
             </Button>
           </>

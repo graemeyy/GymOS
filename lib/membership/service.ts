@@ -5,11 +5,12 @@ import { ApiError } from "@/lib/http/errors";
 import { getStripe } from "@/lib/billing/stripe";
 import { stripeRecurring } from "@/lib/billing/intervals";
 import { logAction, type Actor } from "@/lib/audit";
+import type { StaffActor } from "@/lib/auth/session";
 import { currentCycle } from "./cycle";
 import { prorationCents } from "./proration";
 import { monthlyEquivalentCents } from "@/lib/money";
-
-const DAY = 86_400_000;
+import { countPausesInLastYear } from "./queries";
+import { DAY_MS } from "@/lib/time";
 
 type Policies = GymConfig["policies"];
 
@@ -31,6 +32,12 @@ async function loadMember(db: Db | Tx, memberId: string) {
   return member;
 }
 
+// Desk changes can be one step of a larger staff edit, so they join the
+// caller's transaction when given one.
+function inTransaction<T>(db: Db | Tx, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return "$transaction" in db ? db.$transaction(fn) : fn(db);
+}
+
 // Wraps a Stripe call so an outage stops the change before the database is
 // touched, with a message staff can act on.
 async function stripeStep<T>(label: string, fn: () => Promise<T>): Promise<T> {
@@ -50,8 +57,8 @@ export function validatePause(
   now = new Date()
 ) {
   if (input.byMember && !policy.allowMemberSelfPause) throw new ApiError("forbidden", "Pauses are arranged at the front desk.");
-  const days = Math.round((input.until.getTime() - input.from.getTime()) / DAY);
-  if (input.from.getTime() < now.getTime() - DAY) throw new ApiError("validation_failed", "A pause can't start in the past.", { from: "Choose today or later" });
+  const days = Math.round((input.until.getTime() - input.from.getTime()) / DAY_MS);
+  if (input.from.getTime() < now.getTime() - DAY_MS) throw new ApiError("validation_failed", "A pause can't start in the past.", { from: "Choose today or later" });
   if (days < policy.minDays) throw new ApiError("validation_failed", `A pause must be at least ${policy.minDays} days.`, { until: `At least ${policy.minDays} days` });
   if (days > policy.maxDays) throw new ApiError("validation_failed", `A pause can be at most ${policy.maxDays} days.`, { until: `At most ${policy.maxDays} days` });
   if (input.pausesThisYear >= policy.maxPausesPerYear) {
@@ -68,7 +75,7 @@ export async function pauseMembership(db: Db, actor: Actor, memberId: string, fr
   // A pause can't overlap a booked cancellation: the daily job would cancel
   // during the pause and later "resume" a cancelled member (R-27).
   if (member.cancelAt) throw new ApiError("conflict", "This membership has a cancellation booked. Withdraw it before pausing.");
-  const pausesThisYear = await db.membershipEvent.count({ where: { memberId, type: "PAUSE_SCHEDULED", createdAt: { gte: new Date(Date.now() - 365 * DAY) } } });
+  const pausesThisYear = await countPausesInLastYear(db, memberId, new Date());
   const days = validatePause({ from, until, pausesThisYear, byMember: actor.kind === "member" });
 
   const startsNow = from.getTime() <= Date.now();
@@ -123,11 +130,11 @@ export function cancellationTerms(
   policy: Policies["cancellation"] = gym.policies.cancellation,
   now = new Date()
 ): CancellationTerms {
-  const withinCoolingOff = now.getTime() - joinedAt.getTime() < policy.coolingOffDays * DAY;
+  const withinCoolingOff = now.getTime() - joinedAt.getTime() < policy.coolingOffDays * DAY_MS;
   if (opts.immediate) return { effectiveAt: now, withinCoolingOff, reason: "immediate" };
   if (withinCoolingOff) return { effectiveAt: now, withinCoolingOff, reason: "cooling_off" };
-  const afterNotice = new Date(now.getTime() + policy.noticeDays * DAY);
-  const minimumEnd = new Date(joinedAt.getTime() + policy.minimumTermWeeks * 7 * DAY);
+  const afterNotice = new Date(now.getTime() + policy.noticeDays * DAY_MS);
+  const minimumEnd = new Date(joinedAt.getTime() + policy.minimumTermWeeks * 7 * DAY_MS);
   return minimumEnd > afterNotice
     ? { effectiveAt: minimumEnd, withinCoolingOff, reason: "minimum_term" }
     : { effectiveAt: afterNotice, withinCoolingOff, reason: "notice" };
@@ -296,13 +303,13 @@ function assertDeskBilled(member: LoadedMember, what: string) {
 
 // Starts (or restarts) a membership: a pending sign-up, or someone whose
 // membership ended. Cooling-off and minimum term count from now (R-07).
-export async function startMembership(db: Db, actor: Actor, memberId: string, planId?: string | null) {
+export async function startMembership(db: Db | Tx, actor: Actor, memberId: string, planId?: string | null) {
   const member = await loadMember(db, memberId);
   if (member.status !== "PENDING" && member.status !== "CANCELED") throw new ApiError("conflict", "This membership is already running.");
   const plan = planId ? await db.membershipPlan.findFirst({ where: { id: planId, active: true }, select: { id: true, name: true } }) : member.membershipPlan;
   if (!plan) throw new ApiError("validation_failed", "Choose a plan to start the membership.", { planId: "Required" });
   const now = new Date();
-  await db.$transaction(async (tx) => {
+  await inTransaction(db, async (tx) => {
     await tx.member.update({
       where: { id: memberId },
       data: {
@@ -325,27 +332,53 @@ export async function startMembership(db: Db, actor: Actor, memberId: string, pl
 }
 
 // An overdue member paid at the desk.
-export async function markPaidAtDesk(db: Db, actor: Actor, memberId: string) {
+export async function markPaidAtDesk(db: Db | Tx, actor: Actor, memberId: string) {
   const member = await loadMember(db, memberId);
   assertDeskBilled(member, "Retry payment");
   if (member.status !== "PAST_DUE") throw new ApiError("conflict", "This member doesn't owe anything.");
-  await db.$transaction(async (tx) => {
+  await inTransaction(db, async (tx) => {
     await tx.member.update({ where: { id: memberId }, data: { status: "ACTIVE", pastDueSince: null, amountOwingCents: 0, lastFailedInvoiceId: null } });
     await logAction(tx, actor, { action: "membership.paid_at_desk", targetType: "Member", targetId: memberId });
   });
 }
 
-export async function setPlanAtDesk(db: Db, actor: Actor, memberId: string, planId: string | null) {
+export async function setPlanAtDesk(db: Db | Tx, actor: Actor, memberId: string, planId: string | null) {
   const member = await loadMember(db, memberId);
   assertDeskBilled(member, "Change plan");
   if (planId === member.planId) return;
   const plan = planId ? await db.membershipPlan.findFirst({ where: { id: planId, active: true }, select: { id: true, name: true } }) : null;
   if (planId && !plan) throw new ApiError("validation_failed", "That plan isn't available.", { planId: "Not available" });
-  await db.$transaction(async (tx) => {
+  await inTransaction(db, async (tx) => {
     await tx.member.update({ where: { id: memberId }, data: { planId: plan?.id ?? null, pendingPlanId: null } });
     await recordEvent(tx, memberId, actor, "PLAN_CHANGED", new Date(), { from: member.membershipPlan?.name ?? null, to: plan?.name ?? null, billing: "front desk" });
     await logAction(tx, actor, { action: "membership.plan_changed", targetType: "Member", targetId: memberId, details: { from: member.planId, to: plan?.id ?? null } });
   });
+}
+
+// ---------- Failed payments ----------
+
+// Asks Stripe to try the failed invoice again now (Stripe also retries on its
+// own schedule). The webhook records the result.
+export async function retryFailedPayment(db: Db, staff: StaffActor, memberId: string) {
+  const member = await db.member.findUnique({ where: { id: memberId }, select: { lastFailedInvoiceId: true } });
+  if (!member) throw new ApiError("not_found", "Member not found.");
+  if (!member.lastFailedInvoiceId) throw new ApiError("conflict", "There's no failed Stripe invoice to retry.");
+  try {
+    const invoice = await getStripe().invoices.pay(member.lastFailedInvoiceId);
+    await logAction(db, staff, { action: "billing.payment_retried", targetType: "Member", targetId: memberId, details: { invoiceId: invoice.id, status: invoice.status } });
+    return invoice;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    const code = (error as { code?: string; type?: string }).code;
+    const type = (error as { type?: string }).type;
+    await logAction(db, staff, { action: "billing.payment_retry_failed", targetType: "Member", targetId: memberId, details: { code: code ?? type ?? "unknown" } });
+    // Say what actually happened, not "declined" for every failure (R-71).
+    if (code === "invoice_already_paid" || code === "invoice_not_open") {
+      throw new ApiError("conflict", "That invoice has already been paid or closed. Reload to see the member's current status.");
+    }
+    if (type === "StripeCardError") throw new ApiError("upstream_failed", "The card was declined again. Ask the member to update their card.");
+    throw new ApiError("upstream_failed", "Stripe couldn't retry the payment just now. Try again shortly.");
+  }
 }
 
 // ---------- Scheduled transitions (run daily) ----------

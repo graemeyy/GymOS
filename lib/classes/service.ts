@@ -1,10 +1,13 @@
 import type { Db, Tx } from "@/lib/db";
+import type { MemberActor, StaffActor } from "@/lib/auth/session";
 import { ApiError } from "@/lib/http/errors";
 import { logAction, type Actor } from "@/lib/audit";
 import { gym } from "@/lib/config";
-import { DAY_MS, MINUTE_MS } from "@/lib/time";
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "@/lib/time";
 import { returnClassCredit, spendClassCredit } from "@/lib/membership/benefits";
 import { sendEmail, signature } from "@/lib/email";
+import { generateClasses } from "./timetable";
+import type { AttendanceInput, ClassInput, TemplateInput } from "./schema";
 
 interface LockedClass {
   id: string;
@@ -122,7 +125,7 @@ export async function cancelBooking(db: Db, actor: Actor, classId: string, membe
     const cls = await lockClass(tx, classId);
     const booking = await tx.classBooking.findUnique({ where: { classId_memberId: { classId, memberId } } });
     if (!booking) throw new ApiError("not_found", "No booking to cancel.");
-    const hoursBefore = (cls.startTime.getTime() - Date.now()) / 3_600_000;
+    const hoursBefore = (cls.startTime.getTime() - Date.now()) / HOUR_MS;
     const policy = gym.policies.classes;
     const late = hoursBefore < policy.cancelWithoutPenaltyHours;
     if (actor.kind === "member" && hoursBefore < 0) throw new ApiError("conflict", "This class has already started.");
@@ -182,10 +185,20 @@ export async function joinWaitlist(db: Db, actor: Actor, classId: string, member
   });
 }
 
+// A member's own request checks their membership before anything about the
+// class, so an inactive member hears that first.
+export async function joinWaitlistAsMember(db: Db, member: MemberActor, classId: string) {
+  const me = await db.member.findUniqueOrThrow({ where: { id: member.id }, select: { status: true } });
+  if (me.status !== "ACTIVE") throw new ApiError("conflict", "Your membership needs to be active to join a waitlist.");
+  return joinWaitlist(db, member, classId, member.id);
+}
+
 export async function leaveWaitlist(db: Db, actor: Actor, classId: string, memberId: string) {
-  const deleted = await db.classWaitlist.deleteMany({ where: { classId, memberId } });
-  if (deleted.count === 0) throw new ApiError("not_found", "Not on the waitlist.");
-  await logAction(db, actor, { action: "class.waitlist_removed", targetType: "Class", targetId: classId, details: { memberId } });
+  await db.$transaction(async (tx) => {
+    const deleted = await tx.classWaitlist.deleteMany({ where: { classId, memberId } });
+    if (deleted.count === 0) throw new ApiError("not_found", "Not on the waitlist.");
+    await logAction(tx, actor, { action: "class.waitlist_removed", targetType: "Class", targetId: classId, details: { memberId } });
+  });
 }
 
 export async function promoteFromWaitlist(db: Db, actor: Actor, classId: string, memberId: string) {
@@ -211,4 +224,72 @@ export async function releaseFutureBookings(db: Db, actor: Actor, memberId: stri
   for (const b of bookings) await cancelBooking(db, actor.kind === "member" ? { kind: "system", name: "Account deletion" } : actor, b.classId, memberId);
   await db.classWaitlist.deleteMany({ where: { memberId } });
   return bookings.length;
+}
+
+async function getTrainer(tx: Tx, trainerId: string | null | undefined) {
+  if (!trainerId) return null;
+  const trainer = await tx.staff.findUnique({ where: { id: trainerId }, select: { id: true, name: true } });
+  if (!trainer) throw new ApiError("validation_failed", "That trainer doesn't exist.", { trainerId: "Not found" });
+  return trainer;
+}
+
+export async function createClass(db: Db, staff: StaffActor, input: ClassInput) {
+  return db.$transaction(async (tx) => {
+    const trainer = await getTrainer(tx, input.trainerId);
+    const cls = await tx.class.create({ data: { ...input, trainerId: trainer?.id ?? null, instructor: trainer?.name ?? null } });
+    await logAction(tx, staff, { action: "class.created", targetType: "Class", targetId: cls.id, details: { name: cls.name, startTime: cls.startTime.toISOString(), trainer: trainer?.name ?? null } });
+    return cls;
+  });
+}
+
+// Trainers can only mark attendance for their own classes.
+export async function markAttendance(db: Db, staff: StaffActor, classId: string, input: AttendanceInput) {
+  return db.$transaction(async (tx) => {
+    if (staff.role === "TRAINER") {
+      const cls = await tx.class.findUnique({ where: { id: classId }, select: { trainerId: true } });
+      if (!cls) throw new ApiError("not_found", "Class not found.");
+      if (cls.trainerId !== staff.id) throw new ApiError("forbidden", "You can only mark attendance for your own classes.");
+    }
+    const booking = await tx.classBooking.update({
+      where: { classId_memberId: { classId, memberId: input.memberId } },
+      data: { status: input.status },
+    });
+    await logAction(tx, staff, { action: "class.attendance_marked", targetType: "Class", targetId: classId, details: input });
+    return booking;
+  });
+}
+
+export async function createTemplate(db: Db, staff: StaffActor, input: TemplateInput) {
+  return db.$transaction(async (tx) => {
+    await getTrainer(tx, input.trainerId);
+    const t = await tx.classTemplate.create({ data: { ...input, trainerId: input.trainerId ?? null } });
+    await logAction(tx, staff, { action: "timetable.slot_created", targetType: "ClassTemplate", targetId: t.id, details: { name: t.name, weekday: t.weekday, startTime: t.startTime } });
+    return t;
+  });
+}
+
+// Editing a slot affects classes generated from now on; existing dated
+// classes are left as they are (members may already be booked).
+export async function updateTemplate(db: Db, staff: StaffActor, id: string, input: TemplateInput) {
+  return db.$transaction(async (tx) => {
+    await getTrainer(tx, input.trainerId);
+    const t = await tx.classTemplate.update({ where: { id }, data: { ...input, trainerId: input.trainerId ?? null } });
+    await logAction(tx, staff, { action: "timetable.slot_updated", targetType: "ClassTemplate", targetId: t.id, details: { name: t.name } });
+    return t;
+  });
+}
+
+export async function deleteTemplate(db: Db, staff: StaffActor, id: string) {
+  await db.$transaction(async (tx) => {
+    const t = await tx.classTemplate.delete({ where: { id } });
+    await logAction(tx, staff, { action: "timetable.slot_deleted", targetType: "ClassTemplate", targetId: t.id, details: { name: t.name } });
+  });
+}
+
+export async function generateTimetable(db: Db, staff: StaffActor, weeks: number) {
+  return db.$transaction(async (tx) => {
+    const result = await generateClasses(tx, gym.business.timezone, weeks);
+    await logAction(tx, staff, { action: "timetable.generated", targetType: "Class", details: { weeks, created: result.created } });
+    return result;
+  });
 }

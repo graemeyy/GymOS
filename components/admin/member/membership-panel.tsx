@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { api, ApiClientError } from "@/lib/client/api";
-import { formatAud, INTERVAL_LABELS } from "@/lib/money";
-import { gym } from "@/lib/config";
-import { fmtDate } from "@/lib/client/format";
-import { STATUS_TEXT, STATUS_TONE } from "@/lib/client/labels";
+import { api, useMutation } from "@/lib/client/api";
+import { formatAud, formatPlanPrice } from "@/lib/money";
+import { gym } from "@/lib/config/client";
+import { fmtDate } from "@/lib/format";
+import { STATUS_TEXT, STATUS_TONE } from "@/lib/members/labels";
 import { Button, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
@@ -26,43 +26,34 @@ export function MembershipPanel({ member, plans, onChanged }: { member: MemberDe
   const [planId, setPlanId] = useState("");
   const [pause, setPause] = useState({ from: todayIso(), until: plusDaysIso(14) });
   const [cancel, setCancel] = useState({ reason: "", immediate: false });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const canManage = can("billing:manage") && !member.archivedAt;
   const policy = gym.policies;
 
+  // One change at a time across the panel's buttons and dialogs.
+  const change = useMutation((fn: () => Promise<unknown>, _success: string) => fn(), {
+    onSuccess: (_result, _fn, success) => {
+      toast(success);
+      setAction(null);
+      onChanged();
+    },
+    onError: (e) => {
+      if (!action) toast(e.message, "bad");
+    },
+  });
+  const { busy, fields: errors, error: message } = change;
+
   const open = (a: Action) => {
-    setErrors({});
-    setMessage(null);
+    change.reset();
     setPlanId("");
     setAction(a);
   };
 
-  const run = async (fn: () => Promise<unknown>, success: string) => {
-    setBusy(true);
-    setErrors({});
-    setMessage(null);
-    try {
-      await fn();
-      toast(success);
-      setAction(null);
-      onChanged();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-        if (!action) toast(e.message, "bad");
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
+  const run = (fn: () => Promise<unknown>, success: string) => void change.run(fn, success);
 
   const status = member.status;
   const rows: [string, React.ReactNode][] = [
     ["Status", <StatusTag key="s" tone={STATUS_TONE[status]}>{STATUS_TEXT[status]}</StatusTag>],
-    ["Plan", member.membershipPlan ? `${member.membershipPlan.name}, ${formatAud(member.membershipPlan.priceCents)} per ${INTERVAL_LABELS[member.membershipPlan.interval].noun}` : "None"],
+    ["Plan", member.membershipPlan ? `${member.membershipPlan.name}, ${formatPlanPrice(member.membershipPlan.priceCents, member.membershipPlan.interval)}` : "None"],
     ["Next billing date", member.nextBillingDate ? fmtDate(member.nextBillingDate) : "None"],
   ];
   if (member.pendingPlan) rows.push(["Changing to", `${member.pendingPlan.name} from the next billing date`]);
@@ -138,7 +129,7 @@ export function MembershipPanel({ member, plans, onChanged }: { member: MemberDe
             .filter((p) => p.active && p.id !== member.planId)
             .map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}, {formatAud(p.priceCents)} per {INTERVAL_LABELS[p.interval].noun}
+                {p.name}, {formatPlanPrice(p.priceCents, p.interval)}
               </option>
             ))}
         </SelectField>

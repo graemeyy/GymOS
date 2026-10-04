@@ -1,4 +1,5 @@
 import { gym, formatAddress } from "@/lib/config";
+import { invoiceNo } from "@/lib/format";
 
 export interface InvoiceLine {
   description: string;
@@ -40,7 +41,7 @@ export function buildTaxInvoice(payment: {
   const registered = gym.business.gstRegistered;
   return {
     title: registered ? "Tax invoice" : "Receipt",
-    number: `INV-${String(payment.invoiceNumber).padStart(6, "0")}`,
+    number: invoiceNo(payment.invoiceNumber),
     issuedAt: payment.paidAt,
     seller: { name: gym.business.legalName, abn: gym.business.abn, address: formatAddress(), email: gym.business.email },
     buyer: { name: payment.member.name ?? payment.member.email, email: payment.member.email },

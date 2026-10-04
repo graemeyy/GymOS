@@ -15,6 +15,10 @@ export default defineConfig({
   // Next.js leaves JSX to its compiler; component tests need it transformed.
   oxc: { jsx: { runtime: "automatic" } },
   resolve: {
-    alias: { "@": path.resolve(import.meta.dirname, ".") },
+    alias: {
+      "@": path.resolve(import.meta.dirname, "."),
+      // Tests run server modules directly; the marker only matters to Next's bundler.
+      "server-only": path.resolve(import.meta.dirname, "node_modules/server-only/empty.js"),
+    },
   },
 });

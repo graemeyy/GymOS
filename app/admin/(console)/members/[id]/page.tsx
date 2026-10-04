@@ -4,9 +4,9 @@ import React, { useCallback, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Archive, Pencil, QrCode } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
-import { fmtDate, fmtDateTime, lastSeen } from "@/lib/client/format";
+import { fmtDate, fmtDateTime, lastSeen } from "@/lib/format";
 import { useStaff } from "@/components/admin/staff-session";
 import { MemberFormDialog } from "@/components/admin/member-form-dialog";
 import { MembershipPanel } from "@/components/admin/member/membership-panel";
@@ -33,7 +33,8 @@ export default function MemberDetailPage() {
   const plans = useResource<PlanOptionFull[]>("/api/admin/plans");
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [archiving, setArchiving] = useState(false);
+  // Stays busy after archiving while the page moves to the member list.
+  const [archived, setArchived] = useState(false);
   // Bumped after a membership change so the benefits and history panels
   // reload along with the member (R-55).
   const [membershipVersion, setMembershipVersion] = useState(0);
@@ -43,32 +44,23 @@ export default function MemberDetailPage() {
     await reloadMember();
   }, [reloadMember]);
 
-  const archive = async () => {
-    setArchiving(true);
-    try {
-      await api(`/api/members/${id}`, { method: "DELETE" });
+  const archive = useMutation(() => api(`/api/members/${id}`, { method: "DELETE" }), {
+    onSuccess: () => {
+      setArchived(true);
       toast("Member archived");
       router.push("/admin/members");
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't archive the member.", "bad");
-      setArchiving(false);
+    },
+    onError: (e) => {
+      toast(e.message, "bad");
       setArchiveOpen(false);
-    }
-  };
+    },
+  });
 
   // Sent once: a second tap would invalidate the pass just issued (R-57).
-  const [reissuing, setReissuing] = useState(false);
-  const reissuePass = async () => {
-    setReissuing(true);
-    try {
-      await api(`/api/members/${id}/pass`, { method: "POST" });
-      toast("New pass issued. The old one no longer works.");
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't reissue the pass.", "bad");
-    } finally {
-      setReissuing(false);
-    }
-  };
+  const reissue = useMutation(() => api(`/api/members/${id}/pass`, { method: "POST" }), {
+    onSuccess: () => toast("New pass issued. The old one no longer works."),
+    onError: (e) => toast(e.message, "bad"),
+  });
 
   if (member.error?.status === 404) {
     return (
@@ -101,7 +93,7 @@ export default function MemberDetailPage() {
                       </Button>
                     ) : null}
                     {can("members:write") ? (
-                      <Button variant="secondary" busy={reissuing} onClick={reissuePass}>
+                      <Button variant="secondary" busy={reissue.busy} onClick={() => void reissue.run()}>
                         <QrCode className="h-4 w-4" aria-hidden="true" /> Reissue pass
                       </Button>
                     ) : null}
@@ -234,8 +226,8 @@ export default function MemberDetailPage() {
             <ConfirmDialog
               open={archiveOpen}
               onCancel={() => setArchiveOpen(false)}
-              onConfirm={archive}
-              busy={archiving}
+              onConfirm={() => void archive.run()}
+              busy={archive.busy || archived}
               title={`Archive ${m.name ?? m.email}?`}
               confirmLabel="Archive member"
               body={

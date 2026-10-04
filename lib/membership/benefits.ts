@@ -1,7 +1,9 @@
-import type { LedgerKind } from "@prisma/client";
 import type { Db, Tx } from "@/lib/db";
+import type { StaffActor } from "@/lib/auth/session";
 import { ApiError } from "@/lib/http/errors";
+import { logAction } from "@/lib/audit";
 import { currentCycle, type Cycle } from "./cycle";
+import type { BenefitAdjustmentInput } from "./schema";
 
 export interface BenefitBalance {
   // null allowance means unlimited.
@@ -85,11 +87,15 @@ export async function returnClassCredit(tx: Tx, memberId: string, cls: { id: str
   await tx.benefitLedger.create({ data: { memberId, kind: "CLASS_CREDIT", delta: 1, reason, refType: "booking_refund", refId: cls.id, effectiveAt: cls.startTime } });
 }
 
-export async function adjustBenefit(
-  db: Db,
-  input: { memberId: string; kind: LedgerKind; delta: number; reason: string; staffId: string }
-) {
-  return db.benefitLedger.create({
-    data: { memberId: input.memberId, kind: input.kind, delta: input.delta, reason: input.reason, refType: "adjustment", staffId: input.staffId },
+export function adjustBenefit(db: Db, staff: StaffActor, memberId: string, input: BenefitAdjustmentInput) {
+  return db.$transaction(async (tx) => {
+    const member = await tx.member.findUnique({ where: { id: memberId }, select: { id: true, archivedAt: true } });
+    if (!member) throw new ApiError("not_found", "Member not found.");
+    if (member.archivedAt) throw new ApiError("conflict", "This member is archived.");
+    const entry = await tx.benefitLedger.create({
+      data: { memberId, kind: input.kind, delta: input.delta, reason: input.reason, refType: "adjustment", staffId: staff.id },
+    });
+    await logAction(tx, staff, { action: "member.benefit_adjusted", targetType: "Member", targetId: memberId, details: input });
+    return entry;
   });
 }

@@ -1,0 +1,1520 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`GET response shapes (characterisation) > CSV exports keep their columns 1`] = `
+{
+  "body": "When (UTC),Who,Action,Record type,Record ID,Details
+",
+  "status": 200,
+  "type": "text/csv",
+}
+`;
+
+exports[`GET response shapes (characterisation) > CSV exports keep their columns 2`] = `
+{
+  "body": "Line,Amount
+",
+  "status": 200,
+  "type": "text/csv",
+}
+`;
+
+exports[`GET response shapes (characterisation) > CSV exports keep their columns 3`] = `
+{
+  "body": "Date,Invoice,Member,Type,Description,Amount incl. GST,GST,Refunded,Currency,Status
+",
+  "status": 200,
+  "type": "text/csv",
+}
+`;
+
+exports[`GET response shapes (characterisation) > CSV exports keep their columns 4`] = `
+{
+  "body": "Date,Invoice,Member,Amount incl. GST,GST,Method,Reason,By
+",
+  "status": 200,
+  "type": "text/csv",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me 1`] = `
+{
+  "body": {
+    "amountOwingCents": "number",
+    "benefits": {
+      "classCreditsPerCycle": "null",
+      "guestPassesPerCycle": "number",
+      "guestRateCents": "number",
+      "shopDiscountPercent": "number",
+    },
+    "billedOnline": "boolean",
+    "cancelAt": "null",
+    "cancelledAt": "null",
+    "createdAt": "date",
+    "currentPeriodEnd": "null",
+    "email": "string",
+    "hasCardOnFile": "boolean",
+    "id": "string",
+    "membershipPlan": {
+      "classCreditsPerCycle": "null",
+      "guestPassesPerCycle": "number",
+      "guestRateCents": "number",
+      "id": "string",
+      "interval": "string",
+      "name": "string",
+      "priceCents": "number",
+      "shopDiscountPercent": "number",
+      "slug": "string",
+    },
+    "name": "string",
+    "notifyAnnouncements": "boolean",
+    "notifyWaitlist": "boolean",
+    "onboardedAt": "date",
+    "outstandingAcceptances": [],
+    "pausedFrom": "null",
+    "pausedUntil": "null",
+    "pendingPlan": "null",
+    "status": "string",
+    "usage": {
+      "classCreditsRemaining": "null",
+      "cycleEnd": "date",
+      "guestPassesRemaining": "number",
+    },
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/account 1`] = `
+{
+  "body": {
+    "blockers": [
+      {
+        "code": "string",
+        "message": "string",
+      },
+    ],
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/announcements 1`] = `
+{
+  "body": [
+    {
+      "body": "string",
+      "id": "string",
+      "publishedAt": "date",
+      "title": "string",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/bookings 1`] = `
+{
+  "body": {
+    "bookings": [
+      {
+        "class": {
+          "durationMinutes": "number",
+          "id": "string",
+          "instructor": "string",
+          "name": "string",
+          "startTime": "date",
+        },
+        "id": "string",
+        "status": "string",
+      },
+    ],
+    "waitlist": [],
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/classes 1`] = `
+{
+  "body": {
+    "bookingOpensDaysAhead": "number",
+    "cancelWithoutPenaltyHours": "number",
+    "classes": [
+      {
+        "booked": "boolean",
+        "bookingOpen": "boolean",
+        "capacity": "number",
+        "coach": "string",
+        "durationMinutes": "number",
+        "id": "string",
+        "name": "string",
+        "spotsLeft": "number",
+        "startTime": "date",
+        "waitlistLength": "number",
+        "waitlistPosition": "null",
+      },
+    ],
+    "lateCancelForfeitsCredit": "boolean",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/export 1`] = `
+{
+  "body": {
+    "cancelAt": "null",
+    "cancelReason": "null",
+    "cancelledAt": "null",
+    "checkIns": [
+      {
+        "method": "string",
+        "timestamp": "date",
+      },
+    ],
+    "classBookings": [
+      {
+        "class": {
+          "name": "string",
+          "startTime": "date",
+        },
+        "createdAt": "date",
+        "status": "string",
+        "usedCredit": "boolean",
+      },
+    ],
+    "classWaitlist": [],
+    "createdAt": "date",
+    "currentPeriodEnd": "null",
+    "currentPeriodStart": "null",
+    "email": "string",
+    "events": [
+      {
+        "createdAt": "date",
+        "details": "null",
+        "effectiveAt": "date",
+        "type": "string",
+      },
+    ],
+    "exportedAt": "date",
+    "gym": {
+      "abn": "string",
+      "contact": "string",
+      "name": "string",
+    },
+    "id": "string",
+    "keycardIssued": "boolean",
+    "lastCheckIn": "date",
+    "ledger": [],
+    "legalAcceptances": [
+      {
+        "acceptedAt": "date",
+        "context": "string",
+        "document": "string",
+        "version": "string",
+      },
+    ],
+    "memberNotes": [],
+    "membershipPlan": {
+      "interval": "string",
+      "name": "string",
+      "priceCents": "number",
+    },
+    "name": "string",
+    "note": "string",
+    "notifyAnnouncements": "boolean",
+    "notifyWaitlist": "boolean",
+    "onboardedAt": "date",
+    "orders": [
+      {
+        "createdAt": "date",
+        "discountCents": "number",
+        "fulfilment": "string",
+        "gstCents": "number",
+        "items": [
+          {
+            "lineTotalCents": "number",
+            "productName": "string",
+            "quantity": "number",
+            "variantLabel": "string",
+          },
+        ],
+        "number": "number",
+        "shippingAddress": "null",
+        "shippingCents": "number",
+        "status": "string",
+        "totalCents": "number",
+        "trackingNumber": "null",
+      },
+    ],
+    "pausedFrom": "null",
+    "pausedUntil": "null",
+    "payments": [
+      {
+        "amount": "number",
+        "createdAt": "date",
+        "currency": "string",
+        "description": "string",
+        "gstCents": "number",
+        "invoiceNumber": "number",
+        "kind": "string",
+        "refundedCents": "number",
+        "status": "string",
+      },
+    ],
+    "status": "string",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/membership 1`] = `
+{
+  "body": {
+    "cancellation": {
+      "allowed": "boolean",
+      "coolingOffDays": "number",
+      "minimumTermWeeks": "number",
+      "noticeDays": "number",
+      "preview": {
+        "effectiveAt": "date",
+        "reason": "string",
+        "withinCoolingOff": "boolean",
+      },
+      "scheduledFor": "null",
+    },
+    "hasMembership": "boolean",
+    "pause": {
+      "allowed": "boolean",
+      "current": "null",
+      "feeCents": "number",
+      "maxDays": "number",
+      "maxPausesPerYear": "number",
+      "minDays": "number",
+      "pausesUsed": "number",
+    },
+    "plans": [
+      {
+        "active": "boolean",
+        "change": "null",
+        "classCreditsPerCycle": "null",
+        "current": "boolean",
+        "description": "string",
+        "guestPassesPerCycle": "number",
+        "guestRateCents": "number",
+        "id": "string",
+        "interval": "string",
+        "name": "string",
+        "pending": "boolean",
+        "priceCents": "number",
+        "shopDiscountPercent": "number",
+        "slug": "string",
+        "sortOrder": "number",
+      },
+      {
+        "active": "boolean",
+        "change": {
+          "effectiveAt": "date",
+          "immediate": "boolean",
+          "prorationCents": "number",
+          "upgrade": "boolean",
+        },
+        "classCreditsPerCycle": "number",
+        "current": "boolean",
+        "description": "string",
+        "guestPassesPerCycle": "number",
+        "guestRateCents": "number",
+        "id": "string",
+        "interval": "string",
+        "name": "string",
+        "pending": "boolean",
+        "priceCents": "number",
+        "shopDiscountPercent": "number",
+        "slug": "string",
+        "sortOrder": "number",
+      },
+    ],
+    "selfServe": "boolean",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/orders 1`] = `
+{
+  "body": [
+    {
+      "_count": {
+        "items": "number",
+      },
+      "createdAt": "date",
+      "fulfilment": "string",
+      "id": "string",
+      "number": "number",
+      "status": "string",
+      "totalCents": "number",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/orders/[id] 1`] = `
+{
+  "body": {
+    "changeOfMindReturnsDays": "number",
+    "createdAt": "date",
+    "discountCents": "number",
+    "discountPercent": "number",
+    "events": [
+      {
+        "createdAt": "date",
+        "status": "string",
+      },
+    ],
+    "fulfilment": "string",
+    "gstCents": "number",
+    "id": "string",
+    "items": [
+      {
+        "id": "string",
+        "lineTotalCents": "number",
+        "productName": "string",
+        "quantity": "number",
+        "unitPriceCents": "number",
+        "variantLabel": "string",
+      },
+    ],
+    "number": "number",
+    "paidAt": "date",
+    "payment": {
+      "id": "string",
+      "invoiceNumber": "number",
+      "refundedCents": "number",
+    },
+    "pickupAddress": {
+      "line1": "string",
+      "line2": "string",
+      "postcode": "string",
+      "state": "string",
+      "suburb": "string",
+    },
+    "shippingAddress": "null",
+    "shippingCents": "number",
+    "status": "string",
+    "subtotalCents": "number",
+    "totalCents": "number",
+    "trackingNumber": "null",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/pass 1`] = `
+{
+  "body": {
+    "name": "string",
+    "status": "string",
+    "svgDataUrl": "string",
+    "token": "string",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/payments 1`] = `
+{
+  "body": [
+    {
+      "amount": "number",
+      "currency": "string",
+      "description": "string",
+      "gstCents": "number",
+      "id": "string",
+      "invoiceNumber": "number",
+      "kind": "string",
+      "paidAt": "date",
+      "refundedCents": "number",
+      "status": "string",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > member me/payments/[id]/invoice 1`] = `
+{
+  "body": {
+    "buyer": {
+      "email": "string",
+      "name": "string",
+    },
+    "currency": "string",
+    "gstCents": "number",
+    "issuedAt": "date",
+    "lines": [
+      {
+        "amountCents": "number",
+        "description": "string",
+        "quantity": "number",
+      },
+    ],
+    "note": "string",
+    "number": "string",
+    "refundedCents": "number",
+    "seller": {
+      "abn": "string",
+      "address": "string",
+      "email": "string",
+      "name": "string",
+    },
+    "title": "string",
+    "totalCents": "number",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > public endpoints 1`] = `
+{
+  "body": [
+    {
+      "active": "boolean",
+      "benefits": {
+        "classCreditsPerCycle": "null",
+        "guestPassesPerCycle": "number",
+        "guestRateCents": "number",
+        "shopDiscountPercent": "number",
+      },
+      "classCreditsPerCycle": "null",
+      "description": "string",
+      "guestPassesPerCycle": "number",
+      "guestRateCents": "number",
+      "id": "string",
+      "interval": "string",
+      "name": "string",
+      "priceCents": "number",
+      "shopDiscountPercent": "number",
+      "slug": "string",
+      "sortOrder": "number",
+    },
+    {
+      "active": "boolean",
+      "benefits": {
+        "classCreditsPerCycle": "number",
+        "guestPassesPerCycle": "number",
+        "guestRateCents": "number",
+        "shopDiscountPercent": "number",
+      },
+      "classCreditsPerCycle": "number",
+      "description": "string",
+      "guestPassesPerCycle": "number",
+      "guestRateCents": "number",
+      "id": "string",
+      "interval": "string",
+      "name": "string",
+      "priceCents": "number",
+      "shopDiscountPercent": "number",
+      "slug": "string",
+      "sortOrder": "number",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > public endpoints 2`] = `
+{
+  "body": {
+    "changeOfMindReturnsDays": "number",
+    "discountPercent": "number",
+    "products": [
+      {
+        "category": "string",
+        "description": "string",
+        "id": "string",
+        "imageUrl": "null",
+        "name": "string",
+        "slug": "string",
+        "variants": [
+          {
+            "available": "boolean",
+            "id": "string",
+            "label": "string",
+            "lowStock": "boolean",
+            "maxQuantity": "number",
+            "priceCents": "number",
+          },
+        ],
+      },
+    ],
+    "shipping": {
+      "flatCents": "number",
+      "freeOverCents": "number",
+      "pickupOnly": "boolean",
+    },
+    "signedIn": "boolean",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > public endpoints 3`] = `
+{
+  "body": {
+    "needsSetup": "boolean",
+    "tokenRequired": "boolean",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > public endpoints 4`] = `
+{
+  "body": {
+    "id": "string",
+    "kind": "string",
+    "name": "string",
+    "permissions": [
+      "string",
+    ],
+    "role": "string",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > public endpoints 5`] = `
+{
+  "body": {
+    "email": "string",
+    "id": "string",
+    "kind": "string",
+    "name": "string",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff admin/plans 1`] = `
+{
+  "body": [
+    {
+      "active": "boolean",
+      "classCreditsPerCycle": "null",
+      "description": "string",
+      "guestPassesPerCycle": "number",
+      "guestRateCents": "number",
+      "id": "string",
+      "interval": "string",
+      "memberCount": "number",
+      "name": "string",
+      "priceCents": "number",
+      "shopDiscountPercent": "number",
+      "slug": "string",
+      "sortOrder": "number",
+    },
+    {
+      "active": "boolean",
+      "classCreditsPerCycle": "number",
+      "description": "string",
+      "guestPassesPerCycle": "number",
+      "guestRateCents": "number",
+      "id": "string",
+      "interval": "string",
+      "memberCount": "number",
+      "name": "string",
+      "priceCents": "number",
+      "shopDiscountPercent": "number",
+      "slug": "string",
+      "sortOrder": "number",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff agent-actions 1`] = `
+{
+  "body": [],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff announcements 1`] = `
+{
+  "body": [
+    {
+      "audience": "string",
+      "body": "string",
+      "createdAt": "date",
+      "createdBy": "null",
+      "createdById": "null",
+      "emailCount": "number",
+      "emailedAt": "null",
+      "expiresAt": "date",
+      "id": "string",
+      "plan": "null",
+      "planId": "null",
+      "publishedAt": "date",
+      "title": "string",
+      "updatedAt": "date",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff audit-log 1`] = `
+{
+  "body": {
+    "items": [],
+    "nextCursor": "null",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff billing/overdue 1`] = `
+{
+  "body": [
+    {
+      "accessSuspended": "boolean",
+      "amountOwingCents": "number",
+      "canRetry": "boolean",
+      "email": "string",
+      "id": "string",
+      "lastReminder": "null",
+      "membershipPlan": {
+        "name": "string",
+      },
+      "name": "string",
+      "pastDueSince": "date",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff check-in 1`] = `
+{
+  "body": [
+    {
+      "id": "string",
+      "location": "string",
+      "member": {
+        "id": "string",
+        "name": "string",
+        "status": "string",
+      },
+      "method": "string",
+      "timestamp": "date",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff class-templates 1`] = `
+{
+  "body": [
+    {
+      "active": "boolean",
+      "capacity": "number",
+      "createdAt": "date",
+      "durationMinutes": "number",
+      "id": "string",
+      "name": "string",
+      "startTime": "string",
+      "trainer": {
+        "id": "string",
+        "name": "string",
+      },
+      "trainerId": "string",
+      "weekday": "number",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff classes 1`] = `
+{
+  "body": [
+    {
+      "bookings": [
+        {
+          "classId": "string",
+          "createdAt": "date",
+          "id": "string",
+          "member": {
+            "email": "string",
+            "id": "string",
+            "name": "string",
+          },
+          "memberId": "string",
+          "status": "string",
+          "usedCredit": "boolean",
+        },
+      ],
+      "cancelledAt": "null",
+      "capacity": "number",
+      "createdAt": "date",
+      "durationMinutes": "number",
+      "id": "string",
+      "instructor": "string",
+      "name": "string",
+      "startTime": "date",
+      "templateId": "null",
+      "trainer": {
+        "id": "string",
+        "name": "string",
+      },
+      "trainerId": "string",
+      "waitlist": [],
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff dashboard/stats 1`] = `
+{
+  "body": {
+    "activeMembers": "number",
+    "atRisk": "number",
+    "cancellations30": "number",
+    "checkIns7": [
+      {
+        "count": "number",
+        "date": "date",
+      },
+    ],
+    "checkInsToday": "number",
+    "churnRate30": "number",
+    "equipmentAlerts": "number",
+    "mrrCents": "number",
+    "newSignups30": "number",
+    "openOrders": "number",
+    "owingCents": "number",
+    "pastDue": "number",
+    "revenue": {
+      "byPlan": [
+        {
+          "cents": "number",
+          "name": "string",
+        },
+      ],
+      "byProduct": [
+        {
+          "cents": "number",
+          "name": "string",
+        },
+      ],
+      "last30Cents": "number",
+      "mrrCents": "number",
+    },
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff equipment 1`] = `
+{
+  "body": [
+    {
+      "createdAt": "date",
+      "estimatedCost": "null",
+      "failureProbability": "number",
+      "healthScore": "number",
+      "id": "string",
+      "lastServicedAt": "date",
+      "name": "string",
+      "partNeeded": "null",
+      "predictedFailureDate": "null",
+      "serialNumber": "string",
+      "status": "string",
+      "updatedAt": "date",
+    },
+    {
+      "createdAt": "date",
+      "estimatedCost": "number",
+      "failureProbability": "number",
+      "healthScore": "number",
+      "id": "string",
+      "lastServicedAt": "date",
+      "name": "string",
+      "partNeeded": "string",
+      "predictedFailureDate": "null",
+      "serialNumber": "string",
+      "status": "string",
+      "updatedAt": "date",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff finance/summary 1`] = `
+{
+  "body": {
+    "byKind": [
+      {
+        "cents": "number",
+        "kind": "string",
+      },
+    ],
+    "byPlan": [
+      {
+        "cents": "number",
+        "count": "number",
+        "name": "string",
+      },
+    ],
+    "byProduct": [
+      {
+        "category": "string",
+        "cents": "number",
+        "name": "string",
+        "quantity": "number",
+      },
+    ],
+    "from": "date",
+    "grossCents": "number",
+    "gstCollectedCents": "number",
+    "label": "string",
+    "netCents": "number",
+    "netGstCents": "number",
+    "otherCurrency": [],
+    "outstanding": [
+      {
+        "email": "string",
+        "memberId": "string",
+        "name": "string",
+        "owingCents": "number",
+        "pastDueSince": "date",
+      },
+    ],
+    "outstandingTotalCents": "number",
+    "paymentCount": "number",
+    "periods": [
+      {
+        "key": "string",
+        "label": "string",
+      },
+    ],
+    "refundsCents": "number",
+    "refundsGstCents": "number",
+    "to": "date",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff inventory 1`] = `
+{
+  "body": [
+    {
+      "category": "string",
+      "createdAt": "date",
+      "id": "string",
+      "name": "string",
+      "quantity": "number",
+      "reorderLevel": "number",
+      "sku": "string",
+      "unitCostCents": "number",
+      "updatedAt": "date",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff members 1`] = `
+{
+  "body": {
+    "items": [
+      {
+        "archivedAt": "null",
+        "createdAt": "date",
+        "email": "string",
+        "id": "string",
+        "lastCheckIn": "date",
+        "membershipPlan": {
+          "id": "string",
+          "name": "string",
+          "slug": "string",
+        },
+        "name": "string",
+        "planId": "string",
+        "referredById": "null",
+        "retentionScore": "number",
+        "status": "string",
+      },
+      {
+        "archivedAt": "null",
+        "createdAt": "date",
+        "email": "string",
+        "id": "string",
+        "lastCheckIn": "date",
+        "membershipPlan": {
+          "id": "string",
+          "name": "string",
+          "slug": "string",
+        },
+        "name": "string",
+        "planId": "string",
+        "referredById": "string",
+        "retentionScore": "number",
+        "status": "string",
+      },
+      {
+        "archivedAt": "null",
+        "createdAt": "date",
+        "email": "string",
+        "id": "string",
+        "lastCheckIn": "null",
+        "membershipPlan": "null",
+        "name": "string",
+        "planId": "null",
+        "referredById": "null",
+        "retentionScore": "number",
+        "status": "string",
+      },
+    ],
+    "nextCursor": "null",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff members/[id] 1`] = `
+{
+  "body": {
+    "amountOwingCents": "number",
+    "archivedAt": "null",
+    "canRetryPayment": "boolean",
+    "cancelAt": "null",
+    "cancelReason": "null",
+    "cancelledAt": "null",
+    "checkIns": [
+      {
+        "id": "string",
+        "location": "string",
+        "timestamp": "date",
+      },
+    ],
+    "classBookings": [
+      {
+        "class": {
+          "id": "string",
+          "instructor": "string",
+          "name": "string",
+          "startTime": "date",
+        },
+        "id": "string",
+      },
+    ],
+    "classWaitlist": [],
+    "createdAt": "date",
+    "currentPeriodEnd": "null",
+    "currentPeriodStart": "null",
+    "email": "string",
+    "hasSubscription": "boolean",
+    "id": "string",
+    "keycardIssued": "boolean",
+    "lastCheckIn": "date",
+    "membershipPlan": {
+      "id": "string",
+      "interval": "string",
+      "name": "string",
+      "priceCents": "number",
+    },
+    "name": "string",
+    "nextBillingDate": "date",
+    "notes": "null",
+    "pastDueSince": "null",
+    "pausedFrom": "null",
+    "pausedUntil": "null",
+    "payments": [
+      {
+        "amount": "number",
+        "currency": "string",
+        "description": "string",
+        "gstCents": "number",
+        "id": "string",
+        "invoiceNumber": "number",
+        "kind": "string",
+        "paidAt": "date",
+        "refundedCents": "number",
+        "status": "string",
+      },
+    ],
+    "pendingPlan": "null",
+    "planId": "string",
+    "referrals": [
+      {
+        "createdAt": "date",
+        "email": "string",
+        "id": "string",
+        "name": "string",
+      },
+    ],
+    "referredBy": "null",
+    "retentionScore": "number",
+    "status": "string",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff members/[id]/benefits 1`] = `
+{
+  "body": {
+    "accountCreditCents": "number",
+    "classCredits": {
+      "adjustments": "number",
+      "allowance": "null",
+      "remaining": "null",
+      "used": "number",
+    },
+    "cycle": {
+      "end": "date",
+      "start": "date",
+    },
+    "guestPasses": {
+      "adjustments": "number",
+      "allowance": "number",
+      "remaining": "number",
+      "used": "number",
+    },
+    "history": [],
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff members/[id]/events 1`] = `
+{
+  "body": [
+    {
+      "actorName": "string",
+      "createdAt": "date",
+      "details": "null",
+      "effectiveAt": "date",
+      "id": "string",
+      "memberId": "string",
+      "type": "string",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff members/[id]/notes 1`] = `
+{
+  "body": [],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff orders 1`] = `
+{
+  "body": [
+    {
+      "_count": {
+        "items": "number",
+      },
+      "createdAt": "date",
+      "customerName": "string",
+      "email": "string",
+      "fulfilment": "string",
+      "id": "string",
+      "number": "number",
+      "paidAt": "date",
+      "status": "string",
+      "totalCents": "number",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff orders/[id] 1`] = `
+{
+  "body": {
+    "confirmationSentAt": "null",
+    "createdAt": "date",
+    "customerName": "string",
+    "discountCents": "number",
+    "discountPercent": "number",
+    "email": "string",
+    "events": [
+      {
+        "actorName": "string",
+        "createdAt": "date",
+        "id": "string",
+        "note": "null",
+        "orderId": "string",
+        "status": "string",
+      },
+    ],
+    "fulfilment": "string",
+    "gstCents": "number",
+    "id": "string",
+    "items": [
+      {
+        "category": "string",
+        "id": "string",
+        "lineTotalCents": "number",
+        "orderId": "string",
+        "productName": "string",
+        "quantity": "number",
+        "unitPriceCents": "number",
+        "variantId": "string",
+        "variantLabel": "string",
+      },
+    ],
+    "member": {
+      "id": "string",
+      "name": "string",
+    },
+    "memberId": "string",
+    "nextStatuses": [],
+    "number": "number",
+    "paidAt": "date",
+    "paidOnline": "boolean",
+    "payment": {
+      "amount": "number",
+      "id": "string",
+      "invoiceNumber": "number",
+      "refundedCents": "number",
+    },
+    "shippingAddress": "null",
+    "shippingCents": "number",
+    "status": "string",
+    "stockCommitted": "boolean",
+    "subtotalCents": "number",
+    "totalCents": "number",
+    "trackingNumber": "null",
+    "updatedAt": "date",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff payments 1`] = `
+{
+  "body": [
+    {
+      "amount": "number",
+      "currency": "string",
+      "description": "string",
+      "gstCents": "number",
+      "id": "string",
+      "invoiceNumber": "number",
+      "kind": "string",
+      "member": {
+        "email": "string",
+        "id": "string",
+        "membershipPlan": {
+          "name": "string",
+        },
+        "name": "string",
+      },
+      "paidAt": "date",
+      "refundedCents": "number",
+      "status": "string",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff payments/[id] 1`] = `
+{
+  "body": {
+    "amount": "number",
+    "canRefundViaStripe": "boolean",
+    "createdAt": "date",
+    "currency": "string",
+    "description": "string",
+    "gstCents": "number",
+    "id": "string",
+    "invoiceNumber": "number",
+    "kind": "string",
+    "member": {
+      "email": "string",
+      "id": "string",
+      "name": "string",
+    },
+    "memberId": "string",
+    "order": "null",
+    "orderId": "null",
+    "paidAt": "date",
+    "planName": "string",
+    "refundableCents": "number",
+    "refundedCents": "number",
+    "refunds": [],
+    "status": "string",
+    "viaStripe": "boolean",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff payments/[id]/invoice 1`] = `
+{
+  "body": {
+    "buyer": {
+      "email": "string",
+      "name": "string",
+    },
+    "currency": "string",
+    "gstCents": "number",
+    "issuedAt": "date",
+    "lines": [
+      {
+        "amountCents": "number",
+        "description": "string",
+        "quantity": "number",
+      },
+    ],
+    "note": "string",
+    "number": "string",
+    "refundedCents": "number",
+    "seller": {
+      "abn": "string",
+      "address": "string",
+      "email": "string",
+      "name": "string",
+    },
+    "title": "string",
+    "totalCents": "number",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff products 1`] = `
+{
+  "body": [
+    {
+      "active": "boolean",
+      "category": "string",
+      "createdAt": "date",
+      "description": "string",
+      "id": "string",
+      "imageUrl": "null",
+      "name": "string",
+      "slug": "string",
+      "updatedAt": "date",
+      "variants": [
+        {
+          "active": "boolean",
+          "colour": "null",
+          "createdAt": "date",
+          "flavour": "null",
+          "id": "string",
+          "priceCents": "number",
+          "productId": "string",
+          "size": "null",
+          "sku": "string",
+          "stockQty": "number",
+          "updatedAt": "date",
+        },
+      ],
+    },
+    {
+      "active": "boolean",
+      "category": "string",
+      "createdAt": "date",
+      "description": "string",
+      "id": "string",
+      "imageUrl": "null",
+      "name": "string",
+      "slug": "string",
+      "updatedAt": "date",
+      "variants": [
+        {
+          "active": "boolean",
+          "colour": "null",
+          "createdAt": "date",
+          "flavour": "string",
+          "id": "string",
+          "priceCents": "number",
+          "productId": "string",
+          "size": "null",
+          "sku": "string",
+          "stockQty": "number",
+          "updatedAt": "date",
+        },
+      ],
+    },
+    {
+      "active": "boolean",
+      "category": "string",
+      "createdAt": "date",
+      "description": "string",
+      "id": "string",
+      "imageUrl": "null",
+      "name": "string",
+      "slug": "string",
+      "updatedAt": "date",
+      "variants": [
+        {
+          "active": "boolean",
+          "colour": "string",
+          "createdAt": "date",
+          "flavour": "null",
+          "id": "string",
+          "priceCents": "number",
+          "productId": "string",
+          "size": "string",
+          "sku": "string",
+          "stockQty": "number",
+          "updatedAt": "date",
+        },
+      ],
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff products/[id] 1`] = `
+{
+  "body": {
+    "active": "boolean",
+    "category": "string",
+    "claimWarnings": [],
+    "createdAt": "date",
+    "description": "string",
+    "id": "string",
+    "imageUrl": "null",
+    "name": "string",
+    "slug": "string",
+    "updatedAt": "date",
+    "variants": [
+      {
+        "active": "boolean",
+        "colour": "null",
+        "createdAt": "date",
+        "flavour": "null",
+        "id": "string",
+        "priceCents": "number",
+        "productId": "string",
+        "size": "null",
+        "sku": "string",
+        "stockQty": "number",
+        "updatedAt": "date",
+      },
+    ],
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff settings/features 1`] = `
+{
+  "body": {
+    "hideRevenueFromFrontDesk": "boolean",
+    "id": "string",
+    "requireKeycardForEntry": "boolean",
+  },
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff shifts 1`] = `
+{
+  "body": [
+    {
+      "createdAt": "date",
+      "endTime": "date",
+      "id": "string",
+      "notes": "null",
+      "staff": {
+        "id": "string",
+        "name": "string",
+        "role": "string",
+      },
+      "staffId": "string",
+      "startTime": "date",
+    },
+    {
+      "createdAt": "date",
+      "endTime": "date",
+      "id": "string",
+      "notes": "string",
+      "staff": {
+        "id": "string",
+        "name": "string",
+        "role": "string",
+      },
+      "staffId": "string",
+      "startTime": "date",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;
+
+exports[`GET response shapes (characterisation) > staff staff 1`] = `
+{
+  "body": [
+    {
+      "createdAt": "date",
+      "email": "string",
+      "id": "string",
+      "name": "string",
+      "role": "string",
+    },
+  ],
+  "status": 200,
+  "type": "application/json",
+}
+`;

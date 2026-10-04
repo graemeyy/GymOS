@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatAud, parseDollarsToCents } from "@/lib/money";
-import { fmtDate, fmtDateTime } from "@/lib/client/format";
+import { fmtDate, fmtDateTime } from "@/lib/format";
 import { Button, Panel, PanelHeader } from "@/components/ui/primitives";
 import { AsyncBlock, useToast } from "@/components/ui/feedback";
 import { Dialog } from "@/components/ui/dialog";
@@ -45,28 +45,26 @@ export function BenefitsPanel({ memberId, archived, version = 0 }: { memberId: s
   const [form, setForm] = useState({ kind: "CLASS_CREDIT" as keyof typeof KIND_TEXT, amount: "1", direction: "add", reason: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
-  const submit = async () => {
-    const raw = form.kind === "ACCOUNT_CREDIT" ? parseDollarsToCents(form.amount) : Number.parseInt(form.amount, 10);
-    if (raw === null || !Number.isFinite(raw) || raw <= 0) return setErrors({ delta: form.kind === "ACCOUNT_CREDIT" ? "Enter an amount like 20.00" : "Enter a whole number above zero" });
-    setBusy(true);
-    setErrors({});
-    setMessage(null);
-    try {
-      await api(`/api/members/${memberId}/benefits`, { body: { kind: form.kind, delta: form.direction === "add" ? raw : -raw, reason: form.reason } });
+  const adjust = useMutation((body: { kind: keyof typeof KIND_TEXT; delta: number; reason: string }) => api(`/api/members/${memberId}/benefits`, { body }), {
+    onSuccess: () => {
       toast("Adjustment saved");
       setOpen(false);
-      setForm({ ...form, amount: "1", reason: "" });
+      setForm((f) => ({ ...f, amount: "1", reason: "" }));
       void usage.reload();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-      }
-    } finally {
-      setBusy(false);
-    }
+    },
+    onError: (e) => {
+      setErrors(e.fields);
+      setMessage(e.message);
+    },
+  });
+
+  const submit = () => {
+    const raw = form.kind === "ACCOUNT_CREDIT" ? parseDollarsToCents(form.amount) : Number.parseInt(form.amount, 10);
+    if (raw === null || !Number.isFinite(raw) || raw <= 0) return setErrors({ delta: form.kind === "ACCOUNT_CREDIT" ? "Enter an amount like 20.00" : "Enter a whole number above zero" });
+    setErrors({});
+    setMessage(null);
+    void adjust.run({ kind: form.kind, delta: form.direction === "add" ? raw : -raw, reason: form.reason });
   };
 
   return (
@@ -133,7 +131,7 @@ export function BenefitsPanel({ memberId, archived, version = 0 }: { memberId: s
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button busy={busy} onClick={submit}>
+            <Button busy={adjust.busy} onClick={submit}>
               Save adjustment
             </Button>
           </>

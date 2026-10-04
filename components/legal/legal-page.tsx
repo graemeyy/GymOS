@@ -1,4 +1,4 @@
-import { gym } from "@/lib/config";
+import { gym } from "@/lib/config/client";
 import { SiteFooter, SiteHeader } from "@/components/public/site-chrome";
 
 // Shared frame for the template legal documents. Until the owner records a

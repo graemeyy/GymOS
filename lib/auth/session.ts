@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma, type Db } from "@/lib/db";
 import { ApiError } from "@/lib/http/errors";
+import { env } from "@/lib/env";
+import { assertSignInAllowed, RATE_LIMITS, recordFailedSignIn } from "@/lib/rate-limit";
 import { can, type Permission, type StaffRoleName } from "./permissions";
+import { verifyPasswordOrDummy } from "./password";
 import {
   createSessionToken,
   readCookie,
@@ -56,6 +59,50 @@ export async function resolveMember(request: Request, db: Db = prisma): Promise<
   return { kind: "member", id: member.id, name: member.name ?? member.email, email: member.email };
 }
 
+// Sign-in checks the per-account lockouts before the password. Only failed
+// attempts count towards them (R-40).
+export async function signInStaff(db: Db, email: string, password: string, ip: string) {
+  const accountKey = `staff:${email}`;
+  const accountFromHere = `${accountKey}:${ip}`;
+  await assertSignInAllowed(RATE_LIMITS.loginAccount, accountFromHere, db);
+  await assertSignInAllowed(RATE_LIMITS.loginAccountAnywhere, accountKey, db);
+  const staff = await db.staff.findUnique({ where: { email } });
+  const ok = await verifyPasswordOrDummy(password, staff?.passwordHash);
+  if (!staff || !ok) {
+    await recordFailedSignIn(RATE_LIMITS.loginAccount, accountFromHere, db);
+    await recordFailedSignIn(RATE_LIMITS.loginAccountAnywhere, accountKey, db);
+    throw new ApiError("unauthenticated", "That email and password don't match a staff account.");
+  }
+  return staff;
+}
+
+// Archived members can't sign in.
+export async function signInMember(db: Db, email: string, password: string, ip: string) {
+  const accountKey = `member:${email}`;
+  const accountFromHere = `${accountKey}:${ip}`;
+  await assertSignInAllowed(RATE_LIMITS.loginAccount, accountFromHere, db);
+  await assertSignInAllowed(RATE_LIMITS.loginAccountAnywhere, accountKey, db);
+  const member = await db.member.findUnique({ where: { email } });
+  const ok = await verifyPasswordOrDummy(password, member?.archivedAt ? null : member?.passwordHash);
+  if (!member || !ok) {
+    await recordFailedSignIn(RATE_LIMITS.loginAccount, accountFromHere, db);
+    await recordFailedSignIn(RATE_LIMITS.loginAccountAnywhere, accountKey, db);
+    throw new ApiError("unauthenticated", "That email and password don't match a member account.");
+  }
+  return member;
+}
+
+// Bumping the account's session version ends the session it was given and
+// every other one for that account. Stateless tokens can't be revoked one at
+// a time; see docs/DECISIONS.md.
+export async function endAllSessions(db: Db, session: SessionPayload) {
+  if (session.kind === "staff") {
+    await db.staff.updateMany({ where: { id: session.sub, sessionVersion: session.ver }, data: { sessionVersion: { increment: 1 } } });
+  } else {
+    await db.member.updateMany({ where: { id: session.sub, sessionVersion: session.ver }, data: { sessionVersion: { increment: 1 } } });
+  }
+}
+
 export async function hideRevenueFromFrontDesk(db: Db = prisma): Promise<boolean> {
   const settings = await db.gymSettings.findUnique({ where: { id: "singleton" } });
   return settings?.hideRevenueFromFrontDesk ?? false;
@@ -83,11 +130,17 @@ export async function requireMember(request: Request, db: Db = prisma): Promise<
   return member;
 }
 
+// Secure whenever the site is served over HTTPS, not only when NODE_ENV says
+// production, so a staging site run in development mode still gets it (R-82).
+function secureCookies() {
+  return env().NODE_ENV === "production" || env().NEXT_PUBLIC_APP_URL.startsWith("https://");
+}
+
 export async function setSessionCookie(response: NextResponse, input: SessionInput): Promise<void> {
   const token = await createSessionToken(input);
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies(),
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
@@ -97,7 +150,7 @@ export async function setSessionCookie(response: NextResponse, input: SessionInp
 export function clearSessionCookie(response: NextResponse): void {
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies(),
     sameSite: "lax",
     path: "/",
     maxAge: 0,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useResource } from "@/lib/client/api";
-import { fmtDate } from "@/lib/client/format";
+import { fmtDate } from "@/lib/format";
 import { formatAud } from "@/lib/money";
 import { ORDER_STATUS_TEXT, ORDER_STATUS_TONE, type OrderStatusName } from "@/lib/shop/labels";
 import { LinkButton, PageHeader, StatusTag } from "@/components/ui/primitives";

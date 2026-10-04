@@ -4,11 +4,12 @@ import Link from "next/link";
 import { Download, Mail } from "lucide-react";
 import { useResource } from "@/lib/client/api";
 import { downloadCsv } from "@/lib/csv";
-import { daysSince, lastSeen } from "@/lib/client/format";
+import { daysSince, lastSeen } from "@/lib/format";
 import { PageHeader, Panel, StatusTag, Button } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
 import { DataList } from "@/components/ui/data-list";
 import { Scoreboard } from "@/components/ui/scoreboard";
+import { AT_RISK_BELOW } from "@/lib/retention";
 
 interface Row {
   id: string;
@@ -20,7 +21,7 @@ interface Row {
 }
 
 function band(score: number) {
-  if (score < 40) return { label: "Likely to leave", tone: "bad" as const };
+  if (score < AT_RISK_BELOW) return { label: "Likely to leave", tone: "bad" as const };
   if (score < 70) return { label: "Keep an eye on", tone: "warn" as const };
   return { label: "Regular", tone: "good" as const };
 }
@@ -28,7 +29,7 @@ function band(score: number) {
 export default function RetentionPage() {
   const members = useResource<{ items: Row[] }>("/api/members?status=ACTIVE&take=500");
   const rows = [...(members.data?.items ?? [])].sort((a, b) => a.retentionScore - b.retentionScore);
-  const atRisk = rows.filter((m) => m.retentionScore < 40);
+  const atRisk = rows.filter((m) => m.retentionScore < AT_RISK_BELOW);
   const quiet = rows.filter((m) => (daysSince(m.lastCheckIn) ?? 999) >= 14);
 
   return (

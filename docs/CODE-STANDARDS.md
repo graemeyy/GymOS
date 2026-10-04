@@ -16,8 +16,9 @@ The one standard for GymOS code. New code follows it; existing code is brought i
 - **One data-access layer.** All Prisma calls live in `lib/<domain>/queries.ts` (reads) and `lib/<domain>/service.ts` (writes and rules). Route handlers and server components call those functions. Tests may use Prisma directly to arrange and assert.
 - **Server components by default.** A page is a server component unless it needs state, effects or event handlers. Public pages, legal pages, the shop, and print views (invoices) are server components that call `lib` queries directly.
 - **Client components for interactive screens.** The staff console and member app are interactive dashboards: their pages are client components that fetch the JSON API through `useResource` and change data through `useMutation` (section 4). Push `"use client"` as far down the tree as possible: a server page can render a client island.
-- **Server-only modules** (`lib/db.ts`, `lib/env.ts`, anything importing them) start with `import "server-only"` so a client import fails the build.
-- **Client-safe modules** (formatting, labels, pricing, the client config) never import server-only code. The browser gets the gym config through `lib/config/client.ts`, a plain object without Zod.
+- **Server-only modules.** `lib/db.ts` and `lib/env.ts` start with `import "server-only"`, so anything that reaches them from a client bundle fails the build. Scripts that load them run with `tsx --conditions=react-server`, and Vitest maps the marker to an empty module.
+- **Client-safe modules** (`lib/format.ts`, labels, pricing, `lib/plans/perks.ts`, `lib/shop/limits.ts`, `lib/time.ts`, `lib/dates.ts`, `lib/money.ts`) never import server-only code. The browser gets the gym config through `lib/config/client.ts`, the same JSON without Zod; a test checks it matches the validated config.
+- **Enforced by lint.** Pages, components and route handlers can't import `@/lib/db` or call `db.<model>` / `db.$transaction`. Client components, and everything in `components/` and `lib/client/`, can't import `@/lib/db`, `@/lib/env`, `@/lib/config`, `@/lib/http/route` or `@prisma/client` (type imports are fine). See `eslint.config.mjs`.
 - **No server actions.** Every mutation goes through a route handler, so there is one authorisation path to audit (D-035).
 
 ## 2. Folders and names
@@ -102,7 +103,9 @@ tests/e2e/                Playwright flows
 
 ## 9. Tests
 
-- **Tests sit next to the logic they cover**: `lib/<domain>/*.test.ts` for rules (Vitest), `tests/integration/` for API and database behaviour, `tests/e2e/` for key user flows (Playwright with axe).
+- **Tests sit next to the logic they cover**: `lib/<domain>/*.test.ts` for rules (Vitest), `*.test.tsx` beside a component or page for UI behaviour (Vitest in jsdom with Testing Library, `fetch` stubbed), `tests/integration/` for API and database behaviour, `tests/e2e/` for key user flows (Playwright with axe).
+- `tests/integration/characterisation.test.ts` pins the shape of every GET response. Update its snapshot only for an intentional API change, and say so in the pull request.
+- `tests/integration/atomic-*.test.ts` make the audit write fail and check the change was rolled back with it. A new write that logs an audit entry gets a case there.
 - Anything touching money, sign-in or permissions has tests before it counts as done.
 - Every bug fix has a regression test that fails without the fix.
 - Before refactoring an area, pin its current behaviour with characterisation tests.
@@ -111,6 +114,6 @@ tests/e2e/                Playwright flows
 
 ## 10. Tooling
 
-- `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` and `npm run test:e2e` all pass before a push. CI runs all of them, plus `prisma validate` and a schema drift check.
+- `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` and `npm run test:e2e` all pass before a push. CI runs all of them, plus `prisma validate`, a schema drift check and `npm run check:rollback` (every `down.sql` rolled back and re-applied).
 - Dependencies are pinned to exact versions. Minor and patch updates go in freely after the checks pass; major updates get their own pull request.
 - Database changes are additive migrations with a tested `down.sql`. Rollbacks never drop financial records; they move them to archive tables.

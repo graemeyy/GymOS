@@ -181,7 +181,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
 
-      {/* Mobile top bar: same open/close behaviour as before, now keyboard-safe. */}
+      {/* Mobile top bar. The drawer traps focus and closes with Escape. */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-line bg-surface px-3 lg:hidden">
         <Link href="/admin" className="rounded px-1">
           <Wordmark />

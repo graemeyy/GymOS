@@ -1,7 +1,9 @@
 import type { Db } from "@/lib/db";
 import { ApiError } from "@/lib/http/errors";
 import { logAction, type Actor } from "@/lib/audit";
+import type { StaffActor } from "@/lib/auth/session";
 import { withinGracePeriod } from "@/lib/billing/reminders";
+import { readPassToken } from "./qr";
 
 export type CheckInDecision = { granted: true; warning: string | null } | { granted: false; reason: string };
 
@@ -46,17 +48,47 @@ export async function checkInMember(db: Db, actor: Actor, memberId: string, loca
   });
   if (!member) throw new ApiError("not_found", "No member matches that.");
   const decision = await accessDecision(db, member);
-  if (decision.granted) {
-    await db.$transaction([
-      db.checkIn.create({ data: { memberId: member.id, location, method } }),
-      db.member.update({ where: { id: member.id }, data: { lastCheckIn: new Date() } }),
-    ]);
-  }
-  await logAction(db, actor, {
-    action: decision.granted ? "member.checked_in" : "member.check_in_refused",
-    targetType: "Member",
-    targetId: member.id,
-    details: { location, method, ...(decision.granted ? {} : { reason: decision.reason }) },
+  await db.$transaction(async (tx) => {
+    if (decision.granted) {
+      await tx.checkIn.create({ data: { memberId: member.id, location, method } });
+      await tx.member.update({ where: { id: member.id }, data: { lastCheckIn: new Date() } });
+    }
+    await logAction(tx, actor, {
+      action: decision.granted ? "member.checked_in" : "member.check_in_refused",
+      targetType: "Member",
+      targetId: member.id,
+      details: { location, method, ...(decision.granted ? {} : { reason: decision.reason }) },
+    });
   });
   return { member, decision };
+}
+
+// The front desk scans a QR pass or types a member ID or email. A pass that
+// has been reissued since it was shown is refused, so a shared screenshot
+// stops working.
+export async function checkInByQuery(db: Db, staff: StaffActor, query: string) {
+  let memberId: string | null = null;
+  let method: "MANUAL" | "QR" = "MANUAL";
+  if (query.startsWith("GYM1.")) {
+    const pass = await readPassToken(query);
+    if (!pass) throw new ApiError("not_found", "That pass isn't valid.");
+    const member = await db.member.findUnique({ where: { id: pass.m }, select: { id: true, qrVersion: true } });
+    if (!member || member.qrVersion !== pass.v) throw new ApiError("conflict", "That pass has been replaced. Ask the member to open their current pass.");
+    memberId = member.id;
+    method = "QR";
+  } else {
+    const isEmail = query.includes("@");
+    const found = await db.member.findFirst({ where: isEmail ? { email: query.toLowerCase() } : { id: query }, select: { id: true } });
+    if (!found) throw new ApiError("not_found", "No member matches that ID or email.");
+    memberId = found.id;
+  }
+  return { ...(await checkInMember(db, staff, memberId, "Front desk", method)), method };
+}
+
+// A door gateway only knows the card's member ID. Returns null for a card
+// that matches no member, which the door shows as unknown.
+export async function checkInAtGateway(db: Db, memberId: string, location: string) {
+  const exists = await db.member.findUnique({ where: { id: memberId }, select: { id: true } });
+  if (!exists) return null;
+  return checkInMember(db, { kind: "system", name: `Gateway ${location}` }, exists.id, location, "GATEWAY");
 }

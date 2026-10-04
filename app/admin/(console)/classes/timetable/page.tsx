@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
@@ -40,17 +40,39 @@ export default function TimetablePage() {
   const [editing, setEditing] = useState<Slot | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<Slot | null>(null);
-  const [removeBusy, setRemoveBusy] = useState(false);
-  const [generating, setGenerating] = useState(false);
+
+  const save = useMutation(
+    (target: Slot | null, body: Record<string, unknown>) => api(target ? `/api/class-templates/${target.id}` : "/api/class-templates", { method: target ? "PUT" : "POST", body }),
+    {
+      onSuccess: (_result, target) => {
+        toast(target ? "Slot saved" : "Slot added");
+        setOpen(false);
+        void slots.reload();
+      },
+    }
+  );
+
+  const generate = useMutation(() => api<{ created: number }>("/api/class-templates/generate", { body: { weeks: 2 } }), {
+    onSuccess: (res) => toast(res.created ? `Added ${res.created} class${res.created === 1 ? "" : "es"} for the next two weeks` : "The next two weeks are already on the calendar"),
+    onError: (e) => toast(e.message, "bad"),
+  });
+
+  const remove = useMutation((slot: Slot) => api(`/api/class-templates/${slot.id}`, { method: "DELETE" }), {
+    onSuccess: () => {
+      toast("Slot removed");
+      void slots.reload();
+      setDeleting(null);
+    },
+    onError: (e) => {
+      toast(e.message, "bad");
+      setDeleting(null);
+    },
+  });
 
   const openForm = (slot: Slot | null) => {
     setEditing(slot);
-    setErrors({});
-    setMessage(null);
+    save.reset();
     setForm(
       slot
         ? { name: slot.name, trainerId: slot.trainer?.id ?? "", weekday: String(slot.weekday), startTime: slot.startTime, durationMinutes: String(slot.durationMinutes), capacity: String(slot.capacity), active: slot.active }
@@ -59,52 +81,10 @@ export default function TimetablePage() {
     setOpen(true);
   };
 
-  const submit = async (event: React.FormEvent) => {
+  const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    setBusy(true);
-    setErrors({});
-    setMessage(null);
     const body = { name: form.name, trainerId: form.trainerId || null, weekday: Number(form.weekday), startTime: form.startTime, durationMinutes: Number(form.durationMinutes), capacity: Number(form.capacity), active: form.active };
-    try {
-      await api(editing ? `/api/class-templates/${editing.id}` : "/api/class-templates", { method: editing ? "PUT" : "POST", body });
-      toast(editing ? "Slot saved" : "Slot added");
-      setOpen(false);
-      void slots.reload();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const generate = async () => {
-    setGenerating(true);
-    try {
-      const res = await api<{ created: number }>("/api/class-templates/generate", { body: { weeks: 2 } });
-      toast(res.created ? `Added ${res.created} class${res.created === 1 ? "" : "es"} for the next two weeks` : "The next two weeks are already on the calendar");
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't add the classes.", "bad");
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const remove = async () => {
-    if (!deleting) return;
-    setRemoveBusy(true);
-    try {
-      await api(`/api/class-templates/${deleting.id}`, { method: "DELETE" });
-      toast("Slot removed");
-      void slots.reload();
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't remove the slot.", "bad");
-    } finally {
-      setRemoveBusy(false);
-      setDeleting(null);
-    }
+    void save.run(editing, body);
   };
 
   const byDay = DAYS.map((_, i) => (slots.data ?? []).filter((s) => s.weekday === i));
@@ -120,7 +100,7 @@ export default function TimetablePage() {
         actions={
           canEdit ? (
             <>
-              <Button variant="secondary" busy={generating} onClick={generate}>
+              <Button variant="secondary" busy={generate.busy} onClick={() => void generate.run()}>
                 Add the next two weeks now
               </Button>
               <Button onClick={() => openForm(null)}>
@@ -184,15 +164,15 @@ export default function TimetablePage() {
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" form="slot-form" busy={busy}>
+            <Button type="submit" form="slot-form" busy={save.busy}>
               {editing ? "Save slot" : "Add slot"}
             </Button>
           </>
         }
       >
         <form id="slot-form" onSubmit={submit} className="space-y-4" noValidate>
-          <TextField label="Class name" required value={form.name} error={errors.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-autofocus />
-          <SelectField label="Trainer" value={form.trainerId} error={errors.trainerId} onChange={(e) => setForm({ ...form, trainerId: e.target.value })}>
+          <TextField label="Class name" required value={form.name} error={save.fields.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-autofocus />
+          <SelectField label="Trainer" value={form.trainerId} error={save.fields.trainerId} onChange={(e) => setForm({ ...form, trainerId: e.target.value })}>
             <option value="">No trainer yet</option>
             {(staff.data ?? [])
               .filter((s) => s.role !== "FRONT_DESK")
@@ -210,15 +190,15 @@ export default function TimetablePage() {
                 </option>
               ))}
             </SelectField>
-            <TextField label="Start time" type="time" value={form.startTime} error={errors.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
-            <TextField label="Length (minutes)" type="number" inputMode="numeric" value={form.durationMinutes} error={errors.durationMinutes} onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })} />
-            <TextField label="Places" type="number" inputMode="numeric" value={form.capacity} error={errors.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} />
+            <TextField label="Start time" type="time" value={form.startTime} error={save.fields.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} />
+            <TextField label="Length (minutes)" type="number" inputMode="numeric" value={form.durationMinutes} error={save.fields.durationMinutes} onChange={(e) => setForm({ ...form, durationMinutes: e.target.value })} />
+            <TextField label="Places" type="number" inputMode="numeric" value={form.capacity} error={save.fields.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} />
           </div>
           <Switch label="Running" description="Turn off to stop adding this class to the calendar." checked={form.active} onChange={(v) => setForm({ ...form, active: v })} />
-          {message ? <FormMessage>{message}</FormMessage> : null}
+          {save.error ? <FormMessage>{save.error}</FormMessage> : null}
         </form>
       </Dialog>
-      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={remove} busy={removeBusy} title={`Remove ${deleting?.name ?? "this slot"}?`} confirmLabel="Remove slot" body="Classes already on the calendar stay. No new ones are added from this slot." />
+      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={() => deleting && void remove.run(deleting)} busy={remove.busy} title={`Remove ${deleting?.name ?? "this slot"}?`} confirmLabel="Remove slot" body="Classes already on the calendar stay. No new ones are added from this slot." />
     </>
   );
 }

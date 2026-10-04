@@ -1,3 +1,8 @@
+import { DAY_MS } from "@/lib/time";
+
+/** Members scoring below this are flagged as likely to leave. */
+export const AT_RISK_BELOW = 40;
+
 // Retention score, 0 to 100. Half from how recently the member visited, half
 // from how often they came in the last 30 days, minus a penalty for classes
 // they booked and didn't attend.
@@ -7,7 +12,7 @@ export function retentionScore(
 ): number {
   let score = 0;
   if (input.lastCheckIn) {
-    const days = (now.getTime() - input.lastCheckIn.getTime()) / 86_400_000;
+    const days = (now.getTime() - input.lastCheckIn.getTime()) / DAY_MS;
     if (days <= 3) score += 50;
     else if (days <= 7) score += 30;
     else if (days <= 14) score += 10;

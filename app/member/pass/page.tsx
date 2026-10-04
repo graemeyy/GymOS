@@ -1,7 +1,7 @@
 "use client";
 
 import { useResource } from "@/lib/client/api";
-import { STATUS_TEXT, STATUS_TONE } from "@/lib/client/labels";
+import { STATUS_TEXT, STATUS_TONE } from "@/lib/members/labels";
 import { PageHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock } from "@/components/ui/feedback";
 import type { Me } from "@/components/member/types";

@@ -58,14 +58,44 @@ export function assertSameOrigin(request: Request) {
   }
 }
 
+// The request's media type, exactly: "text/plain; x=application/json" isn't
+// JSON (R-80).
+function isJson(request: Request) {
+  return (request.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase() === "application/json";
+}
+
+// From the headers a real body always comes with. Next.js gives every
+// non-GET request a body stream, empty or not, so `request.body` can't tell.
+function hasBody(request: Request) {
+  const length = request.headers.get("content-length");
+  return length !== null ? Number(length) > 0 : request.headers.has("transfer-encoding");
+}
+
+// Reads the body as text, refusing it as soon as it passes `limit` bytes
+// rather than after reading it all (R-79).
+export async function readBodyText(request: Request, limit = MAX_BODY_BYTES): Promise<string> {
+  if (Number(request.headers.get("content-length") ?? 0) > limit) throw new ApiError("payload_too_large", "Request body is too large.");
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limit) {
+      await reader.cancel();
+      throw new ApiError("payload_too_large", "Request body is too large.");
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 async function readJsonBody<B>(request: Request, schema: ZodType<B> | undefined): Promise<B> {
   if (!schema) return undefined as B;
-  const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
-    throw new ApiError("bad_request", "Send the request body as JSON.");
-  }
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) throw new ApiError("payload_too_large", "Request body is too large.");
+  if (!isJson(request)) throw new ApiError("bad_request", "Send the request body as JSON.");
+  const text = await readBodyText(request);
   let raw: unknown;
   try {
     raw = text ? JSON.parse(text) : {};
@@ -107,14 +137,25 @@ function handleError(error: unknown): Response {
   return errorResponse(new ApiError("internal", "Something went wrong. Please try again."));
 }
 
-async function prepare<B, Q>(request: Request, context: RouteContext, opts: RouteOptions<B, Q>) {
+// Path segments are IDs or slugs; anything else can't match a record.
+const PARAM = /^[A-Za-z0-9_-]{1,64}$/;
+
+// Checks that don't depend on who is calling: origin, rate limit, path
+// parameters, and that a mutating request with a body sends JSON even when
+// the route takes no body (R-80, R-83).
+async function prepare(request: Request, context: RouteContext, opts: RouteOptions<unknown, unknown>) {
   assertSameOrigin(request);
   if (opts.rateLimit) await enforceRateLimit(opts.rateLimit, clientIp(request));
+  if (MUTATING.has(request.method) && !opts.body && hasBody(request) && !isJson(request)) {
+    throw new ApiError("bad_request", "Send the request body as JSON.");
+  }
   const params = context?.params ? await context.params : {};
-  const query = opts.query
-    ? parseWith(opts.query, Object.fromEntries(new URL(request.url).searchParams.entries()))
-    : (undefined as Q);
-  return { params, query };
+  if (Object.values(params).some((v) => !PARAM.test(v))) throw new ApiError("not_found", "That record doesn't exist.");
+  return params;
+}
+
+function parseQuery<Q>(request: Request, schema: ZodType<Q> | undefined): Q {
+  return schema ? parseWith(schema, Object.fromEntries(new URL(request.url).searchParams.entries())) : (undefined as Q);
 }
 
 export function publicRoute<B = undefined, Q = undefined>(
@@ -123,7 +164,8 @@ export function publicRoute<B = undefined, Q = undefined>(
 ) {
   return async (request: Request, context: RouteContext): Promise<Response> => {
     try {
-      const { params, query } = await prepare(request, context, opts);
+      const params = await prepare(request, context, opts);
+      const query = parseQuery(request, opts.query);
       const body = await readJsonBody(request, opts.body);
       return toResponse(await handler({ request, params, body, query, db: prisma }));
     } catch (error) {
@@ -132,16 +174,17 @@ export function publicRoute<B = undefined, Q = undefined>(
   };
 }
 
+// Staff and member routes authenticate before validating the query or body,
+// so callers who aren't allowed learn nothing from validation errors (R-83).
 export function staffRoute<B = undefined, Q = undefined>(
   opts: RouteOptions<B, Q> & { permission: Permission },
   handler: (args: BaseArgs<B, Q> & { staff: StaffActor }) => Promise<unknown>
 ) {
   return async (request: Request, context: RouteContext): Promise<Response> => {
     try {
-      const { params, query } = await prepare(request, context, opts);
-      // Authorise before reading the body, so unauthorised callers learn
-      // nothing from validation errors.
+      const params = await prepare(request, context, opts);
       const staff = await requireStaff(request, opts.permission);
+      const query = parseQuery(request, opts.query);
       const body = await readJsonBody(request, opts.body);
       return toResponse(await handler({ request, params, body, query, db: prisma, staff }));
     } catch (error) {
@@ -156,8 +199,9 @@ export function memberRoute<B = undefined, Q = undefined>(
 ) {
   return async (request: Request, context: RouteContext): Promise<Response> => {
     try {
-      const { params, query } = await prepare(request, context, opts);
+      const params = await prepare(request, context, opts);
       const member = await requireMember(request);
+      const query = parseQuery(request, opts.query);
       const body = await readJsonBody(request, opts.body);
       return toResponse(await handler({ request, params, body, query, db: prisma, member }));
     } catch (error) {

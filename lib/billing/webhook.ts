@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { Prisma, type Status } from "@prisma/client";
-import type { Db, Tx } from "@/lib/db";
+import { prisma, type Db, type Tx } from "@/lib/db";
 import { gym } from "@/lib/config";
 import { gstFromInclusive } from "@/lib/money";
 import { logAction } from "@/lib/audit";
@@ -277,7 +277,7 @@ async function isDuplicateEvent(db: Db, eventId: string, error: unknown): Promis
 // failure rolls back both so Stripe's retry runs it again. Only a clash on
 // the event ID means "already processed"; any other conflict is an error, so
 // Stripe retries and the failure is visible (R-19).
-export async function processStripeEvent(db: Db, event: Stripe.Event): Promise<"processed" | "duplicate" | "ignored"> {
+export async function processStripeEvent(event: Stripe.Event, db: Db = prisma): Promise<"processed" | "duplicate" | "ignored"> {
   if (event.api_version && event.api_version !== STRIPE_API_VERSION) {
     console.warn(`Stripe event ${event.type} uses API version ${event.api_version}; GymOS expects ${STRIPE_API_VERSION}. Set the webhook endpoint's version to match.`);
   }

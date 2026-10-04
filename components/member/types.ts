@@ -1,7 +1,7 @@
-import type { STATUS_TEXT } from "@/lib/client/labels";
-import type { INTERVAL_LABELS } from "@/lib/money";
+import type { STATUS_TEXT } from "@/lib/members/labels";
+import type { Interval } from "@/lib/money";
 
-export type Interval = keyof typeof INTERVAL_LABELS;
+export type { Interval };
 
 export interface Me {
   id: string;
