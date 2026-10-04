@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { zonedTimeToUtc } from "@/lib/dates";
+import { addCalendarDays, zonedTimeToUtc } from "@/lib/dates";
 import { gym } from "@/lib/config";
 import { fmtDateTime, fmtTime } from "@/lib/client/format";
 import { ROLE_LABELS, type StaffRoleName } from "@/lib/auth/permissions";
@@ -49,7 +49,9 @@ export default function ShiftsPage() {
     const tz = gym.business.timezone;
     const startTime = zonedTimeToUtc(form.date, form.start, tz);
     let endTime = zonedTimeToUtc(form.date, form.end, tz);
-    if (endTime <= startTime) endTime = new Date(endTime.getTime() + 86_400_000); // overnight shift
+    // Overnight shift: the finish time on the next calendar day, not 24 hours
+    // later, which is an hour out when daylight saving changes (R-109).
+    if (endTime <= startTime) endTime = zonedTimeToUtc(addCalendarDays(form.date, 1), form.end, tz);
     try {
       await api("/api/shifts", { body: { staffId: form.staffId, startTime: startTime.toISOString(), endTime: endTime.toISOString(), notes: form.notes || null } });
       toast("Shift added");

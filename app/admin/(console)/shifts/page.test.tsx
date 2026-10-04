@@ -41,3 +41,38 @@ describe("R-57 removing a shift", () => {
     expect(writes).toEqual(["/api/shifts/sh1"]);
   });
 });
+
+describe("R-109 overnight shifts", () => {
+  it("finish at the chosen time the next day when daylight saving starts overnight", async () => {
+    let posted: { startTime: string; endTime: string } | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          posted = JSON.parse(String(init.body));
+          return new Response("{}", { status: 201 });
+        }
+        if (url === "/api/auth/me") return new Response(JSON.stringify(me));
+        if (url === "/api/staff") return new Response(JSON.stringify([{ id: "s2", name: "Jo" }]));
+        return new Response("[]");
+      })
+    );
+    render(
+      <StaffSessionProvider>
+        <ShiftsPage />
+      </StaffSessionProvider>
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Add shift/ }));
+    const dialog = screen.getByRole("dialog");
+    await screen.findByRole("option", { name: "Jo" });
+    fireEvent.change(within(dialog).getByLabelText(/Staff member/), { target: { value: "s2" } });
+    fireEvent.change(within(dialog).getByLabelText(/Date/), { target: { value: "2026-10-03" } });
+    fireEvent.change(within(dialog).getByLabelText("Start"), { target: { value: "22:00" } });
+    fireEvent.change(within(dialog).getByLabelText(/Finish/), { target: { value: "06:00" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add shift" }));
+    await vi.waitFor(() => expect(posted).not.toBeNull());
+    // Sydney clocks go forward at 2am on 4 October: 6am is AEDT (UTC+11).
+    expect(posted!.startTime).toBe("2026-10-03T12:00:00.000Z");
+    expect(posted!.endTime).toBe("2026-10-03T19:00:00.000Z");
+  });
+});
