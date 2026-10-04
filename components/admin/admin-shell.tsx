@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -29,6 +29,7 @@ import { api } from "@/lib/client/api";
 import { cn } from "@/lib/client/cn";
 import { ROLE_LABELS, type Permission } from "@/lib/auth/permissions";
 import { IconButton } from "@/components/ui/primitives";
+import { ErrorState } from "@/components/ui/feedback";
 import { ThemeToggle } from "@/components/ui/theme";
 import { Wordmark } from "@/components/ui/logo";
 import { useModalBehaviour } from "@/components/ui/dialog";
@@ -78,10 +79,18 @@ const NAV: { group: string; items: NavItem[] }[] = [
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const { can, loading } = useStaff();
+  const { can, loading, error, reload } = useStaff();
   // Show nothing until permissions arrive, so no one glimpses a link their
   // role can't use.
   if (loading) return <nav aria-label="Staff" aria-busy="true" className="min-h-[20rem]" />;
+  // Without this the menu was just empty (R-89).
+  if (error) {
+    return (
+      <nav aria-label="Staff">
+        <ErrorState message="Couldn't load your menu. Check your connection and try again." onRetry={reload} />
+      </nav>
+    );
+  }
   return (
     <nav aria-label="Staff" className="flex flex-col gap-5">
       {NAV.map((section) => {
@@ -144,10 +153,27 @@ function StaffFooter() {
 }
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  // The drawer belongs to the page it was opened on, so any navigation,
+  // including browser Back, closes it (R-59).
+  const [openOn, setOpenOn] = useState<string | null>(null);
+  const open = openOn === pathname;
   const drawerRef = useRef<HTMLDivElement>(null);
-  const close = () => setOpen(false);
+  const close = () => setOpenOn(null);
   useModalBehaviour(open, drawerRef, close);
+
+  // Past the lg breakpoint the drawer is hidden by CSS, but its scroll lock
+  // would stay on; close it instead (R-59).
+  useEffect(() => {
+    if (!open) return;
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => {
+      if (wide.matches) setOpenOn(null);
+    };
+    onChange();
+    wide.addEventListener("change", onChange);
+    return () => wide.removeEventListener("change", onChange);
+  }, [open]);
 
   return (
     <div className="min-h-dvh lg:flex">
@@ -162,7 +188,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="flex items-center">
           <ThemeToggle />
-          <IconButton label="Open menu" aria-expanded={open} aria-controls="staff-drawer" onClick={() => setOpen(true)}>
+          <IconButton label="Open menu" aria-expanded={open} aria-controls="staff-drawer" onClick={() => setOpenOn(pathname)}>
             <Menu className="h-5 w-5" aria-hidden="true" />
           </IconButton>
         </div>

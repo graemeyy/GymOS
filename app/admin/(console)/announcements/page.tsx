@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { Plus } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
 import { fmtDate, fmtDateTime } from "@/lib/client/format";
+import { gym } from "@/lib/config";
+import { localDateIn } from "@/lib/dates";
 import { Button, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
@@ -25,6 +27,10 @@ interface Announcement {
 }
 
 const AUDIENCE_TEXT = { ALL_ACTIVE: "All current members", PLAN: "Members on one plan", STAFF_ONLY: "Staff only" } as const;
+// The server stores the end of the chosen gym-local day (exclusive), so the
+// last day shown is the gym-local date just before it (R-108).
+const lastShownDay = (expiresAt: string) => localDateIn(gym.business.timezone, new Date(new Date(expiresAt).getTime() - 1));
+
 const blank = { title: "", body: "", audience: "ALL_ACTIVE" as Announcement["audience"], planId: "", expiresAt: "" };
 
 export default function AnnouncementsPage() {
@@ -38,6 +44,10 @@ export default function AnnouncementsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [publishing, setPublishing] = useState<Announcement | null>(null);
+  // Separate in-flight flags, so the publish and delete buttons can't be
+  // pressed twice (R-16, R-57).
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [removeBusy, setRemoveBusy] = useState(false);
   const [sendEmail, setSendEmail] = useState(false);
   const [deleting, setDeleting] = useState<Announcement | null>(null);
 
@@ -45,7 +55,7 @@ export default function AnnouncementsPage() {
     setEditing(a);
     setErrors({});
     setMessage(null);
-    setForm(a ? { title: a.title, body: a.body, audience: a.audience, planId: a.planId ?? "", expiresAt: a.expiresAt ? a.expiresAt.slice(0, 10) : "" } : blank);
+    setForm(a ? { title: a.title, body: a.body, audience: a.audience, planId: a.planId ?? "", expiresAt: a.expiresAt ? lastShownDay(a.expiresAt) : "" } : blank);
     setOpen(true);
   };
 
@@ -54,7 +64,7 @@ export default function AnnouncementsPage() {
     setBusy(true);
     setErrors({});
     setMessage(null);
-    const body = { title: form.title, body: form.body, audience: form.audience, planId: form.audience === "PLAN" ? form.planId || null : null, expiresAt: form.expiresAt ? `${form.expiresAt}T23:59:59` : null };
+    const body = { title: form.title, body: form.body, audience: form.audience, planId: form.audience === "PLAN" ? form.planId || null : null, expiresAt: form.expiresAt || null };
     try {
       await api(editing ? `/api/announcements/${editing.id}` : "/api/announcements", { method: editing ? "PUT" : "POST", body });
       toast(editing ? "Announcement saved" : "Draft saved");
@@ -71,7 +81,8 @@ export default function AnnouncementsPage() {
   };
 
   const publish = async () => {
-    if (!publishing) return;
+    if (!publishing || publishBusy) return;
+    setPublishBusy(true);
     try {
       const email = Boolean(publishing.publishedAt) || sendEmail;
       const res = await api<{ emailed: number }>(`/api/announcements/${publishing.id}/publish`, { body: { email } });
@@ -80,12 +91,14 @@ export default function AnnouncementsPage() {
     } catch (e) {
       toast(e instanceof ApiClientError ? e.message : "Couldn't publish.", "bad");
     } finally {
+      setPublishBusy(false);
       setPublishing(null);
     }
   };
 
   const remove = async () => {
-    if (!deleting) return;
+    if (!deleting || removeBusy) return;
+    setRemoveBusy(true);
     try {
       await api(`/api/announcements/${deleting.id}`, { method: "DELETE" });
       toast("Announcement deleted");
@@ -93,6 +106,7 @@ export default function AnnouncementsPage() {
     } catch (e) {
       toast(e instanceof ApiClientError ? e.message : "Couldn't delete.", "bad");
     } finally {
+      setRemoveBusy(false);
       setDeleting(null);
     }
   };
@@ -125,7 +139,7 @@ export default function AnnouncementsPage() {
                         </h2>
                         <p className="mt-1 text-sm text-ink-soft">
                           {a.audience === "PLAN" ? `${a.plan?.name ?? "One plan"} members` : AUDIENCE_TEXT[a.audience]}
-                          {a.expiresAt ? `, shown until ${fmtDate(a.expiresAt)}` : ""}
+                          {a.expiresAt ? `, shown until ${fmtDate(new Date(new Date(a.expiresAt).getTime() - 1))}` : ""}
                         </p>
                       </div>
                       {a.publishedAt ? expired ? <StatusTag>Ended</StatusTag> : <StatusTag tone="good">Live since {fmtDate(a.publishedAt)}</StatusTag> : <StatusTag tone="warn">Draft</StatusTag>}
@@ -216,7 +230,7 @@ export default function AnnouncementsPage() {
             <Button variant="secondary" onClick={() => setPublishing(null)}>
               Not yet
             </Button>
-            <Button onClick={publish}>{publishing?.publishedAt ? "Send email" : sendEmail ? "Publish and email" : "Publish"}</Button>
+            <Button onClick={publish} busy={publishBusy}>{publishing?.publishedAt ? "Send email" : sendEmail ? "Publish and email" : "Publish"}</Button>
           </>
         }
       >
@@ -232,7 +246,7 @@ export default function AnnouncementsPage() {
           </label>
         )}
       </Dialog>
-      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={remove} title={`Delete "${deleting?.title ?? ""}"?`} confirmLabel="Delete" body="Members won't see it any more. Emails already sent can't be recalled." />
+      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={remove} busy={removeBusy} title={`Delete "${deleting?.title ?? ""}"?`} confirmLabel="Delete" body="Members won't see it any more. Emails already sent can't be recalled." />
     </>
   );
 }

@@ -7,6 +7,7 @@ import { stripeRecurring } from "@/lib/billing/intervals";
 import { logAction, type Actor } from "@/lib/audit";
 import { currentCycle } from "./cycle";
 import { prorationCents } from "./proration";
+import { monthlyEquivalentCents } from "@/lib/money";
 
 const DAY = 86_400_000;
 
@@ -64,16 +65,16 @@ export async function pauseMembership(db: Db, actor: Actor, memberId: string, fr
   if (member.status === "CANCELED") throw new ApiError("conflict", "A cancelled membership can't be paused.");
   if (member.status === "PENDING") throw new ApiError("conflict", "There's no membership to pause yet.");
   if (member.pausedUntil && member.pausedUntil > new Date()) throw new ApiError("conflict", "This membership already has a pause. Resume it first.");
+  // A pause can't overlap a booked cancellation: the daily job would cancel
+  // during the pause and later "resume" a cancelled member (R-27).
+  if (member.cancelAt) throw new ApiError("conflict", "This membership has a cancellation booked. Withdraw it before pausing.");
   const pausesThisYear = await db.membershipEvent.count({ where: { memberId, type: "PAUSE_SCHEDULED", createdAt: { gte: new Date(Date.now() - 365 * DAY) } } });
   const days = validatePause({ from, until, pausesThisYear, byMember: actor.kind === "member" });
 
-  if (member.stripeSubscriptionId) {
-    // Stripe stops invoicing until the pause ends; "void" means no catch-up charge.
-    await stripeStep("pause the subscription", () =>
-      getStripe().subscriptions.update(member.stripeSubscriptionId!, { pause_collection: { behavior: "void", resumes_at: Math.floor(until.getTime() / 1000) } })
-    );
-  }
   const startsNow = from.getTime() <= Date.now();
+  // Stripe's pause takes effect as soon as it's set, so a pause booked for
+  // later is sent to Stripe by the daily job on its start date (R-03).
+  if (member.stripeSubscriptionId && startsNow) await pauseStripeBilling(member.stripeSubscriptionId, until);
   await db.$transaction(async (tx) => {
     await tx.member.update({ where: { id: memberId }, data: { pausedFrom: from, pausedUntil: until, ...(startsNow ? { status: "PAUSED" } : {}) } });
     await recordEvent(tx, memberId, actor, "PAUSE_SCHEDULED", from, { until: until.toISOString(), days, feeCents: gym.policies.pause.feeCents });
@@ -95,6 +96,13 @@ export async function resumeMembership(db: Db, actor: Actor, memberId: string) {
     await recordEvent(tx, memberId, actor, "RESUMED", new Date());
     await logAction(tx, actor, { action: "membership.resumed", targetType: "Member", targetId: memberId });
   });
+}
+
+// Stripe stops invoicing until the pause ends; "void" means no catch-up charge.
+async function pauseStripeBilling(subscriptionId: string, until: Date) {
+  await stripeStep("pause the subscription", () =>
+    getStripe().subscriptions.update(subscriptionId, { pause_collection: { behavior: "void", resumes_at: Math.floor(until.getTime() / 1000) } })
+  );
 }
 
 // ---------- Cancel ----------
@@ -134,7 +142,9 @@ export async function requestCancellation(db: Db, actor: Actor, memberId: string
     throw new ApiError("forbidden", "Please contact the gym to cancel.");
   }
   if (input.immediate && actor.kind !== "staff") throw new ApiError("forbidden", "Only staff can cancel immediately.");
-  const terms = cancellationTerms(member.createdAt, { immediate: input.immediate });
+  // Cooling-off and minimum term run from when this membership started, not
+  // from when the person first signed up (R-07).
+  const terms = cancellationTerms(member.membershipStartedAt ?? member.createdAt, { immediate: input.immediate });
   const immediate = terms.effectiveAt.getTime() <= Date.now();
 
   if (member.stripeSubscriptionId) {
@@ -148,7 +158,7 @@ export async function requestCancellation(db: Db, actor: Actor, memberId: string
     await tx.member.update({
       where: { id: memberId },
       data: immediate
-        ? { status: "CANCELED", cancelledAt: terms.effectiveAt, cancelAt: null, cancelReason: input.reason ?? null, pendingPlanId: null }
+        ? { status: "CANCELED", cancelledAt: terms.effectiveAt, cancelAt: null, cancelReason: input.reason ?? null, pendingPlanId: null, pausedFrom: null, pausedUntil: null }
         : { cancelAt: terms.effectiveAt, cancelReason: input.reason ?? null },
     });
     await recordEvent(tx, memberId, actor, immediate ? "CANCELLED" : "CANCEL_REQUESTED", terms.effectiveAt, { reason: input.reason ?? null, rule: terms.reason });
@@ -183,23 +193,28 @@ export interface PlanChangePreview {
   upgrade: boolean;
   immediate: boolean;
   effectiveAt: Date;
-  prorationCents: number;
+  // null: Stripe will work it out (a change between billing intervals).
+  prorationCents: number | null;
 }
 
 // What changing to `plan` would do under the owner's rules, without doing it.
 // Used for the member's "change plan" screen and by changePlan itself, so the
 // preview and the result can't disagree.
 export function previewPlanChange(
-  member: { createdAt: Date; currentPeriodStart: Date | null; currentPeriodEnd: Date | null; membershipPlan: { priceCents: number; interval: BillingInterval } | null },
+  member: { createdAt: Date; membershipStartedAt?: Date | null; currentPeriodStart: Date | null; currentPeriodEnd: Date | null; membershipPlan: { priceCents: number; interval: BillingInterval } | null },
   plan: { priceCents: number; interval: BillingInterval },
   now = new Date()
 ): PlanChangePreview {
   const current = member.membershipPlan;
-  const upgrade = !current || plan.priceCents >= current.priceCents;
+  // Compare what each plan costs per month, so a monthly plan isn't called a
+  // downgrade from a weekly one just because its price number is bigger (R-28).
+  const upgrade = !current || monthlyEquivalentCents(plan.priceCents, plan.interval) >= monthlyEquivalentCents(current.priceCents, current.interval);
   const policy = gym.policies.planChanges;
   const immediate = upgrade ? policy.upgradeProration === "prorate_now" : policy.downgradeTiming === "immediate";
   const cycle = current ? currentCycle(member, current.interval, now) : null;
-  const proration = immediate && current && cycle && current.interval === plan.interval ? prorationCents(current.priceCents, plan.priceCents, cycle.start, cycle.end, now) : 0;
+  // Across billing intervals Stripe works out the proration itself.
+  const proration =
+    immediate && current && cycle ? (current.interval === plan.interval ? prorationCents(current.priceCents, plan.priceCents, cycle.start, cycle.end, now) : null) : 0;
   return { upgrade, immediate, effectiveAt: immediate ? now : cycle?.end ?? now, prorationCents: proration };
 }
 
@@ -233,9 +248,17 @@ export async function changePlan(db: Db, actor: Actor, memberId: string, newPlan
       const sub = await stripe.subscriptions.retrieve(member.stripeSubscriptionId!);
       const itemId = sub.items.data[0]?.id;
       if (!itemId) throw new ApiError("upstream_failed", "The Stripe subscription has no items to change.");
-      const priceData = { currency: "aud", unit_amount: plan.priceCents, recurring: stripeRecurring(plan.interval), product_data: { name: `${gym.brand.name} ${plan.name} membership` } };
+      // Subscription items only take a price (or price data for an existing
+      // product), so the plan's price is created first (R-12).
+      const price = await stripe.prices.create({
+        currency: "aud",
+        unit_amount: plan.priceCents,
+        recurring: stripeRecurring(plan.interval),
+        product_data: { name: `${gym.brand.name} ${plan.name} membership` },
+        metadata: { planId: plan.id },
+      });
       await stripe.subscriptions.update(member.stripeSubscriptionId!, {
-        items: [{ id: itemId, price_data: priceData as never }],
+        items: [{ id: itemId, price: price.id }],
         proration_behavior: immediate ? "create_prorations" : "none",
         ...(immediate ? {} : { billing_cycle_anchor: "unchanged" }),
         metadata: { planId: plan.id },
@@ -260,44 +283,145 @@ export async function changePlan(db: Db, actor: Actor, memberId: string, newPlan
   return { immediate, effectiveAt, prorationCents: proration, upgrade };
 }
 
+// ---------- Front-desk billing ----------
+// For members who pay at the desk (no Stripe subscription). Members billed
+// through Stripe change plan with changePlan and pause or cancel with the
+// actions above, so Stripe and GymOS stay in step (R-06).
+
+function assertDeskBilled(member: LoadedMember, what: string) {
+  if (member.stripeSubscriptionId && member.status !== "CANCELED") {
+    throw new ApiError("conflict", `This member pays by card through Stripe. Use ${what} instead.`);
+  }
+}
+
+// Starts (or restarts) a membership: a pending sign-up, or someone whose
+// membership ended. Cooling-off and minimum term count from now (R-07).
+export async function startMembership(db: Db, actor: Actor, memberId: string, planId?: string | null) {
+  const member = await loadMember(db, memberId);
+  if (member.status !== "PENDING" && member.status !== "CANCELED") throw new ApiError("conflict", "This membership is already running.");
+  const plan = planId ? await db.membershipPlan.findFirst({ where: { id: planId, active: true }, select: { id: true, name: true } }) : member.membershipPlan;
+  if (!plan) throw new ApiError("validation_failed", "Choose a plan to start the membership.", { planId: "Required" });
+  const now = new Date();
+  await db.$transaction(async (tx) => {
+    await tx.member.update({
+      where: { id: memberId },
+      data: {
+        status: "ACTIVE",
+        planId: plan.id,
+        membershipStartedAt: now,
+        stripeSubscriptionId: null,
+        cancelAt: null,
+        cancelledAt: null,
+        cancelReason: null,
+        pendingPlanId: null,
+        pastDueSince: null,
+        amountOwingCents: 0,
+        lastFailedInvoiceId: null,
+      },
+    });
+    await recordEvent(tx, memberId, actor, "JOINED", now, { plan: plan.name, billing: "front desk" });
+    await logAction(tx, actor, { action: "membership.started", targetType: "Member", targetId: memberId, details: { planId: plan.id } });
+  });
+}
+
+// An overdue member paid at the desk.
+export async function markPaidAtDesk(db: Db, actor: Actor, memberId: string) {
+  const member = await loadMember(db, memberId);
+  assertDeskBilled(member, "Retry payment");
+  if (member.status !== "PAST_DUE") throw new ApiError("conflict", "This member doesn't owe anything.");
+  await db.$transaction(async (tx) => {
+    await tx.member.update({ where: { id: memberId }, data: { status: "ACTIVE", pastDueSince: null, amountOwingCents: 0, lastFailedInvoiceId: null } });
+    await logAction(tx, actor, { action: "membership.paid_at_desk", targetType: "Member", targetId: memberId });
+  });
+}
+
+export async function setPlanAtDesk(db: Db, actor: Actor, memberId: string, planId: string | null) {
+  const member = await loadMember(db, memberId);
+  assertDeskBilled(member, "Change plan");
+  if (planId === member.planId) return;
+  const plan = planId ? await db.membershipPlan.findFirst({ where: { id: planId, active: true }, select: { id: true, name: true } }) : null;
+  if (planId && !plan) throw new ApiError("validation_failed", "That plan isn't available.", { planId: "Not available" });
+  await db.$transaction(async (tx) => {
+    await tx.member.update({ where: { id: memberId }, data: { planId: plan?.id ?? null, pendingPlanId: null } });
+    await recordEvent(tx, memberId, actor, "PLAN_CHANGED", new Date(), { from: member.membershipPlan?.name ?? null, to: plan?.name ?? null, billing: "front desk" });
+    await logAction(tx, actor, { action: "membership.plan_changed", targetType: "Member", targetId: memberId, details: { from: member.planId, to: plan?.id ?? null } });
+  });
+}
+
 // ---------- Scheduled transitions (run daily) ----------
 
 // Starts and ends pauses, applies scheduled plan changes, and completes
 // cancellations whose date has arrived. Idempotent: running twice in a day
-// changes nothing the second time.
+// changes nothing the second time. Each member's change and its history
+// entry are written together, and one member's failure doesn't stop the
+// others (R-35).
 export async function applyDueTransitions(db: Db, now = new Date()) {
   const system: Actor = { kind: "system", name: "Daily job" };
-  const pausing = await db.member.updateMany({
-    where: { archivedAt: null, status: { in: ["ACTIVE", "PAST_DUE"] }, pausedFrom: { lte: now }, pausedUntil: { gt: now } },
-    data: { status: "PAUSED" },
-  });
-
-  const resuming = await db.member.findMany({ where: { archivedAt: null, pausedUntil: { lte: now } }, select: { id: true, status: true, pastDueSince: true } });
-  for (const m of resuming) {
-    await db.member.update({ where: { id: m.id }, data: { pausedFrom: null, pausedUntil: null, ...(m.status === "PAUSED" ? { status: m.pastDueSince ? "PAST_DUE" : "ACTIVE" } : {}) } });
-    await recordEvent(db, m.id, system, "RESUMED", now);
-  }
+  // Runs fn for each member; it returns false when there was nothing to do.
+  const each = async <T extends { id: string }>(rows: T[], fn: (row: T) => Promise<boolean | void>) => {
+    let done = 0;
+    for (const row of rows) {
+      try {
+        if ((await fn(row)) !== false) done++;
+      } catch (error) {
+        console.error("Membership transition failed for one member:", error instanceof Error ? error.name : "unknown");
+      }
+    }
+    return done;
+  };
 
   const cancelling = await db.member.findMany({ where: { archivedAt: null, cancelAt: { lte: now }, status: { not: "CANCELED" } }, select: { id: true, cancelAt: true } });
-  for (const m of cancelling) {
-    await db.member.update({ where: { id: m.id }, data: { status: "CANCELED", cancelledAt: m.cancelAt, cancelAt: null, pendingPlanId: null } });
-    await recordEvent(db, m.id, system, "CANCELLED", m.cancelAt ?? now, { rule: "scheduled" });
-  }
+  const cancellations = await each(cancelling, (m) =>
+    db.$transaction(async (tx) => {
+      await tx.member.update({ where: { id: m.id }, data: { status: "CANCELED", cancelledAt: m.cancelAt, cancelAt: null, pendingPlanId: null, pausedFrom: null, pausedUntil: null } });
+      await recordEvent(tx, m.id, system, "CANCELLED", m.cancelAt ?? now, { rule: "scheduled" });
+    })
+  );
+
+  const starting = await db.member.findMany({
+    where: { archivedAt: null, status: { in: ["ACTIVE", "PAST_DUE"] }, pausedFrom: { lte: now }, pausedUntil: { gt: now } },
+    select: { id: true, stripeSubscriptionId: true, pausedUntil: true },
+  });
+  const pausesStarted = await each(starting, async (m) => {
+    if (m.stripeSubscriptionId) await pauseStripeBilling(m.stripeSubscriptionId, m.pausedUntil!);
+    await db.member.update({ where: { id: m.id }, data: { status: "PAUSED" } });
+  });
+
+  const resuming = await db.member.findMany({ where: { archivedAt: null, pausedUntil: { lte: now }, status: { not: "CANCELED" } }, select: { id: true, status: true, pastDueSince: true } });
+  const pausesEnded = await each(resuming, (m) =>
+    db.$transaction(async (tx) => {
+      await tx.member.update({ where: { id: m.id }, data: { pausedFrom: null, pausedUntil: null, ...(m.status === "PAUSED" ? { status: m.pastDueSince ? "PAST_DUE" : "ACTIVE" } : {}) } });
+      await recordEvent(tx, m.id, system, "RESUMED", now);
+    })
+  );
 
   const planChanges = await db.member.findMany({
     where: { archivedAt: null, pendingPlanId: { not: null } },
-    select: { id: true, pendingPlanId: true, createdAt: true, currentPeriodStart: true, currentPeriodEnd: true, membershipPlan: { select: { interval: true, name: true } }, pendingPlan: { select: { name: true } } },
+    select: { id: true, pendingPlanId: true, createdAt: true, membershipStartedAt: true, currentPeriodStart: true, currentPeriodEnd: true, membershipPlan: { select: { interval: true, name: true } }, pendingPlan: { select: { name: true } } },
   });
-  let plansApplied = 0;
-  for (const m of planChanges) {
-    const cycle = m.membershipPlan ? currentCycle(m, m.membershipPlan.interval, now) : null;
-    // Apply once the cycle in which the change was booked has ended.
-    const booked = await db.membershipEvent.findFirst({ where: { memberId: m.id, type: "PLAN_CHANGE_SCHEDULED" }, orderBy: { createdAt: "desc" } });
-    if (booked && booked.effectiveAt > now) continue;
-    if (!booked && cycle && cycle.start > now) continue;
-    await db.member.update({ where: { id: m.id }, data: { planId: m.pendingPlanId, pendingPlanId: null } });
-    await recordEvent(db, m.id, system, "PLAN_CHANGED", now, { from: m.membershipPlan?.name ?? null, to: m.pendingPlan?.name ?? null });
-    plansApplied++;
-  }
-  return { pausesStarted: pausing.count, pausesEnded: resuming.length, cancellations: cancelling.length, plansApplied };
+  const scheduled = await db.membershipEvent.findMany({
+    where: { memberId: { in: planChanges.map((m) => m.id) }, type: "PLAN_CHANGE_SCHEDULED" },
+    orderBy: { createdAt: "desc" },
+    select: { memberId: true, effectiveAt: true },
+  });
+  const bookedFor = new Map<string, Date>();
+  for (const e of scheduled) if (!bookedFor.has(e.memberId)) bookedFor.set(e.memberId, e.effectiveAt);
+  const plansApplied = await each(planChanges, async (m) => {
+    const booked = bookedFor.get(m.id);
+    if (!booked) {
+      // A change with no booking record (set outside the usual flow) is
+      // scheduled for the end of the current cycle rather than applied at
+      // once (R-87).
+      const cycle = m.membershipPlan ? currentCycle(m, m.membershipPlan.interval, now) : null;
+      await recordEvent(db, m.id, system, "PLAN_CHANGE_SCHEDULED", cycle?.end ?? now, { to: m.pendingPlan?.name ?? null });
+      if (cycle) return false;
+    } else if (booked > now) {
+      return false;
+    }
+    await db.$transaction(async (tx) => {
+      await tx.member.update({ where: { id: m.id }, data: { planId: m.pendingPlanId, pendingPlanId: null } });
+      await recordEvent(tx, m.id, system, "PLAN_CHANGED", now, { from: m.membershipPlan?.name ?? null, to: m.pendingPlan?.name ?? null });
+    });
+  });
+  return { pausesStarted, pausesEnded, cancellations, plansApplied };
 }

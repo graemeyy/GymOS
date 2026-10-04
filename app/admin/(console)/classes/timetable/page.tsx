@@ -44,6 +44,7 @@ export default function TimetablePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<Slot | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const openForm = (slot: Slot | null) => {
@@ -93,6 +94,7 @@ export default function TimetablePage() {
 
   const remove = async () => {
     if (!deleting) return;
+    setRemoveBusy(true);
     try {
       await api(`/api/class-templates/${deleting.id}`, { method: "DELETE" });
       toast("Slot removed");
@@ -100,6 +102,7 @@ export default function TimetablePage() {
     } catch (e) {
       toast(e instanceof ApiClientError ? e.message : "Couldn't remove the slot.", "bad");
     } finally {
+      setRemoveBusy(false);
       setDeleting(null);
     }
   };
@@ -215,7 +218,7 @@ export default function TimetablePage() {
           {message ? <FormMessage>{message}</FormMessage> : null}
         </form>
       </Dialog>
-      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={remove} title={`Remove ${deleting?.name ?? "this slot"}?`} confirmLabel="Remove slot" body="Classes already on the calendar stay. No new ones are added from this slot." />
+      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={remove} busy={removeBusy} title={`Remove ${deleting?.name ?? "this slot"}?`} confirmLabel="Remove slot" body="Classes already on the calendar stay. No new ones are added from this slot." />
     </>
   );
 }

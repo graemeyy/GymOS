@@ -11,10 +11,11 @@ import { Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
 import { useToast } from "@/components/ui/feedback";
 import { useStaff } from "@/components/admin/staff-session";
+import { addCalendarDays, localDateIn } from "@/lib/dates";
 import type { MemberDetail, PlanOptionFull } from "./types";
 
-const todayIso = () => new Intl.DateTimeFormat("en-CA", { timeZone: gym.business.timezone }).format(new Date());
-const plusDaysIso = (days: number) => new Intl.DateTimeFormat("en-CA", { timeZone: gym.business.timezone }).format(new Date(Date.now() + days * 86_400_000));
+const todayIso = () => localDateIn(gym.business.timezone);
+const plusDaysIso = (days: number) => addCalendarDays(todayIso(), days);
 
 type Action = "plan" | "pause" | "cancel" | null;
 
@@ -148,7 +149,7 @@ export function MembershipPanel({ member, plans, onChanged }: { member: MemberDe
         open={action === "pause"}
         onClose={() => setAction(null)}
         title="Pause membership"
-        description={`Between ${policy.pause.minDays} and ${policy.pause.maxDays} days, up to ${policy.pause.maxPausesPerYear} times in 12 months. No payments are taken while paused${policy.pause.feeCents ? `, but there's a ${formatAud(policy.pause.feeCents)} pause fee` : ""}.`}
+        description={`Between ${policy.pause.minDays} and ${policy.pause.maxDays} days, up to ${policy.pause.maxPausesPerYear} times in 12 months. No payments are taken while paused${policy.pause.feeCents ? `, but there's a ${formatAud(policy.pause.feeCents)} pause fee to collect at the desk (it isn't charged automatically)` : ""}.`}
         footer={
           <>
             <Button variant="secondary" onClick={() => setAction(null)}>
@@ -158,7 +159,7 @@ export function MembershipPanel({ member, plans, onChanged }: { member: MemberDe
               busy={busy}
               onClick={() =>
                 run(
-                  () => api(`/api/members/${member.id}/pause`, { body: { from: `${pause.from}T00:00:00`, until: `${pause.until}T00:00:00` } }),
+                  () => api(`/api/members/${member.id}/pause`, { body: { from: pause.from, until: pause.until } }),
                   "Pause booked"
                 )
               }

@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useSearchParams } from "next/navigation";
 import { useResource } from "@/lib/client/api";
 import { useCart } from "@/lib/client/cart";
 import { fmtDate, fmtDateTime, invoiceNo } from "@/lib/client/format";
@@ -44,17 +44,24 @@ export default function MyOrderPage() {
 function MyOrder() {
   const { id } = useParams<{ id: string }>();
   const params = useSearchParams();
-  const justPaid = params.get("paid") === "1";
+  const pathname = usePathname();
+  // Read once: the flag is removed from the URL below, but the thank-you
+  // message and polling carry on for this visit.
+  const [justPaid] = useState(() => params.get("paid") === "1");
   const order = useResource<Order>(`/api/me/orders/${id}`);
   const { clear } = useCart();
   const { reload } = order;
   const waiting = order.data?.status === "PENDING_PAYMENT";
 
-  // Back from Stripe: the cart is done with. Stripe's confirmation can take
-  // a few seconds to arrive, so check again until the order shows as paid.
+  // Back from Stripe: the cart is done with. Drop ?paid=1 so returning to
+  // this page later (Back, a bookmark) can't empty a new cart (R-50).
+  // Stripe's confirmation can take a few seconds to arrive, so check again
+  // until the order shows as paid.
   useEffect(() => {
-    if (justPaid) clear();
-  }, [justPaid, clear]);
+    if (!justPaid) return;
+    clear();
+    window.history.replaceState(null, "", pathname);
+  }, [justPaid, clear, pathname]);
   useEffect(() => {
     if (!justPaid || !waiting) return;
     const timer = setInterval(() => void reload(), 3000);

@@ -3,6 +3,7 @@ import type { Db } from "@/lib/db";
 import { ApiError } from "@/lib/http/errors";
 import { getStripe } from "@/lib/billing/stripe";
 import { logAction, type Actor } from "@/lib/audit";
+import { releaseFutureBookings } from "@/lib/classes/service";
 
 export const MEMBER_STATUSES = ["ACTIVE", "PAUSED", "PAST_DUE", "CANCELED", "PENDING"] as const satisfies readonly Status[];
 
@@ -63,10 +64,10 @@ export async function archiveMember(db: Db, actor: Actor, memberId: string) {
     }
   }
 
+  // Like a staff cancellation: credits come back and the waitlist moves up (R-39).
+  await releaseFutureBookings(db, actor, memberId);
   const now = new Date();
   await db.$transaction(async (tx) => {
-    await tx.classBooking.deleteMany({ where: { memberId, status: "BOOKED", class: { startTime: { gt: now } } } });
-    await tx.classWaitlist.deleteMany({ where: { memberId, class: { startTime: { gt: now } } } });
     await tx.member.update({
       where: { id: memberId },
       data: { archivedAt: now, status: "CANCELED", sessionVersion: { increment: 1 } },

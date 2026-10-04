@@ -25,7 +25,8 @@ interface Plan {
   guestPassesPerCycle: number;
   shopDiscountPercent: number;
   guestRateCents: number;
-  memberCount: number;
+  // null when the viewer can't see revenue.
+  memberCount: number | null;
 }
 
 const blank = { name: "", description: "", price: "", interval: "WEEK" as Interval, active: true, unlimited: false, classes: "0", guestPasses: "0", discount: "0", guestRate: "" };
@@ -153,7 +154,7 @@ export default function PlansPage() {
                     ),
                   },
                   { header: "Price", cell: (p) => <span className="tabular">{formatAud(p.priceCents)} per {INTERVAL_LABELS[p.interval].noun}</span> },
-                  { header: "Members", align: "right", cell: (p) => <span className="tabular">{p.memberCount}</span> },
+                  { header: "Members", align: "right", cell: (p) => <span className="tabular">{p.memberCount ?? "Hidden"}</span> },
                 ]}
                 actions={
                   canEdit
@@ -178,7 +179,7 @@ export default function PlansPage() {
         open={open}
         onClose={() => setOpen(false)}
         title={editing ? `Edit ${editing.name}` : "New plan"}
-        description={editing && editing.memberCount > 0 ? "A new price applies to new sign-ups. Give existing members written notice before their price goes up." : undefined}
+        description={editing && (editing.memberCount ?? 1) > 0 ? "A new price applies to new sign-ups. Give existing members written notice before their price goes up." : undefined}
         size="lg"
         footer={
           <>

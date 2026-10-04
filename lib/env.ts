@@ -28,6 +28,9 @@ export const serverEnvSchema = z
     STRIPE_ALLOW_LIVE_KEYS: z.enum(["true", "false"]).default("false"),
     CRON_SECRET: optionalSecret(16, "CRON_SECRET"),
     IOT_GATEWAY_SECRET: optionalSecret(16, "IOT_GATEWAY_SECRET"),
+    // Needed to create the first owner account on a production deployment,
+    // so whoever reaches a new site first can't take it over (R-42).
+    SETUP_TOKEN: optionalSecret(16, "SETUP_TOKEN"),
     RESEND_API_KEY: z.string().optional().or(z.literal("").transform(() => undefined)),
     EMAIL_FROM: z.string().optional().or(z.literal("").transform(() => undefined)),
   })

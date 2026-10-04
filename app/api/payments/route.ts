@@ -25,7 +25,7 @@ export const GET = staffRoute({ permission: "revenue:view", query: Query }, asyn
   };
   const payments = await db.payment.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy: { paidAt: "desc" },
     take: query.take,
     select: {
       id: true,
@@ -37,7 +37,7 @@ export const GET = staffRoute({ permission: "revenue:view", query: Query }, asyn
       kind: true,
       description: true,
       invoiceNumber: true,
-      createdAt: true,
+      paidAt: true,
       member: { select: { id: true, name: true, email: true, membershipPlan: { select: { name: true } } } },
     },
   });

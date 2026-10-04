@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { AUTH, expectNoA11yViolations, expectNoHorizontalScroll, screenshot } from "./helpers";
+import { createPaidOrder } from "./fixtures";
 
 test.describe("owner features", () => {
   test.use({ storageState: AUTH.owner });
@@ -22,7 +23,8 @@ test.describe("owner features", () => {
     await expectNoA11yViolations(page);
     await page.keyboard.press("Escape");
 
-    const note = `Asked about the student plan (${page.viewportSize()?.width}px run).`;
+    // Unique per attempt, so a retry doesn't find two matching notes.
+    const note = `Asked about the student plan (${page.viewportSize()?.width}px run ${Date.now()}).`;
     await page.getByLabel("Add a note").fill(note);
     await page.getByRole("button", { name: "Save note" }).click();
     await expect(page.getByText(note)).toBeVisible();
@@ -98,13 +100,12 @@ test.describe("owner features", () => {
     await expect(page.getByRole("link", { name: /#\d+, Charlotte Pham/ }).filter({ visible: true }).first()).toBeVisible();
     await expectNoA11yViolations(page);
     await screenshot(page, "p2-orders");
-    // Seed data has two paid orders: the desktop run packs one, mobile the other.
-    await page.getByLabel("Show").selectOption("PAID");
-    await page.getByRole("link", { name: /#\d+, / }).filter({ visible: true }).first().click();
+    // Packs an order made for this attempt, not a shared seed order.
+    const order = await createPaidOrder();
+    await page.goto(`/admin/shop/orders/${order.id}`);
     await page.getByRole("button", { name: "Mark packed" }).click();
     await expect(page.getByText("Order packed")).toBeVisible();
-    // Next step depends on the order: pickup orders go to "Ready for pickup", shipping orders to "Mark shipped".
-    await expect(page.getByRole("button", { name: /Ready for pickup|Mark shipped/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ready for pickup" })).toBeVisible();
     await expectNoA11yViolations(page);
     await screenshot(page, "p2-order-detail");
   });

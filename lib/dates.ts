@@ -1,6 +1,6 @@
 // Dates are stored in UTC and shown in the gym's timezone (from config).
 
-function partsIn(date: Date, timeZone: string) {
+export function partsIn(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-AU", {
     timeZone,
     year: "numeric",
@@ -22,11 +22,17 @@ function offsetMinutes(date: Date, timeZone: string): number {
   return Math.round((asUtc - date.getTime()) / 60000);
 }
 
-// Midnight today in the given timezone, as a UTC Date.
+// The calendar date (YYYY-MM-DD) of an instant in the given timezone.
+export function localDateIn(timeZone: string, instant = new Date()): string {
+  const p = partsIn(instant, timeZone);
+  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+}
+
+// Midnight today in the given timezone, as a UTC Date. The offset is taken at
+// local midnight itself, which differs from the offset later in the day on
+// daylight-saving change days (R-30).
 export function startOfTodayIn(timeZone: string, now = new Date()): Date {
-  const p = partsIn(now, timeZone);
-  const guess = new Date(Date.UTC(p.year, p.month - 1, p.day));
-  return new Date(guess.getTime() - offsetMinutes(guess, timeZone) * 60000);
+  return zonedTimeToUtc(localDateIn(timeZone, now), "00:00", timeZone);
 }
 
 // Converts a wall-clock date and time in a zone (as typed into a form) to UTC.
@@ -49,4 +55,10 @@ export function formatDateTime(value: Date | string, timeZone: string) {
 
 export function formatTime(value: Date | string, timeZone: string) {
   return new Intl.DateTimeFormat("en-AU", { timeZone, hour: "numeric", minute: "2-digit" }).format(new Date(value));
+}
+
+// Adds calendar days to a YYYY-MM-DD date.
+export function addCalendarDays(date: string, days: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }

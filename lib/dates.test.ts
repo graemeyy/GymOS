@@ -17,3 +17,12 @@ describe("timezone helpers", () => {
     expect(startOfTodayIn("Australia/Sydney", now).toISOString()).toBe("2026-10-02T14:00:00.000Z");
   });
 });
+
+describe("R-30 local midnight on daylight-saving change days", () => {
+  it("is midnight, not 11pm or 1am, on the days clocks change in Sydney", () => {
+    // 4 Oct 2026: clocks go forward at 2am, midnight is still AEST (UTC+10).
+    expect(startOfTodayIn("Australia/Sydney", new Date("2026-10-04T05:00:00Z")).toISOString()).toBe("2026-10-03T14:00:00.000Z");
+    // 5 Apr 2026: clocks go back at 3am, midnight is still AEDT (UTC+11).
+    expect(startOfTodayIn("Australia/Sydney", new Date("2026-04-05T05:00:00Z")).toISOString()).toBe("2026-04-04T13:00:00.000Z");
+  });
+});

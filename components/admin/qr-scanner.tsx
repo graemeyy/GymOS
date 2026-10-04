@@ -26,6 +26,11 @@ export function cameraScanSupported() {
 export function QrScannerDialog({ open, onClose, onScan }: { open: boolean; onClose: () => void; onScan: (value: string) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // The latest callback, without restarting the camera when it changes (R-53).
+  const onScanRef = useRef(onScan);
+  useEffect(() => {
+    onScanRef.current = onScan;
+  }, [onScan]);
 
   useEffect(() => {
     if (!open) return;
@@ -46,7 +51,13 @@ export function QrScannerDialog({ open, onClose, onScan }: { open: boolean; onCl
         return;
       }
       const video = videoRef.current;
-      if (!video || stopped) return;
+      if (!video || stopped) {
+        // Closed while the camera was starting: cleanup has already run and
+        // couldn't see this stream, so stop it here or the camera stays on
+        // (R-14).
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       video.srcObject = stream;
       await video.play().catch(() => undefined);
       const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
@@ -56,7 +67,7 @@ export function QrScannerDialog({ open, onClose, onScan }: { open: boolean; onCl
           const codes = await detector.detect(video);
           const value = codes.find((c) => c.rawValue.startsWith("GYM1."))?.rawValue;
           if (value) {
-            onScan(value);
+            onScanRef.current(value);
             return;
           }
         } catch {
@@ -72,7 +83,7 @@ export function QrScannerDialog({ open, onClose, onScan }: { open: boolean; onCl
       if (timer) clearTimeout(timer);
       stream?.getTracks().forEach((t) => t.stop());
     };
-  }, [open, onScan]);
+  }, [open]);
 
   return (
     <Dialog

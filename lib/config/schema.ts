@@ -87,6 +87,8 @@ export const gymConfigSchema = z
         minDays: z.number().int().min(1),
         maxDays: z.number().int().min(1),
         maxPausesPerYear: z.number().int().min(0),
+        // Shown to members and recorded on each pause, but not charged
+        // automatically yet: staff collect it at the desk (R-37).
         feeCents: cents,
       }),
       planChanges: z.object({

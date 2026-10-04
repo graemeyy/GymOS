@@ -32,6 +32,29 @@ export async function enforceRateLimit(rule: RateLimitRule, callerKey: string, d
   }
 }
 
+// Per-account sign-in lockout. Only failed attempts count, and the key
+// includes the caller's address, so someone guessing from elsewhere can't
+// lock the real person out (R-40).
+export async function signInLocked(rule: RateLimitRule, callerKey: string, db: Db = prisma, now = new Date()): Promise<boolean> {
+  const windowMs = rule.windowSeconds * 1000;
+  const windowStart = new Date(Math.floor(now.getTime() / windowMs) * windowMs);
+  const row = await db.rateLimit.findUnique({ where: { key: `${rule.name}:${callerKey}`.slice(0, 200) } });
+  return Boolean(row && row.windowStart.getTime() === windowStart.getTime() && row.count >= rule.limit);
+}
+
+export async function recordFailedSignIn(rule: RateLimitRule, callerKey: string, db: Db = prisma) {
+  await hitRateLimit(rule, callerKey, db);
+}
+
+export async function assertSignInAllowed(rule: RateLimitRule, callerKey: string, db: Db = prisma) {
+  if (await signInLocked(rule, callerKey, db)) {
+    throw new ApiError("rate_limited", "Too many wrong passwords. Try again in 15 minutes, or reset it with the gym.");
+  }
+}
+
+// The caller's address for rate limiting. On Vercel the platform sets
+// x-forwarded-for to the real client address; behind another proxy, make sure
+// it overwrites (not appends to) this header, or limits can be dodged (R-41).
 export function clientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
@@ -39,8 +62,16 @@ export function clientIp(request: Request): string {
 }
 
 export const RATE_LIMITS = {
-  login: { name: "login", limit: 10, windowSeconds: 15 * 60 },
+  // Staff and members have separate per-address limits, so members on the
+  // gym's Wi-Fi can't use up staff sign-in attempts (R-41).
+  loginStaff: { name: "login-staff", limit: 10, windowSeconds: 15 * 60 },
+  loginMember: { name: "login-member", limit: 10, windowSeconds: 15 * 60 },
+  // Failed sign-ins for one account from one address. Locks that address
+  // out of that account only (R-40).
   loginAccount: { name: "login-account", limit: 5, windowSeconds: 15 * 60 },
+  // Failed sign-ins for one account from anywhere: a much higher cap that
+  // still stops guessing spread across many addresses.
+  loginAccountAnywhere: { name: "login-account-any", limit: 50, windowSeconds: 15 * 60 },
   signup: { name: "signup", limit: 5, windowSeconds: 60 * 60 },
   checkIn: { name: "check-in", limit: 120, windowSeconds: 60 },
   iot: { name: "iot", limit: 600, windowSeconds: 60 },

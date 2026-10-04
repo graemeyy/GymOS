@@ -3,14 +3,14 @@
 import React, { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { api, ApiClientError, useResource } from "@/lib/client/api";
-import { zonedTimeToUtc } from "@/lib/dates";
+import { addCalendarDays, zonedTimeToUtc } from "@/lib/dates";
 import { gym } from "@/lib/config";
 import { fmtDateTime, fmtTime } from "@/lib/client/format";
 import { ROLE_LABELS, type StaffRoleName } from "@/lib/auth/permissions";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, PageHeader, Panel } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
-import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
 import { DataList } from "@/components/ui/data-list";
 
@@ -36,6 +36,9 @@ export default function ShiftsPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Removing a shift asks first and is sent once (R-57).
+  const [removing, setRemoving] = useState<Shift | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -46,7 +49,9 @@ export default function ShiftsPage() {
     const tz = gym.business.timezone;
     const startTime = zonedTimeToUtc(form.date, form.start, tz);
     let endTime = zonedTimeToUtc(form.date, form.end, tz);
-    if (endTime <= startTime) endTime = new Date(endTime.getTime() + 86_400_000); // overnight shift
+    // Overnight shift: the finish time on the next calendar day, not 24 hours
+    // later, which is an hour out when daylight saving changes (R-109).
+    if (endTime <= startTime) endTime = zonedTimeToUtc(addCalendarDays(form.date, 1), form.end, tz);
     try {
       await api("/api/shifts", { body: { staffId: form.staffId, startTime: startTime.toISOString(), endTime: endTime.toISOString(), notes: form.notes || null } });
       toast("Shift added");
@@ -62,13 +67,18 @@ export default function ShiftsPage() {
     }
   };
 
-  const remove = async (id: string) => {
+  const remove = async () => {
+    if (!removing) return;
+    setRemoveBusy(true);
     try {
-      await api(`/api/shifts/${id}`, { method: "DELETE" });
+      await api(`/api/shifts/${removing.id}`, { method: "DELETE" });
       toast("Shift removed");
       void shifts.reload();
     } catch (e) {
       toast(e instanceof ApiClientError ? e.message : "Couldn't remove the shift.", "bad");
+    } finally {
+      setRemoveBusy(false);
+      setRemoving(null);
     }
   };
 
@@ -106,7 +116,7 @@ export default function ShiftsPage() {
                 actions={
                   can("shifts:manage")
                     ? (s) => (
-                        <IconButton label={`Remove ${s.staff.name}'s shift`} onClick={() => remove(s.id)}>
+                        <IconButton label={`Remove ${s.staff.name}'s shift`} onClick={() => setRemoving(s)}>
                           <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </IconButton>
                       )
@@ -150,6 +160,15 @@ export default function ShiftsPage() {
           {message ? <FormMessage>{message}</FormMessage> : null}
         </form>
       </Dialog>
+      <ConfirmDialog
+        open={Boolean(removing)}
+        onCancel={() => setRemoving(null)}
+        onConfirm={remove}
+        busy={removeBusy}
+        title={removing ? `Remove ${removing.staff.name}'s shift?` : "Remove this shift?"}
+        confirmLabel="Remove shift"
+        body={removing ? `${fmtDateTime(removing.startTime)} to ${fmtTime(removing.endTime)}.` : ""}
+      />
     </>
   );
 }

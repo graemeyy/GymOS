@@ -9,9 +9,9 @@ import * as refund from "@/app/api/payments/[id]/refund/route";
 import * as webhook from "@/app/api/webhooks/stripe/route";
 import { captureEmailsForTests, capturedEmails } from "@/lib/email";
 import { call, createMember, createStaff, makeRequest, prisma, resetDb, type As } from "../helpers";
-import { useFakeStripe } from "../fake-stripe";
+import { installFakeStripe } from "../fake-stripe";
 
-let stripe: ReturnType<typeof useFakeStripe>;
+let stripe: ReturnType<typeof installFakeStripe>;
 let tee: { id: string };
 let whey: { id: string };
 let hidden: { id: string };
@@ -19,7 +19,7 @@ let hidden: { id: string };
 beforeEach(async () => {
   await resetDb();
   captureEmailsForTests(true);
-  stripe = useFakeStripe();
+  stripe = installFakeStripe();
   const apparel = await prisma.product.create({
     data: { name: "Club tee", slug: "club-tee", category: "APPAREL", variants: { create: [{ sku: "T-M", size: "M", colour: "Black", priceCents: 3500, stockQty: 3 }] } },
     include: { variants: true },
@@ -119,7 +119,7 @@ describe("checkout", () => {
 
   it("leaves no order behind if Stripe fails, and needs a member session", async () => {
     stripe.restore();
-    stripe = useFakeStripe({ "checkout.sessions.create": () => { throw new Error("Stripe down"); } });
+    stripe = installFakeStripe({ "checkout.sessions.create": () => { throw new Error("Stripe down"); } });
     const m = await createMember();
     const res = await checkout(asMember(m), { lines: [{ variantId: tee.id, quantity: 1 }], fulfilment: "PICKUP" });
     expect(res.status).toBe(502);

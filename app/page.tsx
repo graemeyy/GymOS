@@ -25,13 +25,19 @@ async function loadPlans() {
   }
 }
 
-export default async function HomePage() {
-  const plans = await loadPlans();
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
+  const [plans, { deleted }] = await Promise.all([loadPlans(), searchParams]);
   return (
     <div className="min-h-dvh">
       <SiteHeader />
 
       <main>
+        {/* Where the member lands after deleting their account (R-91). */}
+        {deleted === "1" ? (
+          <p role="status" className="mx-auto mt-6 max-w-5xl rounded border border-good bg-good-tint px-4 py-3 text-sm font-medium text-good">
+            Your account has been deleted and you&apos;ve been signed out. We keep payment records for as long as the law requires.
+          </p>
+        ) : null}
         <section className="mx-auto max-w-5xl px-4 pb-12 pt-12 sm:pt-16">
           <h1 className="max-w-3xl text-4xl sm:text-5xl">{gym.brand.name}</h1>
           <p className="mt-3 max-w-prose text-lg text-ink-soft">{gym.brand.tagline}. {formatAddress()}.</p>

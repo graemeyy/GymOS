@@ -1,7 +1,16 @@
 -- Rollback for 20261004000000_phase2_owner_features. Run manually with psql,
 -- then delete this migration's row from "_prisma_migrations".
--- Removes Phase 2 tables and columns only; data in them is lost. Member.notes
--- was never modified, so earlier notes survive.
+-- Removes Phase 2 tables and columns. Financial records (refunds, shop orders
+-- and the invoice numbers and refund totals on payments) are tax records, so
+-- they are first copied into _archived_* tables as JSON, which doesn't depend
+-- on the types dropped below. Other Phase 2 data is lost. Member.notes was
+-- never modified, so earlier notes survive.
+CREATE TABLE IF NOT EXISTS "_archived_refund" AS SELECT to_jsonb(r) AS "row" FROM "Refund" r;
+CREATE TABLE IF NOT EXISTS "_archived_order" AS SELECT to_jsonb(o) AS "row" FROM "Order" o;
+CREATE TABLE IF NOT EXISTS "_archived_order_item" AS SELECT to_jsonb(i) AS "row" FROM "OrderItem" i;
+CREATE TABLE IF NOT EXISTS "_archived_order_event" AS SELECT to_jsonb(e) AS "row" FROM "OrderEvent" e;
+CREATE TABLE IF NOT EXISTS "_archived_payout_phase2" AS
+  SELECT "id", "invoiceNumber", "kind"::text AS "kind", "orderId", "planName", "refundedCents", "stripePaymentIntentId" FROM "Payout";
 DROP TABLE IF EXISTS "Announcement";
 DROP TABLE IF EXISTS "OrderEvent";
 DROP TABLE IF EXISTS "OrderItem";

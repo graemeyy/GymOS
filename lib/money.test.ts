@@ -71,3 +71,10 @@ describe("monthlyEquivalentCents", () => {
     expect(monthlyEquivalentCents(60000, "YEAR")).toBe(5000);
   });
 });
+
+describe("R-70 discounts use exact arithmetic", () => {
+  it("rounds half a cent up instead of losing it to floating point", () => {
+    expect(applyDiscount(45, 30)).toBe(32);
+    expect(applyDiscount(1075, 6)).toBe(1011);
+  });
+});

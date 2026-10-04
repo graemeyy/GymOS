@@ -58,10 +58,10 @@ export default function DashboardPage() {
           items={[
             { label: "Check-ins today", value: s ? String(s.checkInsToday) : null },
             { label: "Active members", value: s ? String(s.activeMembers) : null },
-            { label: "Payments overdue", value: s ? String(s.pastDue) : null, tone: "alert", href: "/admin/members?status=PAST_DUE" },
+            { label: "Payments overdue", value: s ? String(s.pastDue) : null, tone: s && s.pastDue > 0 ? "alert" : "neutral", href: "/admin/members?status=PAST_DUE" },
             s?.mrrCents !== null
               ? { label: "Monthly revenue (est.)", value: s ? formatAud(s.mrrCents ?? 0, { whole: true }) : null, note: "From current plan prices" }
-              : { label: "At risk of leaving", value: s ? String(s.atRisk) : null, tone: "alert", href: "/admin/retention" },
+              : { label: "At risk of leaving", value: s ? String(s.atRisk) : null, tone: s && s.atRisk > 0 ? "alert" : "neutral", href: "/admin/retention" },
           ]}
         />
       )}

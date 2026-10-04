@@ -34,6 +34,7 @@ export default function CheckInPage() {
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
   const recent = useResource<RecentRow[]>("/api/check-in");
+  const reloadRecent = recent.reload;
   const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
@@ -47,15 +48,18 @@ export default function CheckInPage() {
       const data = await api<Result>("/api/check-in", { body: { query } });
       setResult(data);
       setValue("");
-      void recent.reload();
+      void reloadRecent();
     } catch (e) {
       setResult(null);
       setError(e instanceof ApiClientError ? e.message : "Check-in failed.");
     } finally {
       setBusy(false);
       inputRef.current?.focus();
+      // Selected, so the next scan replaces a failed code instead of being
+      // appended to it (R-15).
+      inputRef.current?.select();
     }
-  }, [recent]);
+  }, [reloadRecent]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -112,11 +116,10 @@ export default function CheckInPage() {
             ) : null}
           </Panel>
 
+          {/* Always mounted, so the first result is announced too (R-92). */}
+          <div aria-live="assertive">
           {result ? (
-            <section
-              aria-live="assertive"
-              className={cn("rounded-lg border-2 p-5", result.granted ? "border-good bg-good-tint" : "border-bad bg-bad-tint")}
-            >
+            <section className={cn("rounded-lg border-2 p-5", result.granted ? "border-good bg-good-tint" : "border-bad bg-bad-tint")}>
               <p className={cn("font-display text-3xl font-bold", result.granted ? "text-good" : "text-bad")}>
                 {result.granted ? "Come on in" : `Not allowed in: ${result.reason}`}
               </p>
@@ -132,6 +135,7 @@ export default function CheckInPage() {
               {result.member.retentionScore < 40 ? <p className="mt-1 text-sm text-ink">Hasn&apos;t been in much lately. A quick hello helps.</p> : null}
             </section>
           ) : null}
+          </div>
         </div>
 
         <Panel aria-labelledby="recent-heading">

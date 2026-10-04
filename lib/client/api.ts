@@ -60,22 +60,32 @@ export function useResource<T>(url: string | null): Resource<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<ApiClientError | null>(null);
   const [loading, setLoading] = useState(Boolean(url));
-  const latest = useRef(url);
-  latest.current = url;
+  // Every request gets a number; only the newest one may update state, so a
+  // slow older response (even for the same URL) can't overwrite a newer one
+  // (R-52).
+  const requestNo = useRef(0);
+  const shownUrl = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!url) return;
+    const mine = ++requestNo.current;
+    // A different URL (next week, another member) shows loading rather than
+    // the previous URL's data under the new heading.
+    if (shownUrl.current !== url) {
+      shownUrl.current = url;
+      setData(null);
+    }
     setLoading(true);
     try {
       const result = await api<T>(url);
-      if (latest.current === url) {
+      if (mine === requestNo.current) {
         setData(result);
         setError(null);
       }
     } catch (e) {
-      if (latest.current === url) setError(e instanceof ApiClientError ? e : new ApiClientError(0, "error", "Something went wrong."));
+      if (mine === requestNo.current) setError(e instanceof ApiClientError ? e : new ApiClientError(0, "error", "Something went wrong."));
     } finally {
-      if (latest.current === url) setLoading(false);
+      if (mine === requestNo.current) setLoading(false);
     }
   }, [url]);
 

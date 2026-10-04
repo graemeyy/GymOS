@@ -1,6 +1,7 @@
 import type { OrderStatus, Prisma } from "@prisma/client";
 import type { Db, Tx } from "@/lib/db";
 import { ApiError } from "@/lib/http/errors";
+import { getStripe } from "@/lib/billing/stripe";
 import { logAction, type Actor } from "@/lib/audit";
 import { ORDER_STATUS_TEXT } from "./labels";
 
@@ -54,6 +55,7 @@ export async function updateOrderStatus(
   next: OrderStatus,
   extra: { note?: string; trackingNumber?: string; restockItems?: boolean } = {}
 ) {
+  if (next === "CANCELLED") await expireCheckout(db, orderId);
   return db.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
     if (!rows[0]) throw new ApiError("not_found", "Order not found.");
@@ -75,6 +77,20 @@ export async function updateOrderStatus(
     await logAction(tx, actor, { action: "order.status_changed", targetType: "Order", targetId: orderId, details: { number: order.number, from: order.status, to: next } });
     return updated;
   });
+}
+
+// An unpaid order's Stripe Checkout page would otherwise stay payable after
+// staff cancel the order (R-74). If Stripe can't expire it (already paid or
+// expired, or Stripe isn't set up), the cancellation goes ahead; a payment
+// that still arrives is recorded and flagged on the order.
+async function expireCheckout(db: Db, orderId: string) {
+  const order = await db.order.findUnique({ where: { id: orderId }, select: { status: true, stripeCheckoutSessionId: true } });
+  if (!order?.stripeCheckoutSessionId || order.status !== "PENDING_PAYMENT") return;
+  try {
+    await getStripe().checkout.sessions.expire(order.stripeCheckoutSessionId);
+  } catch {
+    // Nothing to undo; see above.
+  }
 }
 
 // Goods still at the gym go back on the shelf when an order is fully

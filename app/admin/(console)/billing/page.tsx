@@ -23,7 +23,7 @@ interface Payment {
   kind: "MEMBERSHIP" | "SHOP" | "OTHER";
   description: string | null;
   invoiceNumber: number;
-  createdAt: string;
+  paidAt: string;
   member: { id: string; name: string | null; email: string };
 }
 interface Overdue {
@@ -170,7 +170,7 @@ export default function PaymentsPage() {
                       </div>
                     ),
                   },
-                  { header: "Date", cell: (p) => <span className="tabular">{fmtDate(p.createdAt)}</span> },
+                  { header: "Date", cell: (p) => <span className="tabular">{fmtDate(p.paidAt)}</span> },
                   { header: "Amount", align: "right", cell: (p) => <span className="tabular font-medium">{money(p, p.amount)}</span> },
                   { header: "GST", align: "right", cell: (p) => <span className="tabular text-ink-soft">{money(p, p.gstCents)}</span> },
                   { header: "Status", cell: statusTag },

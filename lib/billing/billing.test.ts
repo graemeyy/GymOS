@@ -6,15 +6,17 @@ import { stripeRecurring } from "./intervals";
 
 describe("refund GST", () => {
   it("is the same share of the payment's GST", () => {
-    expect(refundGst(3995, 363, 3995)).toBe(363);
-    expect(refundGst(3995, 363, 1000)).toBe(91);
-    expect(refundGst(0, 0, 0)).toBe(0);
+    expect(refundGst({ amount: 3995, gstCents: 363 }, 0, 3995)).toBe(363);
+    expect(refundGst({ amount: 3995, gstCents: 363 }, 0, 1000)).toBe(91);
+    expect(refundGst({ amount: 0, gstCents: 0 }, 0, 0)).toBe(0);
+    // Partial refunds add up to the GST collected (R-17).
+    expect(refundGst({ amount: 2000, gstCents: 182 }, 0, 500) + refundGst({ amount: 2000, gstCents: 182 }, 500, 1500)).toBe(182);
   });
 });
 
 describe("tax invoice", () => {
   it("carries everything an Australian tax invoice needs", () => {
-    const inv = buildTaxInvoice({ invoiceNumber: 42, createdAt: new Date("2026-10-01T00:00:00Z"), amount: 2995, gstCents: 272, refundedCents: 0, currency: "aud", description: null, planName: "Standard", member: { name: "Jack O'Sullivan", email: "jack@example.com" } });
+    const inv = buildTaxInvoice({ invoiceNumber: 42, paidAt: new Date("2026-10-01T00:00:00Z"), amount: 2995, gstCents: 272, refundedCents: 0, currency: "aud", description: null, planName: "Standard", member: { name: "Jack O'Sullivan", email: "jack@example.com" } });
     expect(inv).toMatchObject({
       title: "Tax invoice",
       number: "INV-000042",

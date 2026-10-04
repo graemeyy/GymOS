@@ -18,7 +18,11 @@ export function AddToCart({ product, discountPercent }: { product: CatalogueProd
   const toast = useToast();
   const variant = product.variants.find((v) => v.id === variantId)!;
   const inCart = lines.find((l) => l.variantId === variantId)?.quantity ?? 0;
-  const canAdd = variant.available && inCart + quantity <= variant.maxQuantity;
+  // Clamp to what's left after the cart, so adding items never leaves an
+  // out-of-range choice that silently disables the button (R-48).
+  const remaining = Math.max(0, variant.maxQuantity - inCart);
+  const chosen = Math.min(quantity, Math.max(1, remaining));
+  const canAdd = variant.available && remaining > 0;
 
   return (
     <div className="h-fit space-y-5 rounded-lg border border-line bg-surface p-5">
@@ -46,19 +50,24 @@ export function AddToCart({ product, discountPercent }: { product: CatalogueProd
       ) : null}
       {variant.available ? (
         <>
-          <SelectField label="Quantity" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))}>
-            {Array.from({ length: Math.max(1, variant.maxQuantity - inCart) }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </SelectField>
+          {remaining > 0 ? (
+            <SelectField label="Quantity" value={chosen} onChange={(e) => setQuantity(Number(e.target.value))}>
+              {Array.from({ length: remaining }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </SelectField>
+          ) : (
+            <p className="text-sm font-medium text-ink-soft">You have all that&apos;s available in your cart.</p>
+          )}
           {variant.lowStock ? <p className="text-sm font-medium text-warn">Only a few left.</p> : null}
           <Button
             className="w-full"
             disabled={!canAdd}
             onClick={() => {
-              add(variantId, quantity);
+              add(variantId, chosen);
+              setQuantity(1);
               toast(`Added to cart: ${product.name} (${variant.label}).`);
             }}
           >

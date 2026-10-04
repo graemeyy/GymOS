@@ -23,7 +23,7 @@ export interface FinanceSummary {
 // separately rather than mixed in.
 export async function financeSummary(db: Db, from: Date, to: Date): Promise<FinanceSummary> {
   const payments = await db.payment.findMany({
-    where: { createdAt: { gte: from, lt: to }, status: { in: ["succeeded", "refunded", "partially_refunded"] } },
+    where: { paidAt: { gte: from, lt: to }, status: { in: ["succeeded", "refunded", "partially_refunded"] } },
     select: { amount: true, gstCents: true, currency: true, kind: true, planName: true, member: { select: { membershipPlan: { select: { name: true } } } } },
   });
   const refunds = await db.refund.findMany({

@@ -14,12 +14,14 @@ export function audienceWhere(a: { audience: "ALL_ACTIVE" | "PLAN" | "STAFF_ONLY
 }
 
 // Emails a published announcement to members in its audience who haven't
-// turned announcement emails off. Sends once; the count is recorded.
+// turned announcement emails off. The send is claimed first (emailedAt set
+// atomically), so two clicks or a retry can't email everyone twice (R-16).
 export async function emailAnnouncement(db: Db, announcementId: string) {
   const a = await db.announcement.findUniqueOrThrow({ where: { id: announcementId } });
-  if (a.emailedAt) return { sent: 0, alreadySent: true };
   const where = audienceWhere(a);
   if (!where) return { sent: 0, alreadySent: false };
+  const claimed = await db.announcement.updateMany({ where: { id: a.id, emailedAt: null }, data: { emailedAt: new Date() } });
+  if (claimed.count === 0) return { sent: 0, alreadySent: true };
   const recipients = await db.member.findMany({ where: { ...where, notifyAnnouncements: true }, select: { email: true, name: true } });
   let sent = 0;
   for (const r of recipients) {
@@ -30,7 +32,7 @@ export async function emailAnnouncement(db: Db, announcementId: string) {
     });
     if (res.sent) sent++;
   }
-  await db.announcement.update({ where: { id: a.id }, data: { emailedAt: new Date(), emailCount: sent } });
+  await db.announcement.update({ where: { id: a.id }, data: { emailCount: sent } });
   return { sent, alreadySent: false };
 }
 

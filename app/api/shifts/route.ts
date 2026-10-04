@@ -5,7 +5,8 @@ import { logAction } from "@/lib/audit";
 
 export const GET = staffRoute({ permission: "shifts:read" }, async ({ db }) => {
   const shifts = await db.shift.findMany({
-    where: { startTime: { gte: new Date(Date.now() - 60 * 60 * 1000) } },
+    // Shifts that haven't ended, so one in progress stays on the roster (R-85).
+    where: { endTime: { gte: new Date() } },
     orderBy: { startTime: "asc" },
     include: { staff: { select: { id: true, name: true, role: true } } },
   });
