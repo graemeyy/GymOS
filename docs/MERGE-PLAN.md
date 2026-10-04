@@ -149,7 +149,8 @@ The safest approach is **one production deployment at the end**, not one per pul
 | 7 | Merge #17 into `main` | Skips Phase 2 if already applied | Then change #18's base to `main` |
 | 8 | Merge #18 into `main` | Applies Phase 3 | Then change #19's base to `main` |
 | 9 | Merge #19 into `main` | Applies the review fixes, then the catch-up | Then change PR 5's base to `main` |
-| 10 | Merge PR 5 into `main` | Nothing new | Wait for CI on `main` to pass |
+| 10 | Merge PR 5 into `main` | Nothing new | Then change PR 6's (#21) base to `main` |
+| 10a | Merge PR 6 (#21) into `main`, if it's going out in the same deployment | Applies the roles and permissions migration | Wait for CI on `main` to pass. PR 6 can also wait for a later deployment: nothing above depends on it |
 
 **Deploying:**
 
@@ -157,14 +158,18 @@ The safest approach is **one production deployment at the end**, not one per pul
     - `20261005000000_phase3_member_features`
     - `20261006000000_review_fixes`
     - the catch-up, if added
+    - `20261008000000_roles_and_permissions`, if PR 6 was merged
 12. **Check the build log** for `migrate deploy`'s list of applied migrations and the absence of errors.
 13. **Smoke-test production:**
     - sign in as owner
     - open members (plans shown), payments, finance and the shop
     - check in a member
     - run step 3.1 again: the catch-up counts should be 0, except `payments_without_gst`
+    - if PR 6 went out: every staff member has a role (`SELECT count(*) FROM "Staff" WHERE "roleId" IS NULL;` should be 0), open Staff and Roles, and sign in as a front-desk account to check it sees what you expect (D-100 narrows Front desk)
 14. **Set `SETUP_TOKEN` in Production** if you haven't (D-083).
 15. **Set the Stripe webhook endpoint's API version** to `2023-10-16` (see the README).
+
+**PR 6's migration** creates the `Role` table, inserts the five starting roles and moves every staff account onto one in the same transaction, so nobody is signed out. In the step 3 rehearsal, check that `SELECT "role", count(*) FROM "Staff" WHERE "roleId" IS NULL GROUP BY 1;` returns no rows afterwards. Its `down.sql` deletes staff who never accepted an invitation (the old schema needs a password) and archives audit old/new values and custom roles into `_archived_*` tables.
 
 **Expected effects of the review migration on a live database:**
 - It adds nullable columns and indexes, and runs backfills on `BenefitLedger`, `Payout` and `Member`.
