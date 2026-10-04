@@ -46,6 +46,20 @@ const config = [
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
     },
   },
+  // One data-access layer: pages, components and route handlers call lib
+  // functions; only lib/ talks to Prisma (docs/CODE-STANDARDS.md section 1).
+  {
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: [{ name: "@/lib/db", message: "Call a lib/<domain> query or service instead." }] }],
+      "no-restricted-syntax": [
+        "error",
+        { selector: "MemberExpression[object.type='MemberExpression'][object.object.name='db']", message: "Route handlers don't query Prisma directly; call a lib/<domain> function." },
+        { selector: "MemberExpression[object.name='db'][property.name=/^\\$/]", message: "Route handlers don't open transactions; call a lib/<domain> service." },
+      ],
+    },
+  },
   {
     files: ["scripts/**/*.js"],
     rules: { "@typescript-eslint/no-require-imports": "off" },

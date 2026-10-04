@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { constructWebhookEvent, type Stripe } from "@/lib/billing/stripe";
 import { processStripeEvent } from "@/lib/billing/webhook";
@@ -30,7 +29,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await processStripeEvent(prisma, event);
+    const result = await processStripeEvent(event);
     return NextResponse.json({ received: true, result });
   } catch (error) {
     // The error's name only: messages can include customer details (R-81).
