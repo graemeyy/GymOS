@@ -36,13 +36,18 @@ test.describe("as a member", () => {
   test("cancels and rebooks a class", async ({ page }) => {
     await page.goto("/member/classes");
     await expect(page.getByRole("heading", { name: "Classes", level: 1 })).toBeVisible();
-    const cancel = page.getByRole("button", { name: /^Cancel booking for / }).first();
+    // The same class can be booked on more than one day this week, depending
+    // on today's date, so everything below stays inside one day's list.
+    const firstDay = page.getByRole("region").filter({ has: page.getByRole("button", { name: /^Cancel booking for / }) }).first();
+    const dayName = (await firstDay.getByRole("heading").first().textContent())!.trim();
+    const day = page.getByRole("region", { name: dayName, exact: true });
+    const cancel = day.getByRole("button", { name: /^Cancel booking for / }).first();
     const label = (await cancel.getAttribute("aria-label"))!.replace("Cancel booking for ", "");
     await cancel.click();
     await expect(page.getByText(/Booking cancelled/)).toBeVisible();
-    await page.getByRole("button", { name: `Book ${label}` }).click();
+    await day.getByRole("button", { name: `Book ${label}` }).click();
     await expect(page.getByText(`Booked: ${label}.`)).toBeVisible();
-    await expect(page.getByRole("button", { name: `Cancel booking for ${label}` })).toBeVisible();
+    await expect(day.getByRole("button", { name: `Cancel booking for ${label}` })).toBeVisible();
     await expectNoHorizontalScroll(page);
     await expectNoA11yViolations(page);
     await screenshot(page, "p3-classes");
