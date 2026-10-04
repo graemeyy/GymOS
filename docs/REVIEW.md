@@ -131,7 +131,7 @@ Tooling at review time: lint, type-check, 682 unit and integration tests, the bu
 | R-73 | `lib/billing/invoice.ts:40,49` | The invoice title uses today's GST registration, not the status when paid. | Open: needs GST status stored per payment; noted for when the setting changes |
 | R-74 | `lib/shop/orders.ts:67` | Cancelling a pending order doesn't expire its Stripe Checkout session (the payment is still recorded and flagged). | PR 4 |
 | R-75 | `lib/members/account.ts:151-167` | Erasure leaves the Stripe customer and subscription IDs on the anonymised row. | Open: they are kept deliberately to reconcile late Stripe events for kept payments (D-071); revisited in the final report |
-| R-76 | `next.config.mjs:7` | The Content Security Policy allows any inline script. The only inline script is static. | PR 5 (hash-based policy) |
+| R-76 | `next.config.mjs:7` | The Content Security Policy allows any inline script. The only inline script is static. | Open: Next.js inlines its own scripts, so a hash-based policy would block the app; a nonce needs every page dynamic (D-093) |
 | R-77 | `lib/auth/password.ts:10,17` | scrypt uses Node's default cost and doesn't store its parameters, so they can't be raised later. | PR 5 (parameters stored with new hashes; old hashes still verify) |
 | R-78 | `lib/members/account.ts:16-18` | Sign-up reveals whether an email is already a member. | Open: accepted trade-off (D-062); the alternative needs email verification |
 | R-79 | `lib/http/route.ts:58-66`, `app/api/iot/checkin/route.ts:14` | The body size limit is checked after reading the whole body; the door gateway route has no limit. | PR 5 |
@@ -154,7 +154,7 @@ Tooling at review time: lint, type-check, 682 unit and integration tests, the bu
 | R-96 | `tests/integration/rbac.test.ts:205` | "Allowed" role checks accept a 500. | PR 4 |
 | R-97 | `tests/global-setup.ts:9`, `tests/e2e/global-setup.ts:7` | A Prisma "AI consent" bypass variable is set (no effect on Prisma 5, risky after an upgrade). | PR 4 |
 | R-98 | Several routes (see report) | Writes and their audit entries aren't in one transaction (inventory, shifts, agent actions, member create and update, check-in, class delete). | PR 5 |
-| R-99 | Repo-wide | Dead exports: `formatDate`/`formatDateTime`/`formatTime` in `lib/dates.ts`, `STATUS_LABELS`, `isStripeConfigured`, `GST_RATE`, `formatPlanPrice`, `isLive`, `VisuallyHidden`, `POST /api/equipment`, `restockItems`. | PR 5 |
+| R-99 | Repo-wide | Dead exports: `formatDate`/`formatDateTime`/`formatTime` in `lib/dates.ts`, `STATUS_LABELS`, `isStripeConfigured`, `GST_RATE`, `formatPlanPrice`, `isLive`, `VisuallyHidden`, `POST /api/equipment`, `restockItems`. | PR 5 (POST /api/equipment kept, D-097) |
 | R-100 | Repo-wide | Duplicated helpers: a day in milliseconds defined in many files and 26 inline literals; two date-formatting modules plus 23 ad-hoc formatters; `INV-` numbering written four times; status labels twice; plan-perks text three ways; `Interval` type three times; two near-identical invoice pages and sign-in routes; the revenue-visibility check repeated four times. | PR 5 |
 | R-101 | Repo-wide | Route handlers query the database directly (about 60 files), so data access is spread out. | PR 5 |
 | R-102 | `app/member/membership/page.tsx` (399 lines), `app/admin/(console)/classes/page.tsx` (356), `settings/page.tsx` (348), `prisma/seed-data.ts` (403) | Files too large to follow. | PR 5 |
