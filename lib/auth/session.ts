@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma, type Db } from "@/lib/db";
 import { ApiError } from "@/lib/http/errors";
+import { env } from "@/lib/env";
 import { can, type Permission, type StaffRoleName } from "./permissions";
 import {
   createSessionToken,
@@ -83,11 +84,17 @@ export async function requireMember(request: Request, db: Db = prisma): Promise<
   return member;
 }
 
+// Secure whenever the site is served over HTTPS, not only when NODE_ENV says
+// production, so a staging site run in development mode still gets it (R-82).
+function secureCookies() {
+  return env().NODE_ENV === "production" || env().NEXT_PUBLIC_APP_URL.startsWith("https://");
+}
+
 export async function setSessionCookie(response: NextResponse, input: SessionInput): Promise<void> {
   const token = await createSessionToken(input);
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies(),
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
@@ -97,7 +104,7 @@ export async function setSessionCookie(response: NextResponse, input: SessionInp
 export function clearSessionCookie(response: NextResponse): void {
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies(),
     sameSite: "lax",
     path: "/",
     maxAge: 0,
