@@ -3,6 +3,7 @@ import { gym } from "@/lib/config";
 import { ApiError } from "@/lib/http/errors";
 import { getStripe } from "./stripe";
 import { logAction, type Actor } from "@/lib/audit";
+import { markOrderRefunded } from "@/lib/shop/orders";
 
 export interface RefundInput {
   paymentId: string;
@@ -61,8 +62,7 @@ export async function refundPayment(db: Db, actor: Actor & { kind: "staff" }, in
       data: { paymentId: payment.id, amountCents: input.amountCents, gstCents: gst, reason: input.reason, stripeRefundId, method: input.method, staffId: actor.id, staffName: actor.name },
     });
     if (payment.order && payment.refundedCents + input.amountCents >= payment.amount) {
-      await tx.order.update({ where: { id: payment.order.id }, data: { status: "REFUNDED" } });
-      await tx.orderEvent.create({ data: { orderId: payment.order.id, status: "REFUNDED", note: input.reason, actorName: actor.name } });
+      await markOrderRefunded(tx, payment.order.id, input.reason, actor.name);
     }
     await logAction(tx, actor, {
       action: "billing.refunded",

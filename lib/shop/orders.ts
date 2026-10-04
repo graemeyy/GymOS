@@ -103,3 +103,17 @@ export async function updateOrderStatus(
     return updated;
   });
 }
+
+// Goods still at the gym go back on the shelf when an order is fully
+// refunded. Shipped or collected goods are with the customer, so stock is
+// left alone (staff adjust it if the item comes back).
+const NOT_HANDED_OVER: OrderStatus[] = ["PAID", "PACKED", "READY_FOR_PICKUP"];
+
+export async function markOrderRefunded(tx: Tx, orderId: string, note: string, actorName: string) {
+  const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+  if (order.status === "REFUNDED") return false;
+  if (NOT_HANDED_OVER.includes(order.status)) await restock(tx, orderId);
+  await tx.order.update({ where: { id: orderId }, data: { status: "REFUNDED" } });
+  await tx.orderEvent.create({ data: { orderId, status: "REFUNDED", note, actorName } });
+  return true;
+}

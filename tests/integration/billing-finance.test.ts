@@ -75,6 +75,19 @@ describe("refunds", () => {
     expect(await prisma.refund.count({ where: { paymentId: p.id } })).toBe(1);
     expect((await prisma.payment.findUniqueOrThrow({ where: { id: p.id } })).status).toBe("refunded");
   });
+
+  it("a full Stripe dashboard refund of a shop payment marks the order refunded", async () => {
+    const m = await createMember();
+    const order = await prisma.order.create({
+      data: { memberId: m.id, email: m.email, customerName: "Test", status: "PAID", subtotalCents: 2000, totalCents: 2000, gstCents: 182, paidAt: new Date() },
+    });
+    await prisma.payment.create({ data: { memberId: m.id, amount: 2000, gstCents: 182, status: "succeeded", kind: "SHOP", orderId: order.id, stripePaymentIntentId: "pi_shop" } });
+    const payload = JSON.stringify({ id: "evt_shop_refund", object: "event", type: "charge.refunded", data: { object: { id: "ch_2", object: "charge", payment_intent: "pi_shop", refunds: { data: [{ id: "re_shop", amount: 2000, status: "succeeded", reason: null }] } } } });
+    const signature = Stripe.webhooks.generateTestHeaderString({ payload, secret: process.env.STRIPE_WEBHOOK_SECRET! });
+    await call(webhook.POST, new Request("http://localhost/x", { method: "POST", headers: { "stripe-signature": signature }, body: payload }));
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status).toBe("REFUNDED");
+    expect(await prisma.orderEvent.count({ where: { orderId: order.id, status: "REFUNDED" } })).toBe(1);
+  });
 });
 
 describe("failed-payment reminders (config: days 1, 3, 7)", () => {

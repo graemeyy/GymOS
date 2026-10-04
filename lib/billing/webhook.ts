@@ -4,6 +4,7 @@ import type { Db, Tx } from "@/lib/db";
 import { gym } from "@/lib/config";
 import { gstFromInclusive } from "@/lib/money";
 import { logAction } from "@/lib/audit";
+import { markOrderRefunded } from "@/lib/shop/orders";
 
 const SYSTEM = { kind: "system" as const, name: "Stripe" };
 
@@ -128,7 +129,9 @@ async function handleChargeRefunded(tx: Tx, charge: Stripe.Charge) {
     await tx.payment.update({ where: { id: payment.id }, data: { refundedCents: { increment: refund.amount } } });
   }
   const after = await tx.payment.findUniqueOrThrow({ where: { id: payment.id } });
-  await tx.payment.update({ where: { id: payment.id }, data: { status: after.refundedCents >= after.amount ? "refunded" : after.refundedCents > 0 ? "partially_refunded" : after.status } });
+  const fullyRefunded = after.refundedCents >= after.amount;
+  await tx.payment.update({ where: { id: payment.id }, data: { status: fullyRefunded ? "refunded" : after.refundedCents > 0 ? "partially_refunded" : after.status } });
+  if (fullyRefunded && payment.orderId) await markOrderRefunded(tx, payment.orderId, "Refunded in Stripe", "Stripe");
 }
 
 async function handleInvoiceFailed(tx: Tx, invoice: Stripe.Invoice) {

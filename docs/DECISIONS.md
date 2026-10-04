@@ -118,7 +118,7 @@ Decisions made while building GymOS without stopping to ask, with the reason and
 
 **D-050. CSV exports neutralise spreadsheet formulas.** (PR 2) Any cell starting with `=`, `+`, `-`, `@`, tab or carriage return gets a leading apostrophe, so a member called `=HYPERLINK(...)` can't run a formula in the owner's spreadsheet.
 
-**D-051. Shop orders follow a fixed set of transitions.** (PR 2) Pending, paid, ready for pickup or shipped, then collected or delivered. Stock is committed when an order is paid and returned when an unpaid order is cancelled. A paid order can't be cancelled from the order screen; the owner refunds the payment, which marks the order refunded and returns the stock. This keeps the money and the order in step.
+**D-051. Shop orders follow a fixed set of transitions.** (PR 2) Pending, paid, ready for pickup or shipped, then collected or delivered. Stock is committed when an order is paid and returned when an unpaid order is cancelled. A paid order can't be cancelled from the order screen; the owner refunds the payment. A full refund, from GymOS or the Stripe dashboard, marks the order refunded and puts the stock back if the goods hadn't been shipped or collected yet. A partial refund leaves the order as it is. This keeps the money and the order in step.
 
 **D-052. Supplement products show a guideline note and carry no app-written claims.** (PR 2) The product editor shows a note about TGA and Food Standards Code rules for supplement categories and warns (without blocking) when a description contains words like "cure", "treat" or "clinically proven". The owner writes every word of the description.
 
