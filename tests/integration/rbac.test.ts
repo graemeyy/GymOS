@@ -30,6 +30,34 @@ import * as myBookings from "@/app/api/me/bookings/route";
 import * as myPayments from "@/app/api/me/payments/route";
 import * as portal from "@/app/api/billing-portal/route";
 import * as checkout from "@/app/api/checkout/route";
+import * as memberNotes from "@/app/api/members/[id]/notes/route";
+import * as memberBenefits from "@/app/api/members/[id]/benefits/route";
+import * as memberPause from "@/app/api/members/[id]/pause/route";
+import * as memberCancel from "@/app/api/members/[id]/cancel/route";
+import * as memberPlan from "@/app/api/members/[id]/plan/route";
+import * as memberEvents from "@/app/api/members/[id]/events/route";
+import * as memberRetry from "@/app/api/members/[id]/retry-payment/route";
+import * as memberPass from "@/app/api/members/[id]/pass/route";
+import * as adminPlans from "@/app/api/admin/plans/route";
+import * as paymentById from "@/app/api/payments/[id]/route";
+import * as paymentRefund from "@/app/api/payments/[id]/refund/route";
+import * as paymentInvoice from "@/app/api/payments/[id]/invoice/route";
+import * as overdue from "@/app/api/billing/overdue/route";
+import * as financeSummary from "@/app/api/finance/summary/route";
+import * as financeExport from "@/app/api/finance/export/route";
+import * as products from "@/app/api/products/route";
+import * as productById from "@/app/api/products/[id]/route";
+import * as variantById from "@/app/api/product-variants/[id]/route";
+import * as orders from "@/app/api/orders/route";
+import * as orderById from "@/app/api/orders/[id]/route";
+import * as templates from "@/app/api/class-templates/route";
+import * as templateById from "@/app/api/class-templates/[id]/route";
+import * as generate from "@/app/api/class-templates/generate/route";
+import * as auditExport from "@/app/api/audit-log/export/route";
+import * as announcements from "@/app/api/announcements/route";
+import * as announcementById from "@/app/api/announcements/[id]/route";
+import * as announcementPublish from "@/app/api/announcements/[id]/publish/route";
+import * as myAnnouncements from "@/app/api/me/announcements/route";
 
 type Handler = Parameters<typeof call>[0];
 interface Case {
@@ -84,6 +112,46 @@ const STAFF_CASES: Case[] = [
   { name: "POST staff", handler: staff.POST, method: "POST", path: "/api/staff", permission: "staff:manage", body: { name: "New", email: "new.staff@example.com", password: "long-enough-password", role: "OWNER" } },
   { name: "PUT staff", handler: staffById.PUT, method: "PUT", path: `/api/staff/${ID}`, permission: "staff:manage", params: { id: ID }, body: { role: "OWNER" } },
   { name: "DELETE staff", handler: staffById.DELETE, method: "DELETE", path: `/api/staff/${ID}`, permission: "staff:manage", params: { id: ID } },
+  { name: "GET member notes", handler: memberNotes.GET, method: "GET", path: "/x", permission: "members:read", params: { id: ID } },
+  { name: "POST member note", handler: memberNotes.POST, method: "POST", path: "/x", permission: "members:write", params: { id: ID }, body: { body: "Note" } },
+  { name: "GET member benefits", handler: memberBenefits.GET, method: "GET", path: "/x", permission: "members:read", params: { id: ID } },
+  { name: "POST benefit adjustment", handler: memberBenefits.POST, method: "POST", path: "/x", permission: "billing:manage", params: { id: ID }, body: { kind: "CLASS_CREDIT", delta: 1, reason: "Goodwill" } },
+  { name: "POST pause", handler: memberPause.POST, method: "POST", path: "/x", permission: "billing:manage", params: { id: ID }, body: { from: "2030-01-01", until: "2030-01-20" } },
+  { name: "DELETE pause", handler: memberPause.DELETE, method: "DELETE", path: "/x", permission: "billing:manage", params: { id: ID } },
+  { name: "POST cancel", handler: memberCancel.POST, method: "POST", path: "/x", permission: "billing:manage", params: { id: ID }, body: {} },
+  { name: "DELETE cancel", handler: memberCancel.DELETE, method: "DELETE", path: "/x", permission: "billing:manage", params: { id: ID } },
+  { name: "POST plan change", handler: memberPlan.POST, method: "POST", path: "/x", permission: "billing:manage", params: { id: ID }, body: { planId: ID } },
+  { name: "GET member events", handler: memberEvents.GET, method: "GET", path: "/x", permission: "members:read", params: { id: ID } },
+  { name: "POST retry payment", handler: memberRetry.POST, method: "POST", path: "/x", permission: "billing:manage", params: { id: ID } },
+  { name: "POST reissue pass", handler: memberPass.POST, method: "POST", path: "/x", permission: "members:write", params: { id: ID } },
+  { name: "GET all plans", handler: adminPlans.GET, method: "GET", path: "/x", permission: "members:read" },
+  { name: "POST plan", handler: adminPlans.POST, method: "POST", path: "/x", permission: "plans:manage", body: { name: "Zzz", priceCents: 100, interval: "WEEK", classCreditsPerCycle: null, guestPassesPerCycle: 0, shopDiscountPercent: 0, guestRateCents: 0 } },
+  { name: "GET payment", handler: paymentById.GET, method: "GET", path: "/x", permission: "revenue:view", params: { id: ID } },
+  { name: "POST refund", handler: paymentRefund.POST, method: "POST", path: "/x", permission: "billing:refund", params: { id: ID }, body: { amountCents: 100, reason: "Test", method: "MANUAL" } },
+  { name: "GET invoice", handler: paymentInvoice.GET, method: "GET", path: "/x", permission: "revenue:view", params: { id: ID } },
+  { name: "GET overdue", handler: overdue.GET, method: "GET", path: "/x", permission: "revenue:view" },
+  { name: "GET finance summary", handler: financeSummary.GET, method: "GET", path: "/x", permission: "finance:view" },
+  { name: "GET finance export", handler: financeExport.GET, method: "GET", path: "/x", permission: "finance:view" },
+  { name: "GET products", handler: products.GET, method: "GET", path: "/x", permission: "orders:fulfil" },
+  { name: "POST product", handler: products.POST, method: "POST", path: "/x", permission: "shop:manage", body: { name: "Zzz product", category: "OTHER", variants: [{ sku: "ZZZ-RBAC", priceCents: 100 }] } },
+  { name: "GET product", handler: productById.GET, method: "GET", path: "/x", permission: "orders:fulfil", params: { id: ID } },
+  { name: "PUT product", handler: productById.PUT, method: "PUT", path: "/x", permission: "shop:manage", params: { id: ID }, body: { name: "Zzz product", category: "OTHER", variants: [{ sku: "ZZZ-RBAC2", priceCents: 100 }] } },
+  { name: "DELETE product", handler: productById.DELETE, method: "DELETE", path: "/x", permission: "shop:manage", params: { id: ID } },
+  { name: "PATCH variant stock", handler: variantById.PATCH, method: "PATCH", path: "/x", permission: "inventory:adjust", params: { id: ID }, body: { delta: 1 } },
+  { name: "GET orders", handler: orders.GET, method: "GET", path: "/x", permission: "orders:fulfil" },
+  { name: "GET order", handler: orderById.GET, method: "GET", path: "/x", permission: "orders:fulfil", params: { id: ID } },
+  { name: "PATCH order", handler: orderById.PATCH, method: "PATCH", path: "/x", permission: "orders:fulfil", params: { id: ID }, body: { status: "PACKED" } },
+  { name: "GET timetable", handler: templates.GET, method: "GET", path: "/x", permission: "classes:read" },
+  { name: "POST timetable slot", handler: templates.POST, method: "POST", path: "/x", permission: "classes:manage", body: { name: "Zzz", weekday: 1, startTime: "06:00", durationMinutes: 45, capacity: 10 } },
+  { name: "PUT timetable slot", handler: templateById.PUT, method: "PUT", path: "/x", permission: "classes:manage", params: { id: ID }, body: { name: "Zzz", weekday: 1, startTime: "06:00", durationMinutes: 45, capacity: 10 } },
+  { name: "DELETE timetable slot", handler: templateById.DELETE, method: "DELETE", path: "/x", permission: "classes:manage", params: { id: ID } },
+  { name: "POST generate timetable", handler: generate.POST, method: "POST", path: "/x", permission: "classes:manage", body: { weeks: 1 } },
+  { name: "GET audit export", handler: auditExport.GET, method: "GET", path: "/x", permission: "audit:read" },
+  { name: "GET announcements", handler: announcements.GET, method: "GET", path: "/x", permission: "dashboard:view" },
+  { name: "POST announcement", handler: announcements.POST, method: "POST", path: "/x", permission: "announcements:manage", body: { title: "Hello", body: "World!" } },
+  { name: "PUT announcement", handler: announcementById.PUT, method: "PUT", path: "/x", permission: "announcements:manage", params: { id: ID }, body: { title: "Hello", body: "World!" } },
+  { name: "DELETE announcement", handler: announcementById.DELETE, method: "DELETE", path: "/x", permission: "announcements:manage", params: { id: ID } },
+  { name: "POST publish announcement", handler: announcementPublish.POST, method: "POST", path: "/x", permission: "announcements:manage", params: { id: ID }, body: {} },
 ];
 
 const ROLES: StaffRole[] = ["OWNER", "MANAGER", "FRONT_DESK", "TRAINER"];
@@ -157,7 +225,7 @@ describe("member data isolation", () => {
   });
 
   it("staff can't use member-only endpoints", async () => {
-    for (const handler of [me.GET, myPayments.GET, myBookings.GET]) {
+    for (const handler of [me.GET, myPayments.GET, myBookings.GET, myAnnouncements.GET]) {
       const res = await call(handler, await makeRequest("GET", "/api/me", { as: actors.OWNER! }));
       expect(res.status).toBe(401);
     }

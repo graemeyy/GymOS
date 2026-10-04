@@ -13,6 +13,6 @@ export default defineConfig({
     hookTimeout: 60_000,
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, ".") },
+    alias: { "@": path.resolve(import.meta.dirname, ".") },
   },
 });

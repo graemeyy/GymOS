@@ -34,9 +34,11 @@ describe("class booking", () => {
     expect((await call(book.POST, await makeRequest("POST", "/x", { as: desk, body: { memberId: b.id } }), { id: cls.id })).status).toBe(409);
     expect((await call(waitlist.POST, await makeRequest("POST", "/x", { as: desk, body: { memberId: b.id } }), { id: cls.id })).status).toBe(201);
     expect((await call(promote.POST, await makeRequest("POST", "/x", { as: desk, body: { memberId: b.id } }), { id: cls.id })).status).toBe(409);
-    expect((await call(book.DELETE, await makeRequest("DELETE", `/x?memberId=${a.id}`, { as: desk }), { id: cls.id })).status).toBe(200);
-    expect((await call(promote.POST, await makeRequest("POST", "/x", { as: desk, body: { memberId: b.id } }), { id: cls.id })).status).toBe(201);
+    // Cancelling a's booking moves b off the waitlist automatically.
+    const cancelled = await call(book.DELETE, await makeRequest("DELETE", `/x?memberId=${a.id}`, { as: desk }), { id: cls.id });
+    expect(cancelled.body.promotedMemberId).toBe(b.id);
     expect(await prisma.classWaitlist.count({ where: { classId: cls.id } })).toBe(0);
+    expect(await prisma.classBooking.count({ where: { classId: cls.id, memberId: b.id } })).toBe(1);
   });
 
   it("refuses to book an archived member", async () => {
