@@ -6,12 +6,12 @@ const Body = z.object({ reason: z.string().trim().max(300).optional(), immediate
 
 // Follows the owner's cancellation rules (notice, cooling-off, minimum term).
 // "immediate" overrides them, for cases such as a consumer guarantee remedy.
-export const POST = staffRoute({ permission: "billing:manage", body: Body }, async ({ params, body, db, staff }) => {
+export const POST = staffRoute({ permission: "members.edit", body: Body }, async ({ params, body, db, staff }) => {
   const terms = await requestCancellation(db, staff, params.id, body);
   return json(terms);
 });
 
-export const DELETE = staffRoute({ permission: "billing:manage" }, async ({ params, db, staff }) => {
+export const DELETE = staffRoute({ permission: "members.edit" }, async ({ params, db, staff }) => {
   await withdrawCancellation(db, staff, params.id);
   return json({ ok: true });
 });

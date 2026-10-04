@@ -17,13 +17,17 @@ export const memberListSelect = {
   createdAt: true,
 } satisfies Prisma.MemberSelect;
 
-export async function listMembers(db: Db, query: MemberListInput) {
+// Searching by email is only for viewers who can see emails; otherwise a
+// search would confirm whether an address belongs to a member.
+export async function listMembers(db: Db, query: MemberListInput, opts: { searchEmail?: boolean } = { searchEmail: true }) {
   const where: Prisma.MemberWhereInput = {
     ...(query.status ? { status: query.status } : {}),
     ...(query.planId ? { planId: query.planId } : {}),
     ...(query.archived === "exclude" ? { archivedAt: null } : query.archived === "only" ? { archivedAt: { not: null } } : {}),
     ...(query.q
-      ? { OR: [{ name: { contains: query.q, mode: "insensitive" } }, { email: { contains: query.q, mode: "insensitive" } }] }
+      ? opts.searchEmail === false
+        ? { name: { contains: query.q, mode: "insensitive" } }
+        : { OR: [{ name: { contains: query.q, mode: "insensitive" } }, { email: { contains: query.q, mode: "insensitive" } }] }
       : {}),
   };
   const rows = await db.member.findMany({

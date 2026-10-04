@@ -4,11 +4,14 @@ import { DAY_MS, HOUR_MS } from "../lib/time";
 // Fictional data only. Every name, email and number below is made up; emails
 // use the reserved example.com domain.
 
+// `role` is the legacy column, kept for rollback (D-098); `preset` is the role
+// they get.
 export const DEMO_STAFF = [
-  { name: "Mel Hartigan", email: "owner@example.com", role: "OWNER" },
-  { name: "Tom Nguyen", email: "manager@example.com", role: "MANAGER" },
-  { name: "Aisha Rahman", email: "frontdesk@example.com", role: "FRONT_DESK" },
-  { name: "Lachie Brennan", email: "trainer@example.com", role: "TRAINER" },
+  { name: "Mel Hartigan", email: "owner@example.com", role: "OWNER", preset: "OWNER" },
+  { name: "Grace Okafor", email: "admin@example.com", role: "MANAGER", preset: "ADMIN" },
+  { name: "Tom Nguyen", email: "manager@example.com", role: "MANAGER", preset: "MANAGER" },
+  { name: "Aisha Rahman", email: "frontdesk@example.com", role: "FRONT_DESK", preset: "STAFF" },
+  { name: "Lachie Brennan", email: "trainer@example.com", role: "TRAINER", preset: "TRAINER" },
 ] as const;
 
 export const daysAgo = (days: number, hours = 0) => new Date(Date.now() - days * DAY_MS - hours * HOUR_MS);

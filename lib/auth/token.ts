@@ -1,6 +1,5 @@
 // Signed tokens using Web Crypto only, so this file runs in middleware (edge)
 // as well as in Node route handlers. Never import Prisma here.
-import { isStaffRole, type StaffRoleName } from "./permissions";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -9,11 +8,11 @@ export const SESSION_COOKIE = "gymos_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 12;
 
 export type SessionPayload =
-  | { kind: "staff"; sub: string; name: string; role: StaffRoleName; ver: number; exp: number }
+  | { kind: "staff"; sub: string; name: string; ver: number; exp: number }
   | { kind: "member"; sub: string; name: string; ver: number; exp: number };
 
 export type SessionInput =
-  | { kind: "staff"; sub: string; name: string; role: StaffRoleName; ver: number }
+  | { kind: "staff"; sub: string; name: string; ver: number }
   | { kind: "member"; sub: string; name: string; ver: number };
 
 export function base64url(bytes: Uint8Array): string {
@@ -85,8 +84,10 @@ export async function verifySessionToken(token: string | null | undefined): Prom
   if (typeof payload.sub !== "string" || !payload.sub) return null;
   if (typeof payload.ver !== "number") return null;
   const name = typeof payload.name === "string" ? payload.name : "";
-  if (payload.kind === "staff" && isStaffRole(payload.role)) {
-    return { kind: "staff", sub: payload.sub, name, role: payload.role, ver: payload.ver, exp: payload.exp };
+  // Access comes from the database on every request, so the token carries no
+  // role (older tokens that still have one are fine; it's ignored).
+  if (payload.kind === "staff") {
+    return { kind: "staff", sub: payload.sub, name, ver: payload.ver, exp: payload.exp };
   }
   if (payload.kind === "member") {
     return { kind: "member", sub: payload.sub, name, ver: payload.ver, exp: payload.exp };

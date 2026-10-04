@@ -13,7 +13,7 @@ const ymd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: gym.busine
 
 // CSV exports for the bookkeeper. Every file starts with a line saying it's a
 // summary, not tax advice.
-export const GET = staffRoute({ permission: "finance:view", query: ExportQuery }, async ({ query, db, staff }) => {
+export const GET = staffRoute({ permission: "finance.export", query: ExportQuery }, async ({ query, db, staff }) => {
   const range = resolveRange(query);
   const header = [
     `# ${gym.business.legalName} (ABN ${gym.business.abn}). ${range.label}. Amounts in AUD and include GST.`,

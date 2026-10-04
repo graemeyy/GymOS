@@ -1,6 +1,5 @@
 import type { Db } from "@/lib/db";
 import type { MemberActor, StaffActor } from "@/lib/auth/session";
-import { can } from "@/lib/auth/permissions";
 import { ApiError } from "@/lib/http/errors";
 import { getStripe } from "@/lib/billing/stripe";
 import { logAction, type Actor } from "@/lib/audit";
@@ -61,10 +60,9 @@ export async function archiveMember(db: Db, actor: Actor, memberId: string) {
   return member;
 }
 
-// Front desk can add a member, who starts PENDING (no access) until someone
-// who can manage billing starts the membership or the member pays online.
-// A manager adding someone who pays at the desk starts them straight away
-// (R-36).
+// Needs members.edit (checked by the route). A member added with a plan pays
+// at the desk and starts straight away; without one they're PENDING (no
+// access) until a plan is started or they pay online (R-36, D-100).
 export async function createMember(db: Db, staff: StaffActor, input: CreateMemberInput) {
   await assertReferrer(db, input.referredById);
   await assertPlan(db, input.planId);
@@ -81,15 +79,15 @@ export async function createMember(db: Db, staff: StaffActor, input: CreateMembe
       targetId: row.id,
       details: { name: input.name, email: input.email, planId: row.planId, referredById: row.referredById },
     });
-    if (input.planId && can(staff.role, "billing:manage")) await startMembership(tx, staff, row.id, input.planId);
+    if (input.planId) await startMembership(tx, staff, row.id, input.planId);
     return getMemberListItem(tx, row.id);
   });
 }
 
-// Contact details, notes and keycards: front desk. Plan and status: billing
-// permission, because they change what the member pays or can access. Status
-// and plan go through the membership service so history, dates and Stripe
-// stay consistent (R-06); pausing and cancelling have their own actions.
+// Needs members.edit (checked by the route), which covers details, plan and
+// status. Status and plan go through the membership service so history,
+// dates and Stripe stay consistent (R-06); pausing and cancelling have their
+// own actions.
 export async function updateMember(db: Db, staff: StaffActor, memberId: string, input: UpdateMemberInput) {
   const existing = await db.member.findUnique({ where: { id: memberId }, select: { id: true, status: true, planId: true, archivedAt: true } });
   if (!existing) throw new ApiError("not_found", "Member not found.");
@@ -98,9 +96,6 @@ export async function updateMember(db: Db, staff: StaffActor, memberId: string, 
   const { status, planId, ...details } = input;
   const statusChange = status !== undefined && status !== existing.status ? status : undefined;
   const planChange = planId !== undefined && planId !== existing.planId;
-  if ((statusChange || planChange) && !can(staff.role, "billing:manage")) {
-    throw new ApiError("forbidden", "Changing a member's plan or status needs a manager.");
-  }
   if (statusChange && statusChange !== "ACTIVE") {
     throw new ApiError("validation_failed", "Use Pause or Cancel on the membership panel to change this.", { status: "Use the membership actions" });
   }
