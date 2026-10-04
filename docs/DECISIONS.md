@@ -173,3 +173,9 @@ Decisions made while building GymOS without stopping to ask, with the reason and
 **D-076. Legal pages are generated from config.** (PR 3) The terms and privacy policy read notice periods, cooling-off, pause limits, shop returns and retention periods from `config/gym.config.json`, so the documents and the app's behaviour can't drift apart. Until `legal.reviewedByLawyer` is true, both pages say they are templates.
 
 **D-077. Local `--reset` seeding recreates plans from config.** (PR 3) Plans that existed before the Phase 2 migration have zero benefits (the migration can't read config). Real deployments keep their plans and the owner sets benefits in Plans; local and test databases now start from config.
+
+## Review and clean-up
+
+**D-078. The review, clean-up and permissions work is stacked on PR 3, not branched from `main`.** (PR 4, 5, 6) `main` still holds the original prototype; PRs 1 to 3 (open, unmerged) already replace most of it. Reviewing and rewriting `main` would redo that work and conflict with every open PR, and the permissions upgrade builds on the role system PR 1 introduced. So: PR 4 (bug fixes) is based on PR 3, PR 5 (rewrite to the standard) on PR 4, and PR 6 (permissions) on PR 5. Merge them in order. The review covers the codebase as it stands at the tip of PR 3.
+
+**D-079. Invoice numbers on payments that existed before the Phase 2 migration are in storage order, not date order.** (Review R-67) The migration added `invoiceNumber` as `SERIAL NOT NULL`, which numbers existing rows as Postgres stores them. Numbers are unique, which is what the ATO requires; they just aren't chronological for old payments. Future columns like this are added nullable, backfilled in a defined order, then made required.
