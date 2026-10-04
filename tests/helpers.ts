@@ -1,8 +1,9 @@
 import type { StaffRole } from "@prisma/client";
+import { LEGACY_ROLE_PRESET, PRESETS, type Permission, type Preset } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/db";
 import { createSessionToken, SESSION_COOKIE } from "@/lib/auth/token";
 import { hashPassword } from "@/lib/auth/password";
-import { resetDatabase } from "@/prisma/seed-data";
+import { presetRoleId, resetDatabase } from "@/prisma/seed-data";
 import { syncPlansFromConfig } from "@/lib/plans/service";
 
 export { prisma };
@@ -16,12 +17,26 @@ export async function resetDb() {
 let counter = 0;
 const unique = () => `${Date.now().toString(36)}${(counter++).toString(36)}`;
 
-export async function createStaff(role: StaffRole, overrides: { email?: string; password?: string } = {}) {
+// A preset role (OWNER, ADMIN, MANAGER, STAFF, TRAINER), a legacy role name
+// (FRONT_DESK means STAFF), or { roleId } for a custom role.
+export type StaffRoleArg = Preset | StaffRole | { roleId: string };
+
+const LEGACY_FOR_PRESET: Record<Preset, StaffRole> = { OWNER: "OWNER", ADMIN: "MANAGER", MANAGER: "MANAGER", STAFF: "FRONT_DESK", TRAINER: "TRAINER" };
+
+function resolveRole(role: StaffRoleArg): { roleId: string; legacy: StaffRole; label: string } {
+  if (typeof role === "object") return { roleId: role.roleId, legacy: "FRONT_DESK", label: "CUSTOM" };
+  const preset: Preset = (PRESETS as readonly string[]).includes(role) ? (role as Preset) : LEGACY_ROLE_PRESET[role as StaffRole];
+  return { roleId: presetRoleId(preset), legacy: LEGACY_FOR_PRESET[preset], label: preset };
+}
+
+export async function createStaff(role: StaffRoleArg, overrides: { email?: string; password?: string } = {}) {
+  const { roleId, legacy, label } = resolveRole(role);
   return prisma.staff.create({
     data: {
-      name: `${role} ${unique()}`,
-      email: overrides.email ?? `${role.toLowerCase()}-${unique()}@example.com`,
-      role,
+      name: `${label} ${unique()}`,
+      email: overrides.email ?? `${label.toLowerCase()}-${unique()}@example.com`,
+      role: legacy,
+      roleId,
       passwordHash: await hashPassword(overrides.password ?? "correct-horse-battery"),
     },
   });
@@ -45,7 +60,7 @@ export async function createMember(overrides: Partial<{ email: string; name: str
 }
 
 export type As =
-  | { staff: { id: string; name: string; role: StaffRole; sessionVersion: number } }
+  | { staff: { id: string; name: string; sessionVersion: number } }
   | { member: { id: string; name: string | null; email: string; sessionVersion: number } }
   | null;
 
@@ -53,7 +68,7 @@ export async function cookieFor(as: As): Promise<string | undefined> {
   if (!as) return undefined;
   const token =
     "staff" in as
-      ? await createSessionToken({ kind: "staff", sub: as.staff.id, name: as.staff.name, role: as.staff.role, ver: as.staff.sessionVersion })
+      ? await createSessionToken({ kind: "staff", sub: as.staff.id, name: as.staff.name, ver: as.staff.sessionVersion })
       : await createSessionToken({ kind: "member", sub: as.member.id, name: as.member.name ?? "", ver: as.member.sessionVersion });
   return `${SESSION_COOKIE}=${encodeURIComponent(token)}`;
 }
@@ -82,4 +97,10 @@ export async function call(handler: Handler, request: Request, params: Record<st
     body = text;
   }
   return { status: response.status, body: body as Record<string, unknown> & { error?: { code: string; message: string; fields?: Record<string, string> } }, headers: response.headers };
+}
+
+// A staff member on a custom role with exactly these permissions.
+export async function createStaffWith(permissions: Permission[], name = `Custom ${unique()}`) {
+  const role = await prisma.role.create({ data: { name, permissions } });
+  return createStaff({ roleId: role.id });
 }

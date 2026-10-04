@@ -52,6 +52,8 @@ import * as features from "@/app/api/settings/features/route";
 import * as shifts from "@/app/api/shifts/route";
 import * as shopProducts from "@/app/api/shop/products/route";
 import * as staff from "@/app/api/staff/route";
+import * as staffDirectory from "@/app/api/staff/directory/route";
+import * as roles from "@/app/api/roles/route";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?Z)?$/;
 
@@ -119,6 +121,9 @@ const staffGets: [string, Handler, string, (() => Record<string, string>)?][] = 
   ["settings/features", features.GET, "/api/settings/features"],
   ["shifts", shifts.GET, "/api/shifts"],
   ["staff", staff.GET, "/api/staff"],
+  // Added with PR 6.
+  ["staff/directory", staffDirectory.GET, "/api/staff/directory"],
+  ["roles", roles.GET, "/api/roles"],
 ];
 
 const memberGets: [string, Handler, string, (() => Record<string, string>)?][] = [

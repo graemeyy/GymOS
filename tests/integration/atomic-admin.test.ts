@@ -20,7 +20,9 @@ const announcements = await import("@/app/api/announcements/route");
 const announcementItem = await import("@/app/api/announcements/[id]/route");
 const publish = await import("@/app/api/announcements/[id]/publish/route");
 const features = await import("@/app/api/settings/features/route");
-const staffList = await import("@/app/api/staff/route");
+const staffInvite = await import("@/app/api/staff/invite/route");
+const roleList = await import("@/app/api/roles/route");
+const roleItem = await import("@/app/api/roles/[id]/route");
 const staffItem = await import("@/app/api/staff/[id]/route");
 const staffPassword = await import("@/app/api/staff/me/password/route");
 const bootstrap = await import("@/app/api/auth/bootstrap/route");
@@ -68,28 +70,41 @@ describe("R-98 settings", () => {
   it("changing a feature switch rolls back when the audit entry fails", async () => {
     const owner = { staff: await createStaff("OWNER") };
     failAudit.on = true;
-    expect((await call(features.PUT, await makeRequest("PUT", "/x", { as: owner, body: { hideRevenueFromFrontDesk: true } }))).status).toBe(500);
+    expect((await call(features.PUT, await makeRequest("PUT", "/x", { as: owner, body: { requireKeycardForEntry: true } }))).status).toBe(500);
     expect(await prisma.gymSettings.findUnique({ where: { id: "singleton" } })).toBeNull();
   });
 });
 
 describe("R-98 staff", () => {
-  it("adding, editing and removing staff roll back when the audit entry fails", async () => {
+  it("inviting, changing and deactivating staff roll back when the audit entry fails", async () => {
     const owner = { staff: await createStaff("OWNER") };
-    const target = await createStaff("FRONT_DESK");
+    const target = await createStaff("STAFF");
 
     failAudit.on = true;
-    const newStaff = { name: "New Hire", email: "new-hire@example.com", password: "correct-horse-battery", role: "TRAINER" };
-    expect((await call(staffList.POST, await makeRequest("POST", "/x", { as: owner, body: newStaff }))).status).toBe(500);
-    expect((await call(staffItem.PUT, await makeRequest("PUT", "/x", { as: owner, body: { role: "MANAGER", password: "another-long-password" } }), { id: target.id })).status).toBe(500);
-    expect((await call(staffItem.DELETE, await makeRequest("DELETE", "/x", { as: owner }), { id: target.id })).status).toBe(500);
+    const invite = { name: "New Hire", email: "new-hire@example.com", roleId: "role_trainer" };
+    expect((await call(staffInvite.POST, await makeRequest("POST", "/x", { as: owner, body: invite }))).status).toBe(500);
+    expect((await call(staffItem.PUT, await makeRequest("PUT", "/x", { as: owner, body: { roleId: "role_manager" } }), { id: target.id })).status).toBe(500);
+    expect((await call(staffItem.PUT, await makeRequest("PUT", "/x", { as: owner, body: { active: false } }), { id: target.id })).status).toBe(500);
 
-    expect(await prisma.staff.findUnique({ where: { email: newStaff.email } })).toBeNull();
-    expect(await prisma.staff.findUniqueOrThrow({ where: { id: target.id }, select: { role: true, passwordHash: true, sessionVersion: true } })).toEqual({
-      role: "FRONT_DESK",
-      passwordHash: target.passwordHash,
+    expect(await prisma.staff.findUnique({ where: { email: invite.email } })).toBeNull();
+    expect(await prisma.staff.findUniqueOrThrow({ where: { id: target.id }, select: { roleId: true, deactivatedAt: true, sessionVersion: true } })).toEqual({
+      roleId: "role_staff",
+      deactivatedAt: null,
       sessionVersion: target.sessionVersion,
     });
+  });
+
+  it("creating, changing and deleting roles roll back when the audit entry fails", async () => {
+    const owner = { staff: await createStaff("OWNER") };
+    const custom = await prisma.role.create({ data: { name: "Weekend crew", permissions: ["checkin.scan"] } });
+
+    failAudit.on = true;
+    expect((await call(roleList.POST, await makeRequest("POST", "/x", { as: owner, body: { name: "Cleaners", permissions: [] } }))).status).toBe(500);
+    expect((await call(roleItem.PUT, await makeRequest("PUT", "/x", { as: owner, body: { permissions: ["checkin.scan", "members.view"] } }), { id: custom.id })).status).toBe(500);
+    expect((await call(roleItem.DELETE, await makeRequest("DELETE", "/x", { as: owner }), { id: custom.id })).status).toBe(500);
+
+    expect(await prisma.role.findUnique({ where: { name: "Cleaners" } })).toBeNull();
+    expect(await prisma.role.findUniqueOrThrow({ where: { id: custom.id }, select: { permissions: true } })).toEqual({ permissions: ["checkin.scan"] });
   });
 
   it("changing your own password rolls back when the audit entry fails", async () => {

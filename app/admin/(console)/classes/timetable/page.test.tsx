@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const me = { kind: "staff", id: "s1", name: "Sam", role: "OWNER", permissions: ["classes:read", "classes:manage"] };
+const me = { kind: "staff", id: "s1", name: "Sam", roleId: "role_custom", roleName: "Custom", isOwner: false, permissions: ["classes.manage"] };
 const slot = { id: "t1", name: "Yoga", weekday: 0, startTime: "06:00", durationMinutes: 45, capacity: 16, active: true, trainer: null };
 
 describe("R-57 removing a timetable slot", () => {

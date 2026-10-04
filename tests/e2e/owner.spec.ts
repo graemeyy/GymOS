@@ -140,7 +140,7 @@ test.describe("owner features", () => {
     await screenshot(page, "p2-audit");
 
     await page.goto("/admin/settings");
-    await expect(page.getByRole("heading", { name: "What each role can do" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Staff and roles" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Your password" })).toBeVisible();
     await page.waitForLoadState("networkidle");
     await expectNoHorizontalScroll(page);

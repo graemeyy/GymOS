@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const me = { kind: "staff", id: "s1", name: "Sam", role: "OWNER", permissions: ["classes:read", "classes:attendance", "classes:manage"] };
+const me = { kind: "staff", id: "s1", name: "Sam", roleId: "role_custom", roleName: "Custom", isOwner: false, permissions: ["bookings.manage", "classes.manage"] };
 const cls = {
   id: "c1",
   name: "Yoga",
