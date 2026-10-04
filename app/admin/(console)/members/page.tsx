@@ -8,7 +8,7 @@ import { useResource } from "@/lib/client/api";
 import { useDebounced } from "@/lib/client/use-debounced";
 import { downloadCsv } from "@/lib/csv";
 import { lastSeen, fmtDate } from "@/lib/format";
-import { STATUS_TEXT, STATUS_TONE, type MemberStatus } from "@/lib/client/labels";
+import { STATUS_TEXT, STATUS_TONE, type MemberStatus } from "@/lib/members/labels";
 import { useStaff } from "@/components/admin/staff-session";
 import { MemberFormDialog, type EditableMember, type PlanOption } from "@/components/admin/member-form-dialog";
 import { Button, IconButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";

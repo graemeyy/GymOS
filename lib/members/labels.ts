@@ -1,4 +1,4 @@
-// Display labels for database enums. Australian spelling.
+// Display labels for member statuses. No imports, so client components can use it.
 export const STATUS_TEXT = {
   ACTIVE: "Active",
   PAUSED: "Paused",
@@ -16,6 +16,3 @@ export const STATUS_TONE = {
   CANCELED: "neutral",
   PENDING: "warn",
 } as const;
-
-export const EQUIPMENT_TEXT = { OPERATIONAL: "Working", WARNING: "Needs a look", OFFLINE: "Out of action" } as const;
-export const EQUIPMENT_TONE = { OPERATIONAL: "good", WARNING: "warn", OFFLINE: "bad" } as const;

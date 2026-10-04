@@ -1,5 +1,5 @@
 import { formatAud, INTERVAL_LABELS } from "@/lib/money";
-import { STATUS_TEXT, STATUS_TONE } from "@/lib/client/labels";
+import { STATUS_TEXT, STATUS_TONE } from "@/lib/members/labels";
 import { fmtDate } from "@/lib/format";
 import { StatusTag } from "@/components/ui/primitives";
 import type { Me } from "./types";

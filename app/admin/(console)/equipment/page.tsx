@@ -5,7 +5,7 @@ import { Check, FileText, X } from "lucide-react";
 import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
 import { fmtDate } from "@/lib/format";
-import { EQUIPMENT_TEXT, EQUIPMENT_TONE } from "@/lib/client/labels";
+import { EQUIPMENT_TEXT, EQUIPMENT_TONE } from "@/lib/equipment/labels";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";

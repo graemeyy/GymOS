@@ -6,7 +6,7 @@ import { QrScannerDialog } from "@/components/admin/qr-scanner";
 import Link from "next/link";
 import { api, useMutation, useResource } from "@/lib/client/api";
 import { fmtTime } from "@/lib/format";
-import { STATUS_TEXT, STATUS_TONE, type MemberStatus } from "@/lib/client/labels";
+import { STATUS_TEXT, STATUS_TONE, type MemberStatus } from "@/lib/members/labels";
 import { Button, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
 import { cn } from "@/lib/client/cn";

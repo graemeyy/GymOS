@@ -1,4 +1,4 @@
-import type { MemberStatus } from "@/lib/client/labels";
+import type { MemberStatus } from "@/lib/members/labels";
 import type { Interval } from "@/lib/money";
 
 export type { Interval };

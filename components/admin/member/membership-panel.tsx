@@ -5,7 +5,7 @@ import { api, useMutation } from "@/lib/client/api";
 import { formatAud, formatPlanPrice } from "@/lib/money";
 import { gym } from "@/lib/config/client";
 import { fmtDate } from "@/lib/format";
-import { STATUS_TEXT, STATUS_TONE } from "@/lib/client/labels";
+import { STATUS_TEXT, STATUS_TONE } from "@/lib/members/labels";
 import { Button, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";

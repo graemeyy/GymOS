@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { api, useMutation } from "@/lib/client/api";
-import { STATUS_TEXT, type MemberStatus } from "@/lib/client/labels";
+import { STATUS_TEXT, type MemberStatus } from "@/lib/members/labels";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/primitives";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
