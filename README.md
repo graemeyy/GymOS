@@ -26,6 +26,7 @@ Demo accounts from the seed, all with the password `ironbark-demo-2026`:
 | Who | Email | Signs in at |
 | --- | --- | --- |
 | Owner | owner@example.com | /admin/login |
+| Admin | admin@example.com | /admin/login |
 | Manager | manager@example.com | /admin/login |
 | Front desk | frontdesk@example.com | /admin/login |
 | Trainer | trainer@example.com | /admin/login |
