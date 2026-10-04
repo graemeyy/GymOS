@@ -40,13 +40,14 @@ export async function changeMemberPassword(db: Db, memberId: string, current: st
   if (!member.passwordHash || !(await verifyPassword(current, member.passwordHash))) {
     throw new ApiError("validation_failed", "Your current password isn't right.", { current: "Doesn't match" });
   }
+  if (next === current) throw new ApiError("validation_failed", "Choose a password that's different from your current one.", { next: "Same as your current password" });
   const passwordHash = await hashPassword(next);
   return db.$transaction(async (tx) => {
     // Bumping the session version signs out every other device; the caller
     // issues a fresh cookie for this one.
     const updated = await tx.member.update({
       where: { id: memberId },
-      data: { passwordHash, sessionVersion: { increment: 1 } },
+      data: { passwordHash, mustChangePassword: false, sessionVersion: { increment: 1 } },
       select: { sessionVersion: true },
     });
     await logAction(tx, { kind: "member", id: memberId, name: member.name ?? member.email, email: member.email }, { action: "member.password_changed", targetType: "Member", targetId: memberId });

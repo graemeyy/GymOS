@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/client/api";
 import { cn } from "@/lib/client/cn";
+import { ForcedPasswordChange } from "@/components/auth/forced-password-change";
 import { allows, SEE_STOCK_AND_EQUIPMENT, type PermissionRule } from "@/lib/auth/permissions";
 import { IconButton } from "@/components/ui/primitives";
 import { ErrorState } from "@/components/ui/feedback";
@@ -179,6 +180,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     wide.addEventListener("change", onChange);
     return () => wide.removeEventListener("change", onChange);
   }, [open]);
+
+  const { me, reload } = useStaff();
+  if (me?.mustChangePassword) return <ForcedPasswordChange kind="staff" name={me.name} onChanged={reload} />;
 
   return (
     <div className="min-h-dvh lg:flex">

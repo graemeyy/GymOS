@@ -82,7 +82,11 @@ const ids: Record<string, string> = {};
 beforeAll(async () => {
   await resetDb();
   await prisma.membershipPlan.deleteMany();
-  await seedDatabase(prisma);
+  await seedDatabase(prisma, { password: "integration-seed-password" });
+  // Seeded accounts must change their password first (D-111); these shapes
+  // are about everything after that.
+  await prisma.staff.updateMany({ data: { mustChangePassword: false } });
+  await prisma.member.updateMany({ data: { mustChangePassword: false } });
   const o = await prisma.staff.findUniqueOrThrow({ where: { email: "owner@example.com" } });
   const m = await prisma.member.findUniqueOrThrow({ where: { email: "charlotte.pham@example.com" } });
   owner = { staff: o };

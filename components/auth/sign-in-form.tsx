@@ -14,10 +14,13 @@ export function SignInForm({ endpoint, home, prefix }: { endpoint: string; home:
   const [password, setPassword] = useState("");
   // Stays busy after success, while the browser moves on.
   const [redirecting, setRedirecting] = useState(false);
-  const signIn = useMutation((body: { email: string; password: string }) => api(endpoint, { body }), {
-    onSuccess: () => {
+  const signIn = useMutation((body: { email: string; password: string }) => api<{ mustChangePassword?: boolean }>(endpoint, { body }), {
+    onSuccess: (result) => {
       setRedirecting(true);
-      router.push(safeNext(params.get("next"), home, prefix));
+      const target = safeNext(params.get("next"), home, prefix);
+      // Someone who must replace their password does that first, then goes
+      // on to where they were heading (D-111).
+      router.push(result?.mustChangePassword && target !== home ? `${home}?next=${encodeURIComponent(target)}` : target);
       router.refresh();
     },
   });

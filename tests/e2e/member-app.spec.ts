@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { AUTH, DEMO_PASSWORD, expectNoA11yViolations, expectNoHorizontalScroll, screenshot } from "./helpers";
+import { AUTH, accountPassword, expectNoA11yViolations, expectNoHorizontalScroll, screenshot } from "./helpers";
 
 test("a new member signs up, accepts the terms and chooses to pay at the front desk", async ({ page }, info) => {
   const email = `e2e-${info.project.name}-${Date.now()}@example.com`;
@@ -142,7 +142,7 @@ test("signed-out shoppers are asked to sign in to pay, and come back to the cart
   await page.getByRole("link", { name: "Sign in to pay" }).click();
   await expect(page).toHaveURL(/\/login\?next=\/shop\/cart/);
   await page.getByLabel("Email").fill("jack.osullivan@example.com");
-  await page.getByLabel("Password").fill(DEMO_PASSWORD);
+  await page.getByLabel("Password").fill(accountPassword());
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/shop\/cart$/);
   await expect(page.getByText("Member discount (5%)")).toBeVisible();
