@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { useCart } from "@/lib/client/cart";
 import { formatAud } from "@/lib/money";
 import { gym } from "@/lib/config/client";
@@ -21,9 +21,8 @@ export function CartView() {
   const { lines, setQuantity } = useCart();
   const [fulfilment, setFulfilment] = useState<"PICKUP" | "SHIPPING">("PICKUP");
   const [address, setAddress] = useState<{ line1: string; line2: string; suburb: string; state: string; postcode: string }>({ line1: "", line2: "", suburb: "", state: gym.business.address.state, postcode: "" });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [fields, setFields] = useState<Record<string, string>>({});
+  // Stays busy after success, while the browser goes to Stripe.
+  const [redirecting, setRedirecting] = useState(false);
 
   const rows = useMemo(() => {
     if (!catalogue.data) return [];
@@ -35,27 +34,24 @@ export function CartView() {
   const estimate = catalogue.data && priceable.length ? priceOrder(priceable.map((r) => ({ variantId: r.line.variantId, quantity: r.line.quantity, unitPriceCents: r.item!.variant.priceCents })), catalogue.data.discountPercent, fulfilment) : null;
   const unavailable = rows.filter((r) => !r.item || !r.item.variant.available || r.line.quantity > r.item.variant.maxQuantity);
 
-  const checkout = async () => {
-    setBusy(true);
-    setError(null);
-    setFields({});
-    try {
-      const { url } = await api<{ url: string }>("/api/shop/checkout", {
+  const checkout = useMutation(
+    () =>
+      api<{ url: string }>("/api/shop/checkout", {
         body: {
           lines: priceable.map((r) => r.line),
           fulfilment,
           shippingAddress: fulfilment === "SHIPPING" ? { ...address, line2: address.line2 || undefined } : undefined,
         },
-      });
-      window.location.assign(url);
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setFields(Object.fromEntries(Object.entries(e.fields).map(([k, v]) => [k.replace("shippingAddress.", ""), v])));
-        setError(e.message);
-      } else setError("Couldn't start the payment. Try again.");
-      setBusy(false);
+      }),
+    {
+      onSuccess: ({ url }) => {
+        setRedirecting(true);
+        window.location.assign(url);
+      },
     }
-  };
+  );
+  const { error } = checkout;
+  const fields = Object.fromEntries(Object.entries(checkout.fields).map(([k, v]) => [k.replace("shippingAddress.", ""), v]));
 
   return (
     <div>
@@ -181,7 +177,7 @@ export function CartView() {
 
                 {error ? <FormMessage>{error}</FormMessage> : null}
                 {data.signedIn ? (
-                  <Button className="w-full" onClick={checkout} busy={busy} disabled={!estimate || unavailable.length > 0}>
+                  <Button className="w-full" onClick={() => void checkout.run()} busy={checkout.busy || redirecting} disabled={!estimate || unavailable.length > 0}>
                     Pay {estimate ? formatAud(estimate.totalCents) : ""}
                   </Button>
                 ) : (

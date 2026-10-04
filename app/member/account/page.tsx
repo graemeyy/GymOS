@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { Button, PageHeader, Panel, PanelHeader } from "@/components/ui/primitives";
 import { FormMessage, TextField } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
@@ -46,32 +46,26 @@ function ProfilePanel() {
   const me = useMe();
   const toast = useToast();
   const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | undefined>();
   useEffect(() => {
     if (me.data?.name) setName(me.data.name);
   }, [me.data?.name]);
-  const save = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError(undefined);
-    try {
-      await api("/api/me", { method: "PATCH", body: { name } });
+  const save = useMutation((value: string) => api("/api/me", { method: "PATCH", body: { name: value } }), {
+    onSuccess: async () => {
       toast("Name saved.");
       await me.reload();
-    } catch (e) {
-      setError(e instanceof ApiClientError ? e.fields.name ?? e.message : "That didn't save.");
-    } finally {
-      setBusy(false);
-    }
+    },
+  });
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void save.run(name);
   };
   return (
     <Panel aria-labelledby="profile">
       <PanelHeader id="profile" title="Your details" />
-      <form onSubmit={save} className="space-y-4 px-4 py-4 sm:px-5">
-        <TextField label="Name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} error={error} />
+      <form onSubmit={submit} className="space-y-4 px-4 py-4 sm:px-5">
+        <TextField label="Name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} error={save.fields.name ?? save.error ?? undefined} />
         <TextField label="Email" type="email" value={me.data?.email ?? ""} readOnly hint="To change your email, ask at the front desk." />
-        <Button type="submit" variant="secondary" busy={busy}>
+        <Button type="submit" variant="secondary" busy={save.busy}>
           Save name
         </Button>
       </form>
@@ -82,22 +76,20 @@ function ProfilePanel() {
 function PreferencesPanel() {
   const me = useMe();
   const toast = useToast();
-  const set = async (field: "notifyAnnouncements" | "notifyWaitlist", value: boolean) => {
-    try {
-      await api("/api/me", { method: "PATCH", body: { [field]: value } });
+  const set = useMutation((field: "notifyAnnouncements" | "notifyWaitlist", value: boolean) => api("/api/me", { method: "PATCH", body: { [field]: value } }), {
+    onSuccess: async () => {
       await me.reload();
       toast("Preference saved.");
-    } catch {
-      toast("That didn't save. Try again.", "bad");
-    }
-  };
+    },
+    onError: () => toast("That didn't save. Try again.", "bad"),
+  });
   if (!me.data) return null;
   return (
     <Panel aria-labelledby="prefs">
       <PanelHeader id="prefs" title="Emails" />
       <div className="divide-y divide-line px-4 sm:px-5">
-        <Switch label="Gym news" description="Announcements such as timetable changes and holiday hours." checked={me.data.notifyAnnouncements} onChange={(v) => set("notifyAnnouncements", v)} />
-        <Switch label="Waitlist" description="An email when a spot opens and we book you in. You'll see it in your bookings either way." checked={me.data.notifyWaitlist} onChange={(v) => set("notifyWaitlist", v)} />
+        <Switch label="Gym news" description="Announcements such as timetable changes and holiday hours." checked={me.data.notifyAnnouncements} disabled={set.busy} onChange={(v) => void set.run("notifyAnnouncements", v)} />
+        <Switch label="Waitlist" description="An email when a spot opens and we book you in. You'll see it in your bookings either way." checked={me.data.notifyWaitlist} disabled={set.busy} onChange={(v) => void set.run("notifyWaitlist", v)} />
         <p className="py-3 text-sm text-ink-soft">Receipts, order updates and payment problems are always emailed, because they&apos;re about your account.</p>
       </div>
     </Panel>
@@ -107,30 +99,25 @@ function PreferencesPanel() {
 function PasswordPanel() {
   const toast = useToast();
   const [form, setForm] = useState({ current: "", next: "" });
-  const [fields, setFields] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
-  const save = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setFields({});
-    try {
-      await api("/api/me/password", { body: form });
+  const save = useMutation((body: { current: string; next: string }) => api("/api/me/password", { body }), {
+    onSuccess: () => {
       setForm({ current: "", next: "" });
       toast("Password changed. You've been signed out on other devices.");
-    } catch (e) {
-      setFields(e instanceof ApiClientError ? { ...e.fields, _: e.message } : { _: "That didn't save." });
-    } finally {
-      setBusy(false);
-    }
+    },
+  });
+  const { fields } = save;
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void save.run(form);
   };
   return (
     <Panel aria-labelledby="password">
       <PanelHeader id="password" title="Password" />
-      <form onSubmit={save} className="space-y-4 px-4 py-4 sm:px-5" noValidate>
+      <form onSubmit={submit} className="space-y-4 px-4 py-4 sm:px-5" noValidate>
         <TextField label="Current password" type="password" autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} error={fields.current} />
         <TextField label="New password" type="password" autoComplete="new-password" hint="At least 10 characters." value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} error={fields.next} />
-        {fields._ && !fields.current && !fields.next ? <FormMessage>{fields._}</FormMessage> : null}
-        <Button type="submit" variant="secondary" busy={busy}>
+        {save.error && !fields.current && !fields.next ? <FormMessage>{save.error}</FormMessage> : null}
+        <Button type="submit" variant="secondary" busy={save.busy}>
           Change password
         </Button>
       </form>
@@ -181,20 +168,16 @@ function DeleteDialog({ open, onClose }: { open: boolean; onClose: () => void })
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [fields, setFields] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
-  const submit = async () => {
-    setBusy(true);
-    setFields({});
-    try {
-      await api("/api/me/account", { method: "DELETE", body: { password, confirm } });
+  // Stays busy after success, while the browser leaves the page.
+  const [leaving, setLeaving] = useState(false);
+  const remove = useMutation((body: { password: string; confirm: string }) => api("/api/me/account", { method: "DELETE", body }), {
+    onSuccess: () => {
+      setLeaving(true);
       router.push("/?deleted=1");
       router.refresh();
-    } catch (e) {
-      setFields(e instanceof ApiClientError ? { ...e.fields, _: e.message } : { _: "That didn't work." });
-      setBusy(false);
-    }
-  };
+    },
+  });
+  const { fields } = remove;
   return (
     <Dialog
       open={open}
@@ -206,7 +189,7 @@ function DeleteDialog({ open, onClose }: { open: boolean; onClose: () => void })
           <Button variant="secondary" onClick={onClose}>
             Keep my account
           </Button>
-          <Button variant="danger" onClick={submit} busy={busy} disabled={confirm !== "DELETE" || !password}>
+          <Button variant="danger" onClick={() => void remove.run({ password, confirm })} busy={remove.busy || leaving} disabled={confirm !== "DELETE" || !password}>
             Delete my account
           </Button>
         </>
@@ -215,7 +198,7 @@ function DeleteDialog({ open, onClose }: { open: boolean; onClose: () => void })
       <div className="space-y-4">
         <TextField label="Your password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} error={fields.password} />
         <TextField label="Type DELETE to confirm" autoComplete="off" value={confirm} onChange={(e) => setConfirm(e.target.value)} error={fields.confirm} />
-        {fields._ && !fields.password && !fields.confirm ? <FormMessage>{fields._}</FormMessage> : null}
+        {remove.error && !fields.password && !fields.confirm ? <FormMessage>{remove.error}</FormMessage> : null}
       </div>
     </Dialog>
   );
