@@ -1,4 +1,5 @@
 import type { Db } from "@/lib/db";
+import type { MemberActor } from "@/lib/auth/session";
 import { gym } from "@/lib/config";
 import { ApiError } from "@/lib/http/errors";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
@@ -39,24 +40,28 @@ export async function changeMemberPassword(db: Db, memberId: string, current: st
   if (!member.passwordHash || !(await verifyPassword(current, member.passwordHash))) {
     throw new ApiError("validation_failed", "Your current password isn't right.", { current: "Doesn't match" });
   }
-  // Bumping the session version signs out every other device; the caller
-  // issues a fresh cookie for this one.
-  const updated = await db.member.update({
-    where: { id: memberId },
-    data: { passwordHash: await hashPassword(next), sessionVersion: { increment: 1 } },
-    select: { sessionVersion: true },
+  const passwordHash = await hashPassword(next);
+  return db.$transaction(async (tx) => {
+    // Bumping the session version signs out every other device; the caller
+    // issues a fresh cookie for this one.
+    const updated = await tx.member.update({
+      where: { id: memberId },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
+      select: { sessionVersion: true },
+    });
+    await logAction(tx, { kind: "member", id: memberId, name: member.name ?? member.email, email: member.email }, { action: "member.password_changed", targetType: "Member", targetId: memberId });
+    return updated.sessionVersion;
   });
-  await logAction(db, { kind: "member", id: memberId, name: member.name ?? member.email, email: member.email }, { action: "member.password_changed", targetType: "Member", targetId: memberId });
-  return updated.sessionVersion;
 }
 
 // Everything GymOS holds about the member (Privacy Act, APP 12), as plain
 // data. Staff notes are included: they are personal information about the
 // member. Internal fields (password hash, session version, retention score
-// inputs) are not information about the person and are left out.
-export async function exportMemberData(db: Db, memberId: string) {
+// inputs) are not information about the person and are left out. Each
+// export is audited.
+export async function exportMemberData(db: Db, actor: MemberActor) {
   const member = await db.member.findUniqueOrThrow({
-    where: { id: memberId },
+    where: { id: actor.id },
     select: {
       id: true,
       name: true,
@@ -93,6 +98,7 @@ export async function exportMemberData(db: Db, memberId: string) {
       memberNotes: { select: { body: true, staffName: true, createdAt: true }, orderBy: { createdAt: "asc" } },
     },
   });
+  await logAction(db, actor, { action: "member.data_exported", targetType: "Member", targetId: actor.id });
   return {
     exportedAt: new Date().toISOString(),
     gym: { name: gym.business.legalName, abn: gym.business.abn, contact: gym.business.email },
@@ -124,6 +130,16 @@ export async function deletionBlockers(db: Db, memberId: string): Promise<Deleti
   const openOrders = await db.order.count({ where: { memberId, status: { in: ["PAID", "PACKED", "READY_FOR_PICKUP", "SHIPPED"] } } });
   if (openOrders > 0) blockers.push({ code: "orders_in_progress", message: "You have shop orders still being prepared or delivered. Delete your account once they've arrived." });
   return blockers;
+}
+
+// The member deletes their own account. The password is asked for again so
+// an unlocked phone isn't enough to erase someone.
+export async function deleteOwnAccount(db: Db, member: MemberActor, password: string) {
+  const record = await db.member.findUniqueOrThrow({ where: { id: member.id }, select: { passwordHash: true } });
+  if (!record.passwordHash || !(await verifyPassword(password, record.passwordHash))) {
+    throw new ApiError("validation_failed", "That password isn't right.", { password: "Doesn't match" });
+  }
+  await eraseMember(db, member, member.id);
 }
 
 // Erases the member's personal details (APP 11.2 / 13) while keeping the

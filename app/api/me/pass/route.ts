@@ -1,12 +1,13 @@
 import QRCode from "qrcode";
 import { memberRoute, json } from "@/lib/http/route";
 import { createPassToken } from "@/lib/checkin/qr";
+import { getMemberPassDetails } from "@/lib/members/queries";
 
 // The member's QR pass, as the token and a ready-to-show SVG. The front desk
 // scanner checks status at scan time, so a pass for a paused or overdue
 // membership shows, but won't let them in.
 export const GET = memberRoute({}, async ({ db, member }) => {
-  const me = await db.member.findUniqueOrThrow({ where: { id: member.id }, select: { qrVersion: true, status: true, name: true } });
+  const me = await getMemberPassDetails(db, member.id);
   const token = await createPassToken(member.id, me.qrVersion);
   // Always dark on white with a quiet zone: scanners read that reliably,
   // whatever theme the phone is in.
