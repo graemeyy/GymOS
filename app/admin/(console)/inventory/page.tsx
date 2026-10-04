@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Minus, Pencil, Plus, Trash2 } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatAud, parseDollarsToCents } from "@/lib/money";
 import { useStaff } from "@/components/admin/staff-session";
 import { Button, IconButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
@@ -33,9 +33,34 @@ export default function StockPage() {
   const [form, setForm] = useState(empty);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<Item | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const save = useMutation(
+    (target: Item | null, body: Record<string, unknown>) => api(target ? `/api/inventory/${target.id}` : "/api/inventory", { method: target ? "PUT" : "POST", body }),
+    {
+      onSuccess: (_result, target) => {
+        toast(target ? "Item updated" : "Item added");
+        setOpen(false);
+        void items.reload();
+      },
+      onError: (e) => {
+        setErrors(e.fields);
+        setMessage(e.message);
+      },
+    }
+  );
+
+  const remove = useMutation((item: Item) => api(`/api/inventory/${item.id}`, { method: "DELETE" }), {
+    onSuccess: () => {
+      toast("Item removed");
+      void items.reload();
+      setDeleting(null);
+    },
+    onError: (e) => {
+      toast(e.message, "bad");
+      setDeleting(null);
+    },
+  });
 
   const openForm = (item: Item | null) => {
     setEditing(item);
@@ -49,51 +74,14 @@ export default function StockPage() {
     setOpen(true);
   };
 
-  const submit = async (event: React.FormEvent) => {
+  const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const unitCostCents = form.unitCost.trim() ? parseDollarsToCents(form.unitCost) : null;
     if (form.unitCost.trim() && unitCostCents === null) return setErrors({ unitCostCents: "Enter an amount like 12.50" });
-    setBusy(true);
     setErrors({});
     setMessage(null);
-    try {
-      const body = { name: form.name, category: form.category || null, sku: form.sku || null, quantity: Number(form.quantity) || 0, reorderLevel: Number(form.reorderLevel) || 0, unitCostCents };
-      await api(editing ? `/api/inventory/${editing.id}` : "/api/inventory", { method: editing ? "PUT" : "POST", body });
-      toast(editing ? "Item updated" : "Item added");
-      setOpen(false);
-      void items.reload();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const adjust = async (item: Item, delta: number) => {
-    try {
-      await api(`/api/inventory/${item.id}`, { method: "PATCH", body: { delta } });
-      void items.reload();
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't change the stock.", "bad");
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleting) return;
-    setDeleteBusy(true);
-    try {
-      await api(`/api/inventory/${deleting.id}`, { method: "DELETE" });
-      toast("Item removed");
-      void items.reload();
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't remove the item.", "bad");
-    } finally {
-      setDeleteBusy(false);
-      setDeleting(null);
-    }
+    const body = { name: form.name, category: form.category || null, sku: form.sku || null, quantity: Number(form.quantity) || 0, reorderLevel: Number(form.reorderLevel) || 0, unitCostCents };
+    void save.run(editing, body);
   };
 
   const rows = (items.data ?? []).filter((i) => !q || `${i.name} ${i.sku ?? ""} ${i.category ?? ""}`.toLowerCase().includes(q.toLowerCase()));
@@ -151,16 +139,7 @@ export default function StockPage() {
                 ]}
                 actions={(i) => (
                   <>
-                    {can("inventory:adjust") ? (
-                      <>
-                        <IconButton label={`Use one ${i.name}`} disabled={i.quantity === 0} onClick={() => adjust(i, -1)}>
-                          <Minus className="h-4 w-4" aria-hidden="true" />
-                        </IconButton>
-                        <IconButton label={`Add one ${i.name}`} onClick={() => adjust(i, 1)}>
-                          <Plus className="h-4 w-4" aria-hidden="true" />
-                        </IconButton>
-                      </>
-                    ) : null}
+                    {can("inventory:adjust") ? <AdjustButtons item={i} onAdjusted={items.reload} /> : null}
                     {can("inventory:manage") ? (
                       <>
                         <IconButton label={`Edit ${i.name}`} onClick={() => openForm(i)}>
@@ -188,7 +167,7 @@ export default function StockPage() {
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" form="stock-form" busy={busy}>
+            <Button type="submit" form="stock-form" busy={save.busy}>
               {editing ? "Save changes" : "Add item"}
             </Button>
           </>
@@ -206,7 +185,26 @@ export default function StockPage() {
           {message ? <FormMessage>{message}</FormMessage> : null}
         </form>
       </Dialog>
-      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={confirmDelete} busy={deleteBusy} title={`Remove ${deleting?.name ?? "item"}?`} confirmLabel="Remove item" body="This deletes the stock record. It can't be undone." />
+      <ConfirmDialog open={Boolean(deleting)} onCancel={() => setDeleting(null)} onConfirm={() => deleting && void remove.run(deleting)} busy={remove.busy} title={`Remove ${deleting?.name ?? "item"}?`} confirmLabel="Remove item" body="This deletes the stock record. It can't be undone." />
+    </>
+  );
+}
+
+// Each row owns its own request, so adjusting one item never blocks another.
+function AdjustButtons({ item, onAdjusted }: { item: Item; onAdjusted: () => Promise<void> }) {
+  const toast = useToast();
+  const adjust = useMutation((delta: number) => api(`/api/inventory/${item.id}`, { method: "PATCH", body: { delta } }), {
+    onSuccess: () => void onAdjusted(),
+    onError: (e) => toast(e.message, "bad"),
+  });
+  return (
+    <>
+      <IconButton label={`Use one ${item.name}`} disabled={item.quantity === 0 || adjust.busy} onClick={() => void adjust.run(-1)}>
+        <Minus className="h-4 w-4" aria-hidden="true" />
+      </IconButton>
+      <IconButton label={`Add one ${item.name}`} disabled={adjust.busy} onClick={() => void adjust.run(1)}>
+        <Plus className="h-4 w-4" aria-hidden="true" />
+      </IconButton>
     </>
   );
 }

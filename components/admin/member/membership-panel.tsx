@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { api, ApiClientError } from "@/lib/client/api";
+import { api, useMutation } from "@/lib/client/api";
 import { formatAud, formatPlanPrice } from "@/lib/money";
 import { gym } from "@/lib/config/client";
 import { fmtDate } from "@/lib/format";
@@ -26,38 +26,29 @@ export function MembershipPanel({ member, plans, onChanged }: { member: MemberDe
   const [planId, setPlanId] = useState("");
   const [pause, setPause] = useState({ from: todayIso(), until: plusDaysIso(14) });
   const [cancel, setCancel] = useState({ reason: "", immediate: false });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const canManage = can("billing:manage") && !member.archivedAt;
   const policy = gym.policies;
 
+  // One change at a time across the panel's buttons and dialogs.
+  const change = useMutation((fn: () => Promise<unknown>, _success: string) => fn(), {
+    onSuccess: (_result, _fn, success) => {
+      toast(success);
+      setAction(null);
+      onChanged();
+    },
+    onError: (e) => {
+      if (!action) toast(e.message, "bad");
+    },
+  });
+  const { busy, fields: errors, error: message } = change;
+
   const open = (a: Action) => {
-    setErrors({});
-    setMessage(null);
+    change.reset();
     setPlanId("");
     setAction(a);
   };
 
-  const run = async (fn: () => Promise<unknown>, success: string) => {
-    setBusy(true);
-    setErrors({});
-    setMessage(null);
-    try {
-      await fn();
-      toast(success);
-      setAction(null);
-      onChanged();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-        if (!action) toast(e.message, "bad");
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
+  const run = (fn: () => Promise<unknown>, success: string) => void change.run(fn, success);
 
   const status = member.status;
   const rows: [string, React.ReactNode][] = [

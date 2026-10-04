@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { addCalendarDays, zonedTimeToUtc } from "@/lib/dates";
 import { gym } from "@/lib/config/client";
 import { fmtDateTime, fmtTime } from "@/lib/format";
@@ -35,15 +35,36 @@ export default function ShiftsPage() {
   const [form, setForm] = useState({ staffId: "", date: "", start: "06:00", end: "14:00", notes: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   // Removing a shift asks first and is sent once (R-57).
   const [removing, setRemoving] = useState<Shift | null>(null);
-  const [removeBusy, setRemoveBusy] = useState(false);
 
-  const submit = async (event: React.FormEvent) => {
+  const add = useMutation((body: Record<string, unknown>) => api("/api/shifts", { body }), {
+    onSuccess: () => {
+      toast("Shift added");
+      setOpen(false);
+      void shifts.reload();
+    },
+    onError: (e) => {
+      setErrors(e.fields);
+      setMessage(e.message);
+    },
+  });
+
+  const remove = useMutation((shift: Shift) => api(`/api/shifts/${shift.id}`, { method: "DELETE" }), {
+    onSuccess: () => {
+      toast("Shift removed");
+      void shifts.reload();
+      setRemoving(null);
+    },
+    onError: (e) => {
+      toast(e.message, "bad");
+      setRemoving(null);
+    },
+  });
+
+  const submit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!form.date) return setErrors({ startTime: "Choose a date" });
-    setBusy(true);
     setErrors({});
     setMessage(null);
     const tz = gym.business.timezone;
@@ -52,34 +73,7 @@ export default function ShiftsPage() {
     // Overnight shift: the finish time on the next calendar day, not 24 hours
     // later, which is an hour out when daylight saving changes (R-109).
     if (endTime <= startTime) endTime = zonedTimeToUtc(addCalendarDays(form.date, 1), form.end, tz);
-    try {
-      await api("/api/shifts", { body: { staffId: form.staffId, startTime: startTime.toISOString(), endTime: endTime.toISOString(), notes: form.notes || null } });
-      toast("Shift added");
-      setOpen(false);
-      void shifts.reload();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async () => {
-    if (!removing) return;
-    setRemoveBusy(true);
-    try {
-      await api(`/api/shifts/${removing.id}`, { method: "DELETE" });
-      toast("Shift removed");
-      void shifts.reload();
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't remove the shift.", "bad");
-    } finally {
-      setRemoveBusy(false);
-      setRemoving(null);
-    }
+    void add.run({ staffId: form.staffId, startTime: startTime.toISOString(), endTime: endTime.toISOString(), notes: form.notes || null });
   };
 
   return (
@@ -136,7 +130,7 @@ export default function ShiftsPage() {
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" form="shift-form" busy={busy}>
+            <Button type="submit" form="shift-form" busy={add.busy}>
               Add shift
             </Button>
           </>
@@ -163,8 +157,8 @@ export default function ShiftsPage() {
       <ConfirmDialog
         open={Boolean(removing)}
         onCancel={() => setRemoving(null)}
-        onConfirm={remove}
-        busy={removeBusy}
+        onConfirm={() => removing && void remove.run(removing)}
+        busy={remove.busy}
         title={removing ? `Remove ${removing.staff.name}'s shift?` : "Remove this shift?"}
         confirmLabel="Remove shift"
         body={removing ? `${fmtDateTime(removing.startTime)} to ${fmtTime(removing.endTime)}.` : ""}

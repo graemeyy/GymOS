@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Printer } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatAud, parseDollarsToCents } from "@/lib/money";
 import { fmtDate, fmtDateTime, invoiceNo } from "@/lib/format";
 import { useStaff } from "@/components/admin/staff-session";
@@ -43,7 +43,18 @@ export default function PaymentDetailPage() {
   const [form, setForm] = useState({ amount: "", reason: "", method: "STRIPE" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+
+  const refund = useMutation((amountCents: number, reason: string, method: string) => api(`/api/payments/${id}/refund`, { body: { amountCents, reason, method } }), {
+    onSuccess: (_result, amountCents) => {
+      toast(`Refunded ${formatAud(amountCents)}`);
+      setOpen(false);
+      void payment.reload();
+    },
+    onError: (e) => {
+      setErrors(e.fields);
+      setMessage(e.message);
+    },
+  });
 
   const openRefund = (p: PaymentDetail) => {
     setForm({ amount: (p.refundableCents / 100).toFixed(2), reason: "", method: p.canRefundViaStripe ? "STRIPE" : "MANUAL" });
@@ -52,25 +63,12 @@ export default function PaymentDetailPage() {
     setOpen(true);
   };
 
-  const submit = async () => {
+  const submit = () => {
     const amountCents = parseDollarsToCents(form.amount);
     if (!amountCents) return setErrors({ amountCents: "Enter an amount like 29.95" });
-    setBusy(true);
     setErrors({});
     setMessage(null);
-    try {
-      await api(`/api/payments/${id}/refund`, { body: { amountCents, reason: form.reason, method: form.method } });
-      toast(`Refunded ${formatAud(amountCents)}`);
-      setOpen(false);
-      void payment.reload();
-    } catch (e) {
-      if (e instanceof ApiClientError) {
-        setErrors(e.fields);
-        setMessage(e.message);
-      }
-    } finally {
-      setBusy(false);
-    }
+    void refund.run(amountCents, form.reason, form.method);
   };
 
   return (
@@ -152,7 +150,7 @@ export default function PaymentDetailPage() {
                   <Button variant="secondary" onClick={() => setOpen(false)}>
                     Don&apos;t refund
                   </Button>
-                  <Button variant="danger" busy={busy} onClick={submit}>
+                  <Button variant="danger" busy={refund.busy} onClick={submit}>
                     Refund {parseDollarsToCents(form.amount) ? formatAud(parseDollarsToCents(form.amount)!) : ""}
                   </Button>
                 </>

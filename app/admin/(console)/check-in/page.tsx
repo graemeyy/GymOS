@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Camera } from "lucide-react";
 import { QrScannerDialog } from "@/components/admin/qr-scanner";
 import Link from "next/link";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { fmtTime } from "@/lib/format";
 import { STATUS_TEXT, STATUS_TONE, type MemberStatus } from "@/lib/client/labels";
 import { Button, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
@@ -31,36 +31,34 @@ interface RecentRow {
 export default function CheckInPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
-  const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const recent = useResource<RecentRow[]>("/api/check-in");
-  const reloadRecent = recent.reload;
   const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  const checkIn = useCallback(async (query: string) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const data = await api<Result>("/api/check-in", { body: { query } });
+  const mutation = useMutation((query: string) => api<Result>("/api/check-in", { body: { query } }), {
+    onSuccess: (data) => {
       setResult(data);
       setValue("");
-      void reloadRecent();
-    } catch (e) {
-      setResult(null);
-      setError(e instanceof ApiClientError ? e.message : "Check-in failed.");
-    } finally {
-      setBusy(false);
+      void recent.reload();
+    },
+    onError: () => setResult(null),
+  });
+  const run = mutation.run;
+
+  const checkIn = useCallback(
+    async (query: string) => {
+      await run(query);
       inputRef.current?.focus();
       // Selected, so the next scan replaces a failed code instead of being
       // appended to it (R-15).
       inputRef.current?.select();
-    }
-  }, [reloadRecent]);
+    },
+    [run]
+  );
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -106,13 +104,13 @@ export default function CheckInPage() {
                   className="block min-h-[56px] w-full rounded border border-line-strong bg-surface px-4 text-lg focus:border-plate focus:outline-none focus:ring-2 focus:ring-plate/30"
                 />
               </div>
-              <Button type="submit" busy={busy} className="min-h-[56px] px-6 text-base">
+              <Button type="submit" busy={mutation.busy} className="min-h-[56px] px-6 text-base">
                 Check in
               </Button>
             </form>
-            {error ? (
+            {mutation.error ? (
               <p role="alert" className="mt-3 rounded bg-bad-tint px-3 py-2 text-sm font-medium text-bad">
-                {error}
+                {mutation.error}
               </p>
             ) : null}
           </Panel>

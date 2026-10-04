@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Minus, Plus } from "lucide-react";
-import { api, ApiClientError, useResource } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { formatAud } from "@/lib/money";
 import { CATEGORY_TEXT, PRODUCT_CATEGORIES, variantLabel, type Category } from "@/lib/shop/labels";
 import { useStaff } from "@/components/admin/staff-session";
@@ -32,22 +32,12 @@ interface Product {
 
 export default function ShopProductsPage() {
   const { can } = useStaff();
-  const toast = useToast();
   const [category, setCategory] = useState("");
   const [archived, setArchived] = useState(false);
   const params = new URLSearchParams();
   if (category) params.set("category", category);
   if (archived) params.set("includeArchived", "1");
   const products = useResource<Product[]>(`/api/products?${params.toString()}`);
-
-  const adjust = async (v: Variant, delta: number) => {
-    try {
-      await api(`/api/product-variants/${v.id}`, { method: "PATCH", body: { delta } });
-      void products.reload();
-    } catch (e) {
-      toast(e instanceof ApiClientError ? e.message : "Couldn't change the stock.", "bad");
-    }
-  };
 
   return (
     <>
@@ -112,14 +102,7 @@ export default function ShopProductsPage() {
                             <span className="tabular">{formatAud(v.priceCents)}</span>
                             {v.stockQty === 0 ? <StatusTag tone="bad">Sold out</StatusTag> : v.stockQty <= LOW_STOCK_AT ? <StatusTag tone="warn">{v.stockQty} left</StatusTag> : <span className="tabular w-14 text-right text-sm text-ink-soft">{v.stockQty} in stock</span>}
                             {can("inventory:adjust") ? (
-                              <span className="flex">
-                                <IconButton label={`One less ${p.name} ${variantLabel(v)}`} disabled={v.stockQty === 0} onClick={() => adjust(v, -1)}>
-                                  <Minus className="h-4 w-4" aria-hidden="true" />
-                                </IconButton>
-                                <IconButton label={`One more ${p.name} ${variantLabel(v)}`} onClick={() => adjust(v, 1)}>
-                                  <Plus className="h-4 w-4" aria-hidden="true" />
-                                </IconButton>
-                              </span>
+                              <StockButtons label={`${p.name} ${variantLabel(v)}`} variant={v} onAdjusted={products.reload} />
                             ) : null}
                           </span>
                         </li>
@@ -132,5 +115,24 @@ export default function ShopProductsPage() {
         }
       </AsyncBlock>
     </>
+  );
+}
+
+// Each variant owns its own request, so adjusting one never blocks another.
+function StockButtons({ label, variant, onAdjusted }: { label: string; variant: Variant; onAdjusted: () => Promise<void> }) {
+  const toast = useToast();
+  const adjust = useMutation((delta: number) => api(`/api/product-variants/${variant.id}`, { method: "PATCH", body: { delta } }), {
+    onSuccess: () => void onAdjusted(),
+    onError: (e) => toast(e.message, "bad"),
+  });
+  return (
+    <span className="flex">
+      <IconButton label={`One less ${label}`} disabled={variant.stockQty === 0 || adjust.busy} onClick={() => void adjust.run(-1)}>
+        <Minus className="h-4 w-4" aria-hidden="true" />
+      </IconButton>
+      <IconButton label={`One more ${label}`} disabled={adjust.busy} onClick={() => void adjust.run(1)}>
+        <Plus className="h-4 w-4" aria-hidden="true" />
+      </IconButton>
+    </span>
   );
 }
