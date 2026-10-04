@@ -10,7 +10,8 @@ export function listPaymentsPaidBetween(db: Db, from: Date, to: Date) {
 
 export function listRefundsBetween(db: Db, from: Date, to: Date) {
   return db.refund.findMany({
-    where: { createdAt: { gte: from, lt: to } },
+    // Failed refunds never reached the customer (D-116).
+    where: { createdAt: { gte: from, lt: to }, failedAt: null },
     orderBy: { createdAt: "asc" },
     include: { payment: { select: { invoiceNumber: true, member: { select: { name: true, email: true } } } } },
   });

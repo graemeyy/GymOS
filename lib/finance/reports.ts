@@ -26,8 +26,9 @@ export async function financeSummary(db: Db, from: Date, to: Date): Promise<Fina
     where: { paidAt: { gte: from, lt: to }, status: { in: ["succeeded", "refunded", "partially_refunded"] } },
     select: { amount: true, gstCents: true, currency: true, kind: true, planName: true, member: { select: { membershipPlan: { select: { name: true } } } } },
   });
+  // Failed refunds never reached the customer (D-116).
   const refunds = await db.refund.findMany({
-    where: { createdAt: { gte: from, lt: to } },
+    where: { createdAt: { gte: from, lt: to }, failedAt: null },
     select: { amountCents: true, gstCents: true, payment: { select: { currency: true } } },
   });
   const items = await db.orderItem.findMany({

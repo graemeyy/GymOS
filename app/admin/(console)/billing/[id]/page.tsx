@@ -29,7 +29,7 @@ interface PaymentDetail {
   canRefundViaStripe: boolean;
   member: { id: string; name: string | null; email: string };
   order: { id: string; number: number; status: string } | null;
-  refunds: { id: string; amountCents: number; gstCents: number; reason: string; method: string; staffName: string; createdAt: string }[];
+  refunds: { id: string; amountCents: number; gstCents: number; reason: string; method: string; staffName: string; createdAt: string; failedAt: string | null; failureReason: string | null }[];
 }
 
 
@@ -126,13 +126,19 @@ export default function PaymentDetailPage() {
                     {p.refunds.map((r) => (
                       <li key={r.id} className="px-4 py-3">
                         <p className="flex justify-between gap-3">
-                          <span className="tabular font-medium">{formatAud(r.amountCents)}</span>
+                          <span className={r.failedAt ? "tabular font-medium line-through" : "tabular font-medium"}>{formatAud(r.amountCents)}</span>
                           <span className="tabular text-sm text-ink-soft">{fmtDateTime(r.createdAt)}</span>
                         </p>
                         <p className="text-sm">{r.reason}</p>
                         <p className="text-sm text-ink-soft">
                           {r.method === "MANUAL" ? "Paid back outside Stripe" : "Refunded to card"} by {r.staffName}. Includes {formatAud(r.gstCents)} GST.
                         </p>
+                        {r.failedAt ? (
+                          <p className="mt-1">
+                            {/* D-116: Stripe couldn't return this money. */}
+                            <StatusTag tone="bad">Failed {fmtDateTime(r.failedAt)}: not returned to the customer ({r.failureReason})</StatusTag>
+                          </p>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
