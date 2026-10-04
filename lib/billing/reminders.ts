@@ -21,8 +21,10 @@ export async function sendPaymentReminders(db: Db, now = new Date()) {
     const due = days.filter((d) => d <= overdueDays);
     if (due.length === 0) continue;
     const day = due[due.length - 1];
-    const already = await db.paymentReminder.findUnique({ where: { memberId_pastDueSince_day: { memberId: m.id, pastDueSince: m.pastDueSince!, day } } });
-    if (already) continue;
+    // Claim the reminder before sending it: the unique key means only one of
+    // two overlapping runs gets the row, and only that one emails (R-72).
+    const claimed = await db.paymentReminder.createMany({ data: [{ memberId: m.id, pastDueSince: m.pastDueSince!, day }], skipDuplicates: true });
+    if (claimed.count === 0) continue;
     const suspendIn = gym.policies.failedPayments.suspendAccessAfterDays - overdueDays;
     const owing = m.amountOwingCents > 0 ? ` of ${formatAud(m.amountOwingCents)}` : "";
     await sendEmail({
@@ -34,7 +36,6 @@ export async function sendPaymentReminders(db: Db, now = new Date()) {
         (suspendIn > 0 ? ` Gym access pauses in ${suspendIn} day(s) if it's still unpaid.` : " Gym access is paused until it's paid.") +
         signature(),
     });
-    await db.paymentReminder.create({ data: { memberId: m.id, pastDueSince: m.pastDueSince!, day } });
     sent++;
   }
   return { remindersSent: sent };

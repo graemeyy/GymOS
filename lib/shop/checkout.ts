@@ -117,6 +117,8 @@ export async function startShopCheckout(db: Db, actor: Actor & { kind: "member" 
     session = await getStripe().checkout.sessions.create(
       {
         mode: "payment",
+        // Card only, so a completed checkout means the order is paid (R-24).
+        payment_method_types: ["card"],
         line_items: lineItems,
         client_reference_id: actor.id,
         metadata: { orderId: order.id, memberId: actor.id, kind: "shop" },

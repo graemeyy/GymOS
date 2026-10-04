@@ -24,7 +24,7 @@ interface PaymentDetail {
   kind: string;
   description: string | null;
   invoiceNumber: number;
-  createdAt: string;
+  paidAt: string;
   viaStripe: boolean;
   canRefundViaStripe: boolean;
   member: { id: string; name: string | null; email: string };
@@ -83,7 +83,7 @@ export default function PaymentDetailPage() {
           <>
             <PageHeader
               title={`${invoiceNo(p.invoiceNumber)}, ${formatAud(p.amount)}`}
-              description={`${p.description ?? "Payment"} from ${p.member.name ?? p.member.email} on ${fmtDate(p.createdAt)}.`}
+              description={`${p.description ?? "Payment"} from ${p.member.name ?? p.member.email} on ${fmtDate(p.paidAt)}.`}
               actions={
                 <>
                   <LinkButton href={`/admin/invoice/${p.id}`} variant="secondary" target="_blank">

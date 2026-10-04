@@ -157,7 +157,7 @@ export default function MemberDetailPage() {
                             </span>
                             <span className="flex shrink-0 items-center gap-3">
                               {paymentTag(p)}
-                              <span className="tabular text-sm text-ink-soft">{fmtDate(p.createdAt)}</span>
+                              <span className="tabular text-sm text-ink-soft">{fmtDate(p.paidAt)}</span>
                             </span>
                           </Link>
                         </li>

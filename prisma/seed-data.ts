@@ -256,6 +256,7 @@ export async function seedDatabase(prisma: PrismaClient) {
             planName: plan.name,
             kind: "MEMBERSHIP",
             createdAt: daysAgo(w * 7 + (m.status === "PAST_DUE" ? 14 : 0) + 1),
+            paidAt: daysAgo(w * 7 + (m.status === "PAST_DUE" ? 14 : 0) + 1),
           },
         });
       }
@@ -368,6 +369,7 @@ export async function seedDatabase(prisma: PrismaClient) {
         orderId: order.id,
         refundedCents: spec.status === "REFUNDED" ? total : 0,
         createdAt: created,
+        paidAt: created,
       },
     });
     if (spec.status === "REFUNDED") {

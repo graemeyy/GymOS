@@ -15,7 +15,14 @@ export const POST = staffRoute({ permission: "billing:manage" }, async ({ params
     return json({ status: invoice.status, paid: invoice.status === "paid" });
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    await logAction(db, staff, { action: "billing.payment_retry_failed", targetType: "Member", targetId: params.id });
-    throw new ApiError("upstream_failed", "The card was declined again. Ask the member to update their card.");
+    const code = (error as { code?: string; type?: string }).code;
+    const type = (error as { type?: string }).type;
+    await logAction(db, staff, { action: "billing.payment_retry_failed", targetType: "Member", targetId: params.id, details: { code: code ?? type ?? "unknown" } });
+    // Say what actually happened, not "declined" for every failure (R-71).
+    if (code === "invoice_already_paid" || code === "invoice_not_open") {
+      throw new ApiError("conflict", "That invoice has already been paid or closed. Reload to see the member's current status.");
+    }
+    if (type === "StripeCardError") throw new ApiError("upstream_failed", "The card was declined again. Ask the member to update their card.");
+    throw new ApiError("upstream_failed", "Stripe couldn't retry the payment just now. Try again shortly.");
   }
 });

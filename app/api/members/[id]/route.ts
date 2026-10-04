@@ -40,9 +40,9 @@ export const GET = staffRoute({ permission: "members:read" }, async ({ params, d
       checkIns: { orderBy: { timestamp: "desc" }, take: 20, select: { id: true, location: true, timestamp: true } },
       payments: showPayments
         ? {
-            orderBy: { createdAt: "desc" },
+            orderBy: { paidAt: "desc" },
             take: 20,
-            select: { id: true, amount: true, gstCents: true, currency: true, status: true, createdAt: true, invoiceNumber: true, refundedCents: true, kind: true, description: true },
+            select: { id: true, amount: true, gstCents: true, currency: true, status: true, paidAt: true, invoiceNumber: true, refundedCents: true, kind: true, description: true },
           }
         : false,
       classBookings: {

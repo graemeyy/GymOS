@@ -7,13 +7,13 @@ import * as benefits from "@/app/api/members/[id]/benefits/route";
 import * as detail from "@/app/api/members/[id]/route";
 import { applyDueTransitions } from "@/lib/membership/service";
 import { call, createMember, createStaff, makeRequest, prisma, resetDb, type As } from "../helpers";
-import { useFakeStripe } from "../fake-stripe";
+import { installFakeStripe } from "../fake-stripe";
 
 const DAY = 86_400_000;
 const iso = (offsetDays: number) => new Date(Date.now() + offsetDays * DAY).toISOString();
 let manager: As;
 let desk: As;
-let stripe: ReturnType<typeof useFakeStripe> | null = null;
+let stripe: ReturnType<typeof installFakeStripe> | null = null;
 
 beforeEach(async () => {
   await resetDb();
@@ -47,7 +47,7 @@ describe("pausing", () => {
   });
 
   it("tells Stripe to stop collecting while paused", async () => {
-    stripe = useFakeStripe();
+    stripe = installFakeStripe();
     const m = await oldMember({ stripeSubscriptionId: "sub_pause" });
     await call(pause.POST, await makeRequest("POST", "/x", { as: manager, body: { from: iso(0), until: iso(10) } }), { id: m.id });
     expect(stripe.calls[0]).toMatchObject({ method: "subscriptions.update", args: ["sub_pause", { pause_collection: { behavior: "void" } }] });
@@ -79,7 +79,7 @@ describe("cancelling", () => {
   });
 
   it("schedules the Stripe cancellation for the same date, and stops if Stripe fails", async () => {
-    stripe = useFakeStripe({ "subscriptions.update": () => Promise.reject(new Error("down")) });
+    stripe = installFakeStripe({ "subscriptions.update": () => Promise.reject(new Error("down")) });
     const m = await oldMember({ stripeSubscriptionId: "sub_c" });
     const failed = await call(cancel.POST, await makeRequest("POST", "/x", { as: manager, body: {} }), { id: m.id });
     expect(failed.status).toBe(502);

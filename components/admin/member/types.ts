@@ -28,7 +28,7 @@ export interface MemberDetail {
   createdAt: string;
   checkIns: { id: string; location: string; timestamp: string }[];
   payments:
-    | { id: string; amount: number; gstCents: number; refundedCents: number; currency: string; status: string; createdAt: string; invoiceNumber: number; kind: string; description: string | null }[]
+    | { id: string; amount: number; gstCents: number; refundedCents: number; currency: string; status: string; paidAt: string; invoiceNumber: number; kind: string; description: string | null }[]
     | null;
   classBookings: { id: string; class: { id: string; name: string; startTime: string; instructor: string | null } }[];
   classWaitlist: { id: string; class: { id: string; name: string; startTime: string } }[];

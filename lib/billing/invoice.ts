@@ -27,7 +27,7 @@ export interface TaxInvoice {
 // registered for GST issues a receipt instead.
 export function buildTaxInvoice(payment: {
   invoiceNumber: number;
-  createdAt: Date;
+  paidAt: Date;
   amount: number;
   gstCents: number;
   refundedCents: number;
@@ -41,7 +41,7 @@ export function buildTaxInvoice(payment: {
   return {
     title: registered ? "Tax invoice" : "Receipt",
     number: `INV-${String(payment.invoiceNumber).padStart(6, "0")}`,
-    issuedAt: payment.createdAt,
+    issuedAt: payment.paidAt,
     seller: { name: gym.business.legalName, abn: gym.business.abn, address: formatAddress(), email: gym.business.email },
     buyer: { name: payment.member.name ?? payment.member.email, email: payment.member.email },
     lines: payment.lines ?? [{ description: payment.description ?? (payment.planName ? `${payment.planName} membership` : "Membership"), quantity: 1, amountCents: payment.amount }],

@@ -21,11 +21,11 @@ import { readPassToken } from "@/lib/checkin/qr";
 import { cancelBooking } from "@/lib/classes/service";
 import { captureEmailsForTests, capturedEmails } from "@/lib/email";
 import { call, createMember, createStaff, makeRequest, prisma, resetDb, type As } from "../helpers";
-import { useFakeStripe } from "../fake-stripe";
+import { installFakeStripe } from "../fake-stripe";
 
 const DAY = 86_400_000;
 const iso = (offsetDays: number) => new Date(Date.now() + offsetDays * DAY).toISOString();
-let stripe: ReturnType<typeof useFakeStripe> | null = null;
+let stripe: ReturnType<typeof installFakeStripe> | null = null;
 
 beforeEach(async () => {
   await resetDb();
@@ -95,7 +95,7 @@ describe("sign-up", () => {
     expect((await call(myCancel.POST, await makeRequest("POST", "/x", { as, body: {} }))).status).toBe(409);
     expect((await prisma.member.findUniqueOrThrow({ where: { id: m.id } })).planId).toBeNull();
 
-    stripe = useFakeStripe();
+    stripe = installFakeStripe();
     const res = await call(checkout.POST, await makeRequest("POST", "/x", { as, body: { planId: plan.id, acceptTerms: true } }));
     expect(res.status).toBe(200);
     expect(await prisma.legalAcceptance.count({ where: { memberId: m.id, context: "checkout" } })).toBe(2);
@@ -163,7 +163,7 @@ describe("my membership", () => {
   });
 
   it("upgrades through Stripe now and schedules a downgrade for the next billing date", async () => {
-    stripe = useFakeStripe();
+    stripe = installFakeStripe();
     const m = await oldMember({ planSlug: "standard", stripeSubscriptionId: "sub_up" });
     const as = asMember(m);
     const unlimited = await prisma.membershipPlan.findUniqueOrThrow({ where: { slug: "unlimited" } });
@@ -189,7 +189,7 @@ describe("my membership", () => {
   });
 
   it("cancels with notice (no 'immediate' for members) and can withdraw", async () => {
-    stripe = useFakeStripe();
+    stripe = installFakeStripe();
     const m = await oldMember({ stripeSubscriptionId: "sub_cancel" });
     const as = asMember(m);
     const res = await call(myCancel.POST, await makeRequest("POST", "/x", { as, body: { reason: "Moving", immediate: true } }));
@@ -203,7 +203,7 @@ describe("my membership", () => {
   });
 
   it("cancels straight away in the cooling-off period", async () => {
-    stripe = useFakeStripe();
+    stripe = installFakeStripe();
     const m = await createMember({ stripeSubscriptionId: "sub_cool" });
     const res = await call(myCancel.POST, await makeRequest("POST", "/x", { as: asMember(m), body: {} }));
     expect(res.body.reason).toBe("cooling_off");
@@ -212,7 +212,7 @@ describe("my membership", () => {
   });
 
   it("pauses within the owner's limits and resumes", async () => {
-    stripe = useFakeStripe();
+    stripe = installFakeStripe();
     const m = await oldMember({ stripeSubscriptionId: "sub_pause" });
     const as = asMember(m);
     expect((await call(myPause.POST, await makeRequest("POST", "/x", { as, body: { from: iso(0), until: iso(200) } }))).status).toBe(422);

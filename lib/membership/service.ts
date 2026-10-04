@@ -233,9 +233,17 @@ export async function changePlan(db: Db, actor: Actor, memberId: string, newPlan
       const sub = await stripe.subscriptions.retrieve(member.stripeSubscriptionId!);
       const itemId = sub.items.data[0]?.id;
       if (!itemId) throw new ApiError("upstream_failed", "The Stripe subscription has no items to change.");
-      const priceData = { currency: "aud", unit_amount: plan.priceCents, recurring: stripeRecurring(plan.interval), product_data: { name: `${gym.brand.name} ${plan.name} membership` } };
+      // Subscription items only take a price (or price data for an existing
+      // product), so the plan's price is created first (R-12).
+      const price = await stripe.prices.create({
+        currency: "aud",
+        unit_amount: plan.priceCents,
+        recurring: stripeRecurring(plan.interval),
+        product_data: { name: `${gym.brand.name} ${plan.name} membership` },
+        metadata: { planId: plan.id },
+      });
       await stripe.subscriptions.update(member.stripeSubscriptionId!, {
-        items: [{ id: itemId, price_data: priceData as never }],
+        items: [{ id: itemId, price: price.id }],
         proration_behavior: immediate ? "create_prorations" : "none",
         ...(immediate ? {} : { billing_cycle_anchor: "unchanged" }),
         metadata: { planId: plan.id },

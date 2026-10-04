@@ -8,11 +8,11 @@ import * as webhook from "@/app/api/webhooks/stripe/route";
 import { sendPaymentReminders } from "@/lib/billing/reminders";
 import { captureEmailsForTests, capturedEmails } from "@/lib/email";
 import { call, createMember, createStaff, makeRequest, prisma, resetDb, type As } from "../helpers";
-import { useFakeStripe } from "../fake-stripe";
+import { installFakeStripe } from "../fake-stripe";
 
 const DAY = 86_400_000;
 let manager: As;
-let stripe: ReturnType<typeof useFakeStripe> | null = null;
+let stripe: ReturnType<typeof installFakeStripe> | null = null;
 
 beforeEach(async () => {
   await resetDb();
@@ -27,13 +27,13 @@ afterEach(() => {
 
 async function payment(overrides: { amount?: number; gstCents?: number; stripePaymentIntentId?: string; createdAt?: Date } = {}) {
   const m = await createMember({ name: "=cmd|' /C calc'!A0" });
-  return prisma.payment.create({ data: { memberId: m.id, amount: overrides.amount ?? 3995, gstCents: overrides.gstCents ?? 363, status: "succeeded", currency: "aud", planName: "Unlimited", stripePaymentIntentId: overrides.stripePaymentIntentId, createdAt: overrides.createdAt } });
+  return prisma.payment.create({ data: { memberId: m.id, amount: overrides.amount ?? 3995, gstCents: overrides.gstCents ?? 363, status: "succeeded", currency: "aud", planName: "Unlimited", stripePaymentIntentId: overrides.stripePaymentIntentId, createdAt: overrides.createdAt, paidAt: overrides.createdAt } });
 }
 const refundReq = async (id: string, body: object, as: As = manager) => call(refund.POST, await makeRequest("POST", "/x", { as, body }), { id });
 
 describe("refunds", () => {
   it("refunds through Stripe, records GST pro rata, and allows partial then remaining", async () => {
-    stripe = useFakeStripe();
+    stripe = installFakeStripe();
     const p = await payment({ stripePaymentIntentId: "pi_1" });
     expect((await refundReq(p.id, { amountCents: 1000, reason: "Gym closed for a day", method: "STRIPE" })).status).toBe(201);
     expect(stripe.calls[0].method).toBe("refunds.create");
@@ -103,7 +103,7 @@ describe("failed-payment reminders (config: days 1, 3, 7)", () => {
 
 describe("finance", () => {
   it("summarises takings, refunds and GST, and only sums AUD", async () => {
-    stripe = useFakeStripe();
+    stripe = installFakeStripe();
     const p = await payment({ stripePaymentIntentId: "pi_f" });
     await payment({ amount: 2995, gstCents: 272 });
     const m = await createMember();

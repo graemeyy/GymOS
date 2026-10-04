@@ -90,6 +90,12 @@ model Member {
   notifyAnnouncements  Boolean           @default(true)
   notifyWaitlist       Boolean           @default(true)
   onboardedAt          DateTime?
+  // When the current membership started (first payment or staff activation).
+  // Cooling-off and minimum term count from here, not from sign-up (R-07).
+  membershipStartedAt  DateTime?
+  // Created time of the newest Stripe subscription event applied, so a late,
+  // older event can't overwrite newer state (R-08).
+  stripeEventAt        DateTime?
   // Set when a member's personal details were erased on request. The row
   // stays so payments (kept for tax) still have an owner.
   anonymisedAt         DateTime?
@@ -119,6 +125,7 @@ model Member {
 
   @@index([status])
   @@index([planId])
+  @@index([referredById])
   @@index([createdAt])
   @@index([cancelledAt])
 }
@@ -147,18 +154,22 @@ enum LedgerKind {
 // cancellation. Balances for the current cycle are the plan allowance plus
 // the sum of entries since the cycle started.
 model BenefitLedger {
-  id        String     @id @default(cuid())
-  memberId  String
-  member    Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  kind      LedgerKind
-  delta     Int
-  reason    String
-  refType   String?
-  refId     String?
-  staffId   String?
-  createdAt DateTime   @default(now())
+  id          String     @id @default(cuid())
+  memberId    String
+  member      Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  kind        LedgerKind
+  delta       Int
+  reason      String
+  refType     String?
+  refId       String?
+  staffId     String?
+  createdAt   DateTime   @default(now())
+  // The moment the entry counts towards: a class credit belongs to the cycle
+  // of the class it was used for, not the day it was booked (R-04).
+  effectiveAt DateTime   @default(now())
 
   @@index([memberId, kind, createdAt])
+  @@index([memberId, kind, effectiveAt])
 }
 
 enum MembershipEventType {
@@ -231,9 +242,13 @@ model Payment {
   orderId               String?     @unique
   order                 Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull)
   createdAt             DateTime    @default(now())
+  // When the money was actually paid. Webhooks can arrive late, so tax
+  // invoices and finance periods use this, not createdAt (R-23).
+  paidAt                DateTime    @default(now())
   refunds               Refund[]
 
   @@index([createdAt])
+  @@index([paidAt])
   @@index([memberId, createdAt])
   @@map("Payout")
 }
@@ -259,6 +274,7 @@ model Refund {
   createdAt      DateTime @default(now())
 
   @@index([createdAt])
+  @@index([paymentId])
 }
 
 model Equipment {
@@ -306,6 +322,9 @@ model Class {
   durationMinutes Int             @default(45)
   capacity        Int             @default(20)
   createdAt       DateTime        @default(now())
+  // Cancelled classes stay as rows so the daily timetable job doesn't
+  // recreate them (R-05).
+  cancelledAt     DateTime?
   bookings        ClassBooking[]
   waitlist        ClassWaitlist[]
 
@@ -360,6 +379,7 @@ model ClassWaitlist {
   createdAt DateTime @default(now())
 
   @@unique([classId, memberId])
+  @@index([memberId])
 }
 
 // Legacy: monthly price per enum plan. Superseded by MembershipPlan.priceCents.
@@ -442,6 +462,8 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@index([createdAt])
+  @@index([targetType, targetId])
+  @@index([staffId])
 }
 
 // Stripe event IDs already processed, so webhook retries are no-ops.
@@ -541,6 +563,7 @@ model Order {
 
   @@index([status, createdAt])
   @@index([memberId, createdAt])
+  @@index([paidAt])
 }
 
 model OrderItem {
@@ -555,6 +578,8 @@ model OrderItem {
   unitPriceCents Int
   quantity       Int
   lineTotalCents Int
+
+  @@index([orderId])
 }
 
 model OrderEvent {

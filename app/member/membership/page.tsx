@@ -38,7 +38,7 @@ interface Payment {
   amount: number;
   refundedCents: number;
   description: string | null;
-  createdAt: string;
+  paidAt: string;
   status: string;
 }
 
@@ -237,7 +237,7 @@ export default function MembershipPage() {
                     <div>
                       <p className="font-medium">{p.description ?? "Payment"}</p>
                       <p className="text-sm text-ink-soft">
-                        {fmtDate(p.createdAt)}, {formatAud(p.amount)}
+                        {fmtDate(p.paidAt)}, {formatAud(p.amount)}
                         {p.refundedCents > 0 ? `, ${formatAud(p.refundedCents)} refunded` : ""}
                       </p>
                     </div>

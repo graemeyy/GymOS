@@ -6,6 +6,7 @@ const Body = z.object({
   amountCents: zCents,
   reason: z.string().trim().min(3, "Say why").max(300),
   method: z.enum(["STRIPE", "MANUAL"]),
+  requestId: z.uuid().optional(),
 });
 
 export const POST = staffRoute({ permission: "billing:refund", body: Body }, async ({ params, body, db, staff }) => {

@@ -39,12 +39,12 @@ export const GET = staffRoute({ permission: "finance:view", query: Query }, asyn
     ]);
   } else if (query.type === "payments") {
     const rows = await db.payment.findMany({
-      where: { createdAt: { gte: range.from, lt: range.to } },
-      orderBy: { createdAt: "asc" },
+      where: { paidAt: { gte: range.from, lt: range.to } },
+      orderBy: { paidAt: "asc" },
       include: { member: { select: { name: true, email: true } } },
     });
     body = toCsv(rows, [
-      { header: "Date", value: (p) => ymd(p.createdAt) },
+      { header: "Date", value: (p) => ymd(p.paidAt) },
       { header: "Invoice", value: (p) => `INV-${String(p.invoiceNumber).padStart(6, "0")}` },
       { header: "Member", value: (p) => p.member.name ?? p.member.email },
       { header: "Type", value: (p) => p.kind },

@@ -26,10 +26,13 @@ export const PUT = staffRoute({ permission: "shop:manage", body: ProductBody }, 
   const product = await db.$transaction(async (tx) => {
     await tx.product.update({ where: { id: params.id }, data: { ...fields, description: fields.description ?? null, imageUrl: fields.imageUrl ?? null } });
     await tx.productVariant.updateMany({ where: { productId: params.id, id: { notIn: [...keep] } }, data: { active: false } });
-    for (const { id, ...v } of variants) {
+    for (const { id, stockQty, ...v } of variants) {
       const data = { ...v, size: v.size || null, colour: v.colour || null, flavour: v.flavour || null };
+      // Stock on an existing variant only changes through the stock
+      // adjustment endpoint: this form's number may be stale, and writing it
+      // would bring back units sold while the form was open (R-11).
       if (id && ownIds.has(id)) await tx.productVariant.update({ where: { id }, data });
-      else await tx.productVariant.create({ data: { ...data, productId: params.id } });
+      else await tx.productVariant.create({ data: { ...data, stockQty, productId: params.id } });
     }
     return tx.product.findUniqueOrThrow({ where: { id: params.id }, include: { variants: true } });
   });

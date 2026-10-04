@@ -2,7 +2,11 @@ import Stripe from "stripe";
 import { env } from "@/lib/env";
 import { ApiError } from "@/lib/http/errors";
 
-export type StripeClient = Pick<Stripe, "checkout" | "billingPortal" | "subscriptions" | "webhooks" | "refunds" | "customers" | "invoices">;
+export type StripeClient = Pick<Stripe, "checkout" | "billingPortal" | "subscriptions" | "webhooks" | "refunds" | "customers" | "invoices" | "prices">;
+
+// The API version the code is written against. Webhook payloads follow the
+// endpoint's version in the Stripe dashboard, which must match (R-26).
+export const STRIPE_API_VERSION = "2023-10-16";
 
 let client: StripeClient | null = null;
 let override: StripeClient | null = null;
@@ -14,7 +18,7 @@ export function getStripe(): StripeClient {
   if (client) return client;
   const key = env().STRIPE_SECRET_KEY;
   if (!key) throw new ApiError("not_configured", "Payments aren't set up yet. Add Stripe test keys to the environment.");
-  client = new Stripe(key, { apiVersion: "2023-10-16", typescript: true });
+  client = new Stripe(key, { apiVersion: STRIPE_API_VERSION, typescript: true });
   return client;
 }
 

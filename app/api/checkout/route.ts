@@ -27,6 +27,9 @@ export const POST = memberRoute({ body: Body, rateLimit: RATE_LIMITS.checkout },
   const appUrl = env().NEXT_PUBLIC_APP_URL;
   const session = await getStripe().checkout.sessions.create({
     mode: "subscription",
+    // Card only: an asynchronous method (such as direct debit) would make the
+    // membership active before the money arrives (R-24).
+    payment_method_types: ["card"],
     line_items: [
       {
         price_data: {
