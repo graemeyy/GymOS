@@ -12,12 +12,13 @@ export default function MemberLoginPage() {
       title="Member sign in"
       footer={
         <>
-          Staff use the <Link href="/admin/login" className="font-medium text-plate underline underline-offset-2">staff sign-in</Link>.
+          New here? <Link href="/signup" className="font-medium text-plate underline underline-offset-2">Join online</Link>. Staff use the{" "}
+          <Link href="/admin/login" className="font-medium text-plate underline underline-offset-2">staff sign-in</Link>.
         </>
       }
     >
       <Suspense>
-        <SignInForm endpoint="/api/auth/member-login" home="/member" prefix="/member" />
+        <SignInForm endpoint="/api/auth/member-login" home="/member" prefix="/" />
       </Suspense>
     </AuthFrame>
   );
