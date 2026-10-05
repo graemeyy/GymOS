@@ -21,9 +21,10 @@ test("a new member signs up, accepts the terms and chooses to pay at the front d
   await expectNoA11yViolations(page);
   await screenshot(page, "p3-welcome");
 
-  // No Stripe keys in the test environment: card payment explains itself.
+  // Paying online waits for the email to be confirmed (D-114).
+  await expect(page.getByRole("region", { name: "Confirm your email" })).toBeVisible();
   await page.getByRole("button", { name: "Pay by card" }).click();
-  await expect(page.getByText(/Payments aren't set up yet/)).toBeVisible();
+  await expect(page.getByText(/Confirm your email address before paying online/)).toBeVisible();
   await page.getByRole("button", { name: "I'll pay at the front desk" }).click();
   await expect(page).toHaveURL(/\/member$/);
   await expect(page.getByText("Not started")).toBeVisible();

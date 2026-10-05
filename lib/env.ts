@@ -37,6 +37,9 @@ export const serverEnvSchema = z
     // Needed to create the first owner account on a production deployment,
     // so whoever reaches a new site first can't take it over (R-42).
     SETUP_TOKEN: optionalSecret(16, "SETUP_TOKEN"),
+    // A local production build may show single-use email links on screen
+    // when email isn't set up (D-115). Ignored on Vercel production.
+    SHOW_EMAIL_LINKS: z.enum(["true", "false"]).optional(),
     RESEND_API_KEY: z.string().optional().or(z.literal("").transform(() => undefined)),
     EMAIL_FROM: z.string().optional().or(z.literal("").transform(() => undefined)),
   })

@@ -1,4 +1,5 @@
 import { appUrl } from "@/lib/app-url";
+import { assertEmailVerified } from "@/lib/members/verification";
 import { z } from "zod";
 import type { Db } from "@/lib/db";
 import type { MemberActor } from "@/lib/auth/session";
@@ -34,6 +35,7 @@ export const MembershipCheckoutBody = z.object({
 // Opens a Stripe Checkout page for the member's own subscription. The terms
 // acceptance and the audit entry are recorded once Stripe has the session.
 export async function startMembershipCheckout(db: Db, member: MemberActor, planId: string): Promise<string> {
+  await assertEmailVerified(db, member.id);
   const plan = await db.membershipPlan.findFirst({ where: { id: planId, active: true } });
   if (!plan) throw new ApiError("validation_failed", "That plan isn't available.", { planId: "Not available" });
   const record = await db.member.findUniqueOrThrow({ where: { id: member.id }, select: { stripeCustomerId: true, stripeSubscriptionId: true, email: true, status: true } });

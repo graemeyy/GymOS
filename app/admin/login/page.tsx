@@ -18,7 +18,7 @@ export default function StaffLoginPage() {
       }
     >
       <Suspense>
-        <SignInForm endpoint="/api/auth/login" home="/admin" prefix="/admin" />
+        <SignInForm endpoint="/api/auth/login" home="/admin" prefix="/admin" forgotHref="/admin/forgot-password" />
       </Suspense>
     </AuthFrame>
   );
