@@ -3,6 +3,8 @@ export type ErrorCode =
   | "validation_failed"
   | "unauthenticated"
   | "forbidden"
+  | "password_change_required"
+  | "email_unverified"
   | "not_found"
   | "conflict"
   | "rate_limited"
@@ -16,6 +18,8 @@ const STATUS: Record<ErrorCode, number> = {
   validation_failed: 422,
   unauthenticated: 401,
   forbidden: 403,
+  password_change_required: 403,
+  email_unverified: 403,
   not_found: 404,
   conflict: 409,
   rate_limited: 429,

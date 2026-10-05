@@ -52,6 +52,7 @@ exports[`GET response shapes (characterisation) > member me 1`] = `
     "createdAt": "date",
     "currentPeriodEnd": "null",
     "email": "string",
+    "emailVerifiedAt": "date",
     "hasCardOnFile": "boolean",
     "id": "string",
     "membershipPlan": {
@@ -65,6 +66,7 @@ exports[`GET response shapes (characterisation) > member me 1`] = `
       "shopDiscountPercent": "number",
       "slug": "string",
     },
+    "mustChangePassword": "boolean",
     "name": "string",
     "notifyAnnouncements": "boolean",
     "notifyWaitlist": "boolean",
@@ -590,6 +592,7 @@ exports[`GET response shapes (characterisation) > public endpoints 4`] = `
     "id": "string",
     "isOwner": "boolean",
     "kind": "string",
+    "mustChangePassword": "boolean",
     "name": "string",
     "permissions": [
       "string",
@@ -608,6 +611,7 @@ exports[`GET response shapes (characterisation) > public endpoints 5`] = `
     "email": "string",
     "id": "string",
     "kind": "string",
+    "mustChangePassword": "boolean",
     "name": "string",
   },
   "status": 200,

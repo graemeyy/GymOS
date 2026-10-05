@@ -1,3 +1,4 @@
+import { appUrl } from "@/lib/app-url";
 import { createHash, randomBytes } from "crypto";
 import type { Db, Tx } from "@/lib/db";
 import type { StaffActor } from "@/lib/auth/session";
@@ -5,7 +6,6 @@ import { ApiError } from "@/lib/http/errors";
 import { logAction } from "@/lib/audit";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { sendEmail } from "@/lib/email";
-import { env } from "@/lib/env";
 import { gym } from "@/lib/config";
 import { DAY_MS } from "@/lib/time";
 import { assertCanGrant, assertNotMorePowerful, legacyRoleFor } from "@/lib/roles/service";
@@ -51,13 +51,13 @@ export async function inviteStaff(db: Db, actor: StaffActor, input: InviteStaffI
     assertNotMorePowerful(actor, role, "who gets the Owner role");
     if (await tx.staff.findUnique({ where: { email: input.email } })) throw new ApiError("conflict", "A staff account with that email already exists.", { email: "Already in use" });
     const created = await tx.staff.create({
-      data: { name: input.name, email: input.email, roleId: role.id, role: legacyRoleFor(role), inviteTokenHash: hashToken(token), inviteExpiresAt: new Date(Date.now() + INVITE_DAYS * DAY_MS) },
+      data: { name: input.name, email: input.email, roleId: role.id, role: legacyRoleFor(role), mustChangePassword: true, inviteTokenHash: hashToken(token), inviteExpiresAt: new Date(Date.now() + INVITE_DAYS * DAY_MS) },
       select: staffSelect,
     });
     await logAction(tx, actor, { action: "staff.invited", targetType: "Staff", targetId: created.id, details: { name: created.name }, after: { name: created.name, email: created.email, role: role.name } });
     return created;
   });
-  const inviteUrl = `${env().NEXT_PUBLIC_APP_URL}/admin/invite?token=${token}`;
+  const inviteUrl = appUrl(`/admin/invite?token=${token}`);
   const email = await sendEmail({
     to: input.email,
     subject: `You're invited to ${gym.brand.name}'s staff console`,
@@ -78,7 +78,7 @@ export async function resendInvite(db: Db, actor: StaffActor, id: string) {
     await logAction(tx, actor, { action: "staff.invite_resent", targetType: "Staff", targetId: id, details: { name: updated.name } });
     return updated;
   });
-  const inviteUrl = `${env().NEXT_PUBLIC_APP_URL}/admin/invite?token=${token}`;
+  const inviteUrl = appUrl(`/admin/invite?token=${token}`);
   const email = await sendEmail({ to: row.email, subject: `Your invitation to ${gym.brand.name}'s staff console`, text: `Hi ${row.name},\n\nHere's a new link to set your password (it works for ${INVITE_DAYS} days):\n\n${inviteUrl}` });
   return { staff: toStaffView(row), emailed: email.sent, inviteUrl: email.sent ? null : inviteUrl };
 }
@@ -96,7 +96,8 @@ export async function acceptInvite(db: Db, token: string, password: string) {
   return db.$transaction(async (tx) => {
     const staff = await tx.staff.findUnique({ where: { inviteTokenHash: hashToken(token) } });
     if (!staff || staff.deactivatedAt || !staff.inviteExpiresAt || staff.inviteExpiresAt < new Date()) throw new ApiError("not_found", "This invitation has expired or was already used. Ask for a new one.");
-    const updated = await tx.staff.update({ where: { id: staff.id }, data: { passwordHash, inviteTokenHash: null, inviteExpiresAt: null, sessionVersion: { increment: 1 } } });
+    // Choosing a password from the invitation is the required change (D-111).
+    const updated = await tx.staff.update({ where: { id: staff.id }, data: { passwordHash, mustChangePassword: false, inviteTokenHash: null, inviteExpiresAt: null, sessionVersion: { increment: 1 } } });
     await logAction(tx, { kind: "staff", id: staff.id, name: staff.name }, { action: "staff.invite_accepted", targetType: "Staff", targetId: staff.id, details: { name: staff.name } });
     return updated;
   });
@@ -154,9 +155,10 @@ export async function changeOwnPassword(db: Db, staff: StaffActor, currentPasswo
   if (!record.passwordHash || !(await verifyPassword(currentPassword, record.passwordHash))) {
     throw new ApiError("validation_failed", "That isn't your current password.", { currentPassword: "Incorrect" });
   }
+  if (newPassword === currentPassword) throw new ApiError("validation_failed", "Choose a password that's different from your current one.", { newPassword: "Same as your current password" });
   const passwordHash = await hashPassword(newPassword);
   return db.$transaction(async (tx) => {
-    const updated = await tx.staff.update({ where: { id: staff.id }, data: { passwordHash, sessionVersion: { increment: 1 } } });
+    const updated = await tx.staff.update({ where: { id: staff.id }, data: { passwordHash, mustChangePassword: false, sessionVersion: { increment: 1 } } });
     await logAction(tx, staff, { action: "staff.password_changed", targetType: "Staff", targetId: staff.id });
     return updated;
   });

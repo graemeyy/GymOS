@@ -1,5 +1,5 @@
+import { appUrl } from "@/lib/app-url";
 import type { Db } from "@/lib/db";
-import { env } from "@/lib/env";
 import { gym } from "@/lib/config";
 import { formatAud } from "@/lib/money";
 import { sendEmail, signature } from "@/lib/email";
@@ -13,7 +13,7 @@ export async function sendOrderEmail(db: Db, orderId: string, kind: OrderEmailKi
   const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true } });
   if (!order || order.email.endsWith("@deleted.invalid")) return;
   const first = order.customerName.split(" ")[0] || "there";
-  const link = `${env().NEXT_PUBLIC_APP_URL}/member/orders/${order.id}`;
+  const link = appUrl(`/member/orders/${order.id}`);
   const lines = order.items.map((i) => `  ${i.quantity} x ${i.productName} (${i.variantLabel})  ${formatAud(i.lineTotalCents)}`).join("\n");
   const totals = [
     order.discountCents > 0 ? `Member discount: -${formatAud(order.discountCents)}` : null,

@@ -73,6 +73,19 @@ export const RATE_LIMITS = {
   // still stops guessing spread across many addresses.
   loginAccountAnywhere: { name: "login-account-any", limit: 50, windowSeconds: 15 * 60 },
   signup: { name: "signup", limit: 5, windowSeconds: 60 * 60 },
+  // Changing your own password needs the current one, so it's limited like
+  // sign-in (R-45), in its own bucket so a required change at first sign-in
+  // doesn't use up sign-in attempts (D-111).
+  passwordChange: { name: "password-change", limit: 10, windowSeconds: 15 * 60 },
+  // Forgotten-password requests per address, and per account (counted
+  // silently, so the answer is the same whether or not the account exists).
+  passwordResetRequest: { name: "reset-request", limit: 5, windowSeconds: 15 * 60 },
+  passwordResetPerAccount: { name: "reset-account", limit: 3, windowSeconds: 60 * 60 },
+  // Checking and using reset links.
+  passwordReset: { name: "reset", limit: 10, windowSeconds: 15 * 60 },
+  // Confirming email addresses, and asking for another link (per account).
+  emailVerification: { name: "verify-email", limit: 20, windowSeconds: 15 * 60 },
+  emailVerificationResend: { name: "verify-resend", limit: 3, windowSeconds: 60 * 60 },
   checkIn: { name: "check-in", limit: 120, windowSeconds: 60 },
   iot: { name: "iot", limit: 600, windowSeconds: 60 },
   bootstrap: { name: "bootstrap", limit: 5, windowSeconds: 60 * 60 },

@@ -125,6 +125,8 @@ export function getMemberProfile(db: Db, memberId: string) {
       amountOwingCents: true,
       notifyAnnouncements: true,
       notifyWaitlist: true,
+      mustChangePassword: true,
+      emailVerifiedAt: true,
       membershipPlan: { select: { id: true, slug: true, name: true, priceCents: true, interval: true, classCreditsPerCycle: true, guestPassesPerCycle: true, shopDiscountPercent: true, guestRateCents: true } },
       pendingPlan: { select: { id: true, name: true, priceCents: true, interval: true } },
     },

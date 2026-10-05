@@ -8,7 +8,9 @@ import { updateMemberProfile } from "@/lib/members/service";
 
 // The signed-in member's own record. The member ID always comes from the
 // session, never from the request.
-export const GET = memberRoute({}, async ({ db, member }) => {
+// Readable before a required password change, so the app can show the
+// change-password screen with the member's name.
+export const GET = memberRoute({ allowPendingPasswordChange: true }, async ({ db, member }) => {
   const me = await getMemberProfile(db, member.id);
   const [usage, outstanding] = await Promise.all([getBenefitUsage(db, member.id), outstandingAcceptances(db, member.id)]);
   const { stripeCustomerId, stripeSubscriptionId, ...rest } = me;

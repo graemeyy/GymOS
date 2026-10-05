@@ -9,7 +9,7 @@ export const config = {
   matcher: ["/admin/:path*", "/member/:path*"],
 };
 
-const PUBLIC_ADMIN = new Set(["/admin/login", "/admin/setup", "/admin/invite"]);
+const PUBLIC_ADMIN = new Set(["/admin/login", "/admin/setup", "/admin/invite", "/admin/forgot-password", "/admin/reset-password"]);
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

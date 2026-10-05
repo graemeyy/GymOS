@@ -21,7 +21,11 @@ npm run db:seed                  # fictional demo data (only fills an empty data
 npm run dev                      # http://localhost:3000
 ```
 
-Demo accounts from the seed, all with the password `ironbark-demo-2026`:
+Demo accounts from the seed. They all start with the same password, which isn't in the repository:
+
+- Set `SEED_DEMO_PASSWORD` (10 characters or more) before `npm run db:seed` to choose it.
+- Otherwise the seed makes a random one and prints it once in your terminal. It isn't saved anywhere, so note it down or re-seed.
+- Each account must change it at its first sign-in before it can do anything else.
 
 | Who | Email | Signs in at |
 | --- | --- | --- |
@@ -57,7 +61,12 @@ To test every payment flow on a deployed site, follow [docs/STRIPE-TESTING.md](d
 
 ### Email (optional)
 
-Set `RESEND_API_KEY` and `EMAIL_FROM` to send payment reminders, waitlist and announcement emails through Resend. Without a key, emails are skipped and logged.
+Set `RESEND_API_KEY` and `EMAIL_FROM` to send email through Resend: password reset links, email confirmation for online sign-ups, staff invitations, payment reminders, waitlist and announcement emails. Without a key, emails are skipped and logged.
+
+Without email:
+- Password reset and confirmation links are shown on screen instead, in development and on Vercel previews only, never on production (D-115).
+- Staff invitation links are shown to the person who sent the invitation.
+- Online sign-ups can't confirm their email, so they can't pay online until email is set up or staff start their membership at the desk (D-114).
 
 ## Checks
 

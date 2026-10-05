@@ -8,7 +8,7 @@ import { changeOwnPassword } from "@/lib/staff/service";
 // account end; this one gets a fresh cookie.
 // Rate limited, so a stolen session can't be used to guess the current
 // password (R-45).
-export const POST = staffRoute({ permission: null, body: ChangeOwnPasswordBody, rateLimit: RATE_LIMITS.loginStaff }, async ({ body, db, staff }) => {
+export const POST = staffRoute({ permission: null, body: ChangeOwnPasswordBody, rateLimit: RATE_LIMITS.passwordChange, allowPendingPasswordChange: true }, async ({ body, db, staff }) => {
   const updated = await changeOwnPassword(db, staff, body.currentPassword, body.newPassword);
   const response = json({ ok: true });
   await setSessionCookie(response, { kind: "staff", sub: updated.id, name: updated.name, ver: updated.sessionVersion });

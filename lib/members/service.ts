@@ -70,7 +70,8 @@ export async function createMember(db: Db, staff: StaffActor, input: CreateMembe
   if (existing) throw new ApiError("conflict", "A member with that email already exists.", { email: "Already in use" });
   return db.$transaction(async (tx) => {
     const row = await tx.member.create({
-      data: { name: input.name, email: input.email, planId: input.planId ?? null, referredById: input.referredById ?? null, status: "PENDING" },
+      // Staff add members in person, so the address is taken as confirmed (D-114).
+      data: { name: input.name, email: input.email, planId: input.planId ?? null, referredById: input.referredById ?? null, status: "PENDING", emailVerifiedAt: new Date() },
       select: { id: true, planId: true, referredById: true },
     });
     await logAction(tx, staff, {

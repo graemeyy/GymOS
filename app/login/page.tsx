@@ -18,7 +18,7 @@ export default function MemberLoginPage() {
       }
     >
       <Suspense>
-        <SignInForm endpoint="/api/auth/member-login" home="/member" prefix="/" />
+        <SignInForm endpoint="/api/auth/member-login" home="/member" prefix="/" forgotHref="/forgot-password" />
       </Suspense>
     </AuthFrame>
   );

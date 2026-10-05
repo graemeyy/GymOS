@@ -16,7 +16,7 @@ export const POST = publicRoute({ body: StaffSignInBody, rateLimit: RATE_LIMITS.
     if (error instanceof ApiError && error.code in FAILURE_REASON) await recordFailedStaffSignIn(db, body.email, FAILURE_REASON[error.code as keyof typeof FAILURE_REASON]);
     throw error;
   }
-  const response = json({ kind: "staff", name: staff.name });
+  const response = json({ kind: "staff", name: staff.name, mustChangePassword: staff.mustChangePassword });
   await setSessionCookie(response, { kind: "staff", sub: staff.id, name: staff.name, ver: staff.sessionVersion });
   await recordStaffSignIn(db, staff);
   return response;

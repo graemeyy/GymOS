@@ -12,6 +12,7 @@ export interface StaffMe {
   roleName: string;
   isOwner: boolean;
   permissions: Permission[];
+  mustChangePassword?: boolean;
 }
 
 interface Ctx {

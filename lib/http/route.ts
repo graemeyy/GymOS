@@ -29,6 +29,18 @@ interface RouteOptions<B, Q> {
   rateLimit?: RateLimitRule;
 }
 
+interface SignedInOptions {
+  // Usable by someone who must change their password first (D-111): only
+  // the password change itself and what its screen needs.
+  allowPendingPasswordChange?: boolean;
+}
+
+function assertPasswordChanged(actor: { mustChangePassword: boolean }, opts: SignedInOptions) {
+  if (actor.mustChangePassword && !opts.allowPendingPasswordChange) {
+    throw new ApiError("password_change_required", "Choose a new password before you carry on.");
+  }
+}
+
 export function json<T>(data: T, status = 200, headers?: HeadersInit) {
   return NextResponse.json(data, { status, headers });
 }
@@ -179,13 +191,14 @@ export function publicRoute<B = undefined, Q = undefined>(
 export function staffRoute<B = undefined, Q = undefined>(
   // `null` means any active staff member; the handler may still check more
   // (a trainer's own classes, for example).
-  opts: RouteOptions<B, Q> & { permission: PermissionRule },
+  opts: RouteOptions<B, Q> & SignedInOptions & { permission: PermissionRule },
   handler: (args: BaseArgs<B, Q> & { staff: StaffActor }) => Promise<unknown>
 ) {
   return async (request: Request, context: RouteContext): Promise<Response> => {
     try {
       const params = await prepare(request, context, opts);
       const staff = await requireStaff(request, opts.permission);
+      assertPasswordChanged(staff, opts);
       const query = parseQuery(request, opts.query);
       const body = await readJsonBody(request, opts.body);
       return toResponse(await handler({ request, params, body, query, db: prisma, staff }));
@@ -196,13 +209,14 @@ export function staffRoute<B = undefined, Q = undefined>(
 }
 
 export function memberRoute<B = undefined, Q = undefined>(
-  opts: RouteOptions<B, Q>,
+  opts: RouteOptions<B, Q> & SignedInOptions,
   handler: (args: BaseArgs<B, Q> & { member: MemberActor }) => Promise<unknown>
 ) {
   return async (request: Request, context: RouteContext): Promise<Response> => {
     try {
       const params = await prepare(request, context, opts);
       const member = await requireMember(request);
+      assertPasswordChanged(member, opts);
       const query = parseQuery(request, opts.query);
       const body = await readJsonBody(request, opts.body);
       return toResponse(await handler({ request, params, body, query, db: prisma, member }));

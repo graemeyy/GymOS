@@ -19,6 +19,11 @@ export function capturedEmails(): EmailMessage[] {
   return outboxForTests ?? [];
 }
 
+// Whether sendEmail will actually deliver (or, in tests, capture) mail.
+export function emailConfigured(): boolean {
+  return outboxForTests !== null || Boolean(env().RESEND_API_KEY);
+}
+
 // Sends through Resend's HTTP API. With no RESEND_API_KEY it does nothing and
 // says so: the app works without email, and nothing is silently lost because
 // every caller records what it tried to send.

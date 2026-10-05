@@ -105,6 +105,12 @@ model Member {
   retentionScore       Int               @default(100)
   notes                String?
   passwordHash         String?
+  // Set on seeded accounts: the password must be changed at the next
+  // sign-in before anything else works (D-111).
+  mustChangePassword   Boolean           @default(false)
+  // When the member proved they receive email at this address. Online
+  // sign-ups start unverified; see D-114 for what that limits.
+  emailVerifiedAt      DateTime?
   sessionVersion       Int               @default(0)
   archivedAt           DateTime?
   referredById         String?
@@ -122,6 +128,7 @@ model Member {
   orders               Order[]
   reminders            PaymentReminder[]
   legalAcceptances     LegalAcceptance[]
+  authTokens           AuthToken[]
 
   @@index([status])
   @@index([planId])
@@ -428,26 +435,30 @@ enum StaffRole {
 }
 
 model Staff {
-  id              String          @id @default(cuid())
-  email           String          @unique
-  name            String
+  id                 String          @id @default(cuid())
+  email              String          @unique
+  name               String
   // Null until an invited person sets their password.
-  passwordHash    String?
+  passwordHash       String?
   // Legacy fixed role, kept for rollback; access comes from roleId (D-098).
-  role            StaffRole       @default(FRONT_DESK)
-  roleId          String?
-  assignedRole    Role?           @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  deactivatedAt   DateTime?
-  inviteTokenHash String?         @unique
-  inviteExpiresAt DateTime?
-  sessionVersion  Int             @default(0)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  auditLogs       AuditLog[]
-  shifts          Shift[]
-  classes         Class[]         @relation("ClassTrainer")
-  templates       ClassTemplate[] @relation("TemplateTrainer")
-  announcements   Announcement[]
+  role               StaffRole       @default(FRONT_DESK)
+  roleId             String?
+  assignedRole       Role?           @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  deactivatedAt      DateTime?
+  inviteTokenHash    String?         @unique
+  inviteExpiresAt    DateTime?
+  // Set on seeded and newly invited accounts: the password must be changed
+  // before anything else works. Accepting an invitation counts (D-111).
+  mustChangePassword Boolean         @default(false)
+  sessionVersion     Int             @default(0)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  auditLogs          AuditLog[]
+  shifts             Shift[]
+  classes            Class[]         @relation("ClassTrainer")
+  templates          ClassTemplate[] @relation("TemplateTrainer")
+  announcements      Announcement[]
+  authTokens         AuthToken[]
 
   @@index([roleId])
 }
@@ -672,4 +683,30 @@ model LegalAcceptance {
   acceptedAt DateTime      @default(now())
 
   @@index([memberId, document, acceptedAt])
+}
+
+enum AuthTokenPurpose {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
+// Single-use links sent by email: password resets and email verification
+// (D-112, D-113). Only a SHA-256 hash of the token is stored; the token
+// itself exists only in the email.
+model AuthToken {
+  id        String           @id @default(cuid())
+  tokenHash String           @unique
+  purpose   AuthTokenPurpose
+  staffId   String?
+  staff     Staff?           @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  memberId  String?
+  member    Member?          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  // The address the link was sent to, so verifying confirms that address.
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([staffId, purpose])
+  @@index([memberId, purpose])
 }

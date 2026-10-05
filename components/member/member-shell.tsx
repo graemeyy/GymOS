@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/primitives";
 import { Wordmark } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme";
 import { useToast } from "@/components/ui/feedback";
+import { ForcedPasswordChange } from "@/components/auth/forced-password-change";
+import { PreviewLink } from "@/components/auth/preview-link";
 import type { Me } from "./types";
 
 const MeContext = createContext<Resource<Me> | null>(null);
@@ -39,7 +41,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
   // Someone who just signed up and hasn't chosen a plan yet goes to the
   // welcome steps first.
   useEffect(() => {
-    if (me.data && me.data.status === "PENDING" && !me.data.onboardedAt && pathname !== "/member/welcome") router.replace("/member/welcome");
+    if (me.data && !me.data.mustChangePassword && me.data.status === "PENDING" && !me.data.onboardedAt && pathname !== "/member/welcome") router.replace("/member/welcome");
   }, [me.data, pathname, router]);
 
   const signOut = async () => {
@@ -47,6 +49,14 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
     router.push("/login");
     router.refresh();
   };
+
+  if (me.data?.mustChangePassword) {
+    return (
+      <MeContext.Provider value={me}>
+        <ForcedPasswordChange kind="member" name={me.data.name ?? me.data.email} onChanged={() => void me.reload()} />
+      </MeContext.Provider>
+    );
+  }
 
   if (bare) return <MeContext.Provider value={me}>{children}</MeContext.Provider>;
 
@@ -81,6 +91,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
+        {me.data && !me.data.emailVerifiedAt ? <VerifyEmailBanner email={me.data.email} /> : null}
         {me.data && me.data.outstandingAcceptances.length > 0 && pathname !== "/member/welcome" ? <TermsBanner onAccepted={me.reload} /> : null}
         <main id="main" className="mx-auto max-w-3xl px-4 py-6">
           {children}
@@ -139,6 +150,37 @@ function TermsBanner({ onAccepted }: { onAccepted: () => void }) {
           I accept
         </Button>
       </div>
+    </section>
+  );
+}
+
+// Until the member confirms their email (D-113, D-114). Shown on every page,
+// including the welcome steps, because paying needs it.
+function VerifyEmailBanner({ email }: { email: string }) {
+  const toast = useToast();
+  const [previewLink, setPreviewLink] = useState<string | null>(null);
+  const resend = useMutation(() => api<{ ok: true; previewLink?: string }>("/api/me/email-verification", { method: "POST" }), {
+    onSuccess: (result) => {
+      setPreviewLink(result.previewLink ?? null);
+      toast(result.previewLink ? "New link ready" : `New link sent to ${email}`);
+    },
+    onError: (e) => toast(e.message, "bad"),
+  });
+  return (
+    <section aria-label="Confirm your email" className="border-b border-line bg-warn-tint">
+      <div className="mx-auto flex max-w-3xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-ink">
+          Please confirm your email address. We sent a link to <strong className="break-all">{email}</strong>. You can&apos;t pay online until you do.
+        </p>
+        <Button variant="secondary" busy={resend.busy} onClick={() => void resend.run()} className="shrink-0">
+          Send the link again
+        </Button>
+      </div>
+      {previewLink ? (
+        <div className="mx-auto max-w-3xl px-4 pb-3">
+          <PreviewLink href={previewLink} label="Open the confirmation link" />
+        </div>
+      ) : null}
     </section>
   );
 }

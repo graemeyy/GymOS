@@ -1,3 +1,4 @@
+import { resolveAppUrl } from "@/lib/app-url";
 import { STRIPE_EVENT_PURPOSE, STRIPE_WEBHOOK_EVENTS } from "./events";
 
 // `npm run stripe:check` (D-117): is this environment ready for Stripe test
@@ -13,14 +14,11 @@ export const WEBHOOK_PATH = "/api/webhooks/stripe";
 
 type Env = Record<string, string | undefined>;
 
-// The site the webhook should point at: NEXT_PUBLIC_APP_URL, else Vercel's
-// production domain or deployment address, else localhost. Pass --url to
-// check a different site, such as production from a laptop.
+// The site the webhook should point at, chosen the same way as every other
+// link the app writes (D-109). Pass --url to check a different site, such as
+// production from a laptop.
 export function siteUrl(env: Env): string {
-  if (env.NEXT_PUBLIC_APP_URL) return env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "");
-  if (env.VERCEL_ENV === "production" && env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  if (env.VERCEL_URL) return `https://${env.VERCEL_URL}`;
-  return "http://localhost:3000";
+  return resolveAppUrl(env);
 }
 
 export function checkStripeEnv(env: Env, apiVersion: string): Finding[] {

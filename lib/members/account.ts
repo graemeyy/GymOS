@@ -6,33 +6,38 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { logAction, type Actor } from "@/lib/audit";
 import { recordAcceptance } from "@/lib/legal";
 import { releaseFutureBookings } from "@/lib/classes/service";
+import { sendEmailVerification } from "./verification";
 
 export const ERASED = "[erased]";
 
 // Online sign-up. The new member has no plan and no access until they start
-// one (status PENDING). An email that already belongs to a member is refused
-// rather than claimed: without email verification, letting anyone set a
-// password on an existing record would hand over someone else's account.
+// one (status PENDING), and must confirm their email before paying online
+// (D-113, D-114). An email that already belongs to a member is refused
+// rather than claimed: setting a password on an existing record is what
+// "Forgot your password?" is for, because that proves the person reads the
+// inbox (D-112).
 export async function signUpMember(db: Db, input: { name: string; email: string; password: string }) {
   const existing = await db.member.findUnique({ where: { email: input.email }, select: { id: true } });
   if (existing) {
-    throw new ApiError("conflict", "That email already has a membership. Sign in, or ask the front desk to set up online access for you.", { email: "Already registered" });
+    throw new ApiError("conflict", "That email already has a membership. Sign in, or use \"Forgot your password?\" to set one.", { email: "Already registered" });
   }
   const passwordHash = await hashPassword(input.password);
-  return db.$transaction(async (tx) => {
-    const member = await tx.member.create({
+  const member = await db.$transaction(async (tx) => {
+    const created = await tx.member.create({
       data: { name: input.name, email: input.email, passwordHash, status: "PENDING", planId: null },
       select: { id: true, name: true, email: true, sessionVersion: true },
     });
-    await recordAcceptance(tx, member.id, "signup");
-    await logAction(tx, { kind: "member", id: member.id, name: input.name, email: input.email }, {
+    await recordAcceptance(tx, created.id, "signup");
+    await logAction(tx, { kind: "member", id: created.id, name: input.name, email: input.email }, {
       action: "member.signed_up",
       targetType: "Member",
-      targetId: member.id,
+      targetId: created.id,
       details: { termsVersion: gym.legal.termsVersion, privacyVersion: gym.legal.privacyVersion },
     });
-    return member;
+    return created;
   });
+  const { previewLink } = await sendEmailVerification(db, member);
+  return { ...member, previewLink };
 }
 
 export async function changeMemberPassword(db: Db, memberId: string, current: string, next: string) {
@@ -40,13 +45,14 @@ export async function changeMemberPassword(db: Db, memberId: string, current: st
   if (!member.passwordHash || !(await verifyPassword(current, member.passwordHash))) {
     throw new ApiError("validation_failed", "Your current password isn't right.", { current: "Doesn't match" });
   }
+  if (next === current) throw new ApiError("validation_failed", "Choose a password that's different from your current one.", { next: "Same as your current password" });
   const passwordHash = await hashPassword(next);
   return db.$transaction(async (tx) => {
     // Bumping the session version signs out every other device; the caller
     // issues a fresh cookie for this one.
     const updated = await tx.member.update({
       where: { id: memberId },
-      data: { passwordHash, sessionVersion: { increment: 1 } },
+      data: { passwordHash, mustChangePassword: false, sessionVersion: { increment: 1 } },
       select: { sessionVersion: true },
     });
     await logAction(tx, { kind: "member", id: memberId, name: member.name ?? member.email, email: member.email }, { action: "member.password_changed", targetType: "Member", targetId: memberId });
