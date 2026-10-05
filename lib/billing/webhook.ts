@@ -7,6 +7,7 @@ import { logAction } from "@/lib/audit";
 import { markOrderRefunded } from "@/lib/shop/orders";
 import { expireShopCheckout, recordShopPayment } from "@/lib/shop/checkout";
 import { sendOrderEmail, type OrderEmailKind } from "@/lib/shop/emails";
+import { STRIPE_WEBHOOK_EVENTS } from "./events";
 import { getStripe, STRIPE_API_VERSION } from "./stripe";
 import { refundGst, statusAfterRefunds } from "./refunds";
 
@@ -253,16 +254,42 @@ async function handleChargeRefunded(ctx: EventContext, charge: Stripe.Charge) {
   }
 }
 
-const HANDLED = new Set([
-  "checkout.session.completed",
-  "checkout.session.expired",
-  "customer.subscription.updated",
-  "customer.subscription.deleted",
-  "invoice.paid",
-  "invoice.payment_succeeded",
-  "invoice.payment_failed",
-  "charge.refunded",
-]);
+const HANDLED = new Set<string>(STRIPE_WEBHOOK_EVENTS);
+
+// A refund that Stripe later reports as failed or cancelled never reached
+// the customer (R-25, D-116). The refund stays on record, marked failed;
+// the payment's refunded total and status go back as if it hadn't happened,
+// and finance reports stop counting it. A shop order that was marked
+// refunded keeps that status (its stock is already back on the shelf), so
+// the audit entry flags it for someone to sort out with the customer.
+async function handleRefundUpdated(ctx: EventContext, stripeRefund: Stripe.Refund) {
+  const { tx } = ctx;
+  if (stripeRefund.status !== "failed" && stripeRefund.status !== "canceled") return;
+  const recorded = await tx.refund.findUnique({ where: { stripeRefundId: stripeRefund.id } });
+  if (!recorded || recorded.failedAt) return;
+  await tx.$queryRaw`SELECT "id" FROM "Payout" WHERE "id" = ${recorded.paymentId} FOR UPDATE`;
+  const payment = await tx.payment.findUniqueOrThrow({ where: { id: recorded.paymentId }, include: { order: { select: { id: true, number: true, status: true } } } });
+  const refunded = Math.max(0, payment.refundedCents - recorded.amountCents);
+  const status = refunded === 0 ? "succeeded" : statusAfterRefunds(payment.amount, refunded, payment.status);
+  const failureReason = stripeRefund.status === "canceled" ? "cancelled" : (stripeRefund.failure_reason ?? "failed");
+  await tx.refund.update({ where: { id: recorded.id }, data: { failedAt: ctx.eventAt, failureReason } });
+  await tx.payment.update({ where: { id: payment.id }, data: { refundedCents: refunded, status } });
+  await logAction(tx, SYSTEM, {
+    action: "billing.refund_failed",
+    targetType: "Payment",
+    targetId: payment.id,
+    details: {
+      amountCents: recorded.amountCents,
+      failureReason,
+      invoiceNumber: payment.invoiceNumber,
+      // The customer hasn't been paid back: someone needs to refund them
+      // another way, or try again.
+      followUp: payment.order?.status === "REFUNDED" ? `Order #${payment.order.number} is marked refunded but the money didn't go back.` : "The money didn't go back to the customer.",
+    },
+    before: { refundedCents: payment.refundedCents, status: payment.status },
+    after: { refundedCents: refunded, status },
+  });
+}
 
 async function prefetchRefunds(event: Stripe.Event): Promise<EventContext["refunds"]> {
   if (event.type !== "charge.refunded") return null;
@@ -315,6 +342,9 @@ export async function processStripeEvent(event: Stripe.Event, db: Db = prisma): 
           return handleInvoiceFailed(ctx, event.data.object);
         case "charge.refunded":
           return handleChargeRefunded(ctx, event.data.object);
+        case "charge.refund.updated":
+        case "refund.updated":
+          return handleRefundUpdated(ctx, event.data.object);
       }
     });
   } catch (error) {

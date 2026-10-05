@@ -53,7 +53,7 @@ Tooling at review time: lint, type-check, 682 unit and integration tests, the bu
 | R-22 | `lib/finance/range.ts:19` | A custom finance range ends 24 hours after the start of the last day, which is an hour short or long on daylight-saving change days. | PR 4 |
 | R-23 | `lib/billing/invoice.ts:44`, `lib/finance/reports.ts:26` | Tax invoices and finance periods use when the webhook was processed (`Payment.createdAt`), not when the money was paid. A payment at 11:50pm on 30 June processed after midnight lands in the next financial year. | PR 4 |
 | R-24 | `app/api/checkout/route.ts`, `lib/shop/checkout.ts` | Checkout doesn't restrict payment methods. If the owner enables an asynchronous method (for example BECS direct debit), memberships go active before payment and shop orders paid that way are never marked paid. | PR 4 |
-| R-25 | `lib/billing/webhook.ts:133` | Refunds that later fail are never reversed (no handler for refund status updates). | Open: needs a handler for refund status events, which can't be verified without real Stripe; listed in the final report |
+| R-25 | `lib/billing/webhook.ts:133` | Refunds that later fail are never reversed (no handler for refund status updates). | PR C: `charge.refund.updated` and `refund.updated` reverse a failed or cancelled refund (D-116); tested with Stripe's event shapes, not yet seen with real Stripe |
 | R-26 | `lib/billing/webhook.ts` | The handlers read fields removed in newer Stripe API versions (`invoice.subscription`, `invoice.payment_intent`). Webhook payloads follow the endpoint's API version, not the SDK's. | PR 4 (the version is checked and logged; README says which version to set) |
 
 ### Membership, classes and dates

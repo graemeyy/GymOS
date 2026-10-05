@@ -267,18 +267,23 @@ enum PaymentKind {
 }
 
 model Refund {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   paymentId      String
-  payment        Payment  @relation(fields: [paymentId], references: [id])
+  payment        Payment   @relation(fields: [paymentId], references: [id])
   amountCents    Int
   gstCents       Int
   reason         String
-  stripeRefundId String?  @unique
+  stripeRefundId String?   @unique
   // MANUAL refunds were paid back outside Stripe (cash, bank transfer).
-  method         String   @default("STRIPE")
+  method         String    @default("STRIPE")
   staffId        String?
   staffName      String
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
+  // Set when Stripe reports the refund failed or was cancelled after it was
+  // recorded: the money never reached the customer, so the refund no longer
+  // counts towards the payment or the finance reports (R-25, D-116).
+  failedAt       DateTime?
+  failureReason  String?
 
   @@index([createdAt])
   @@index([paymentId])
