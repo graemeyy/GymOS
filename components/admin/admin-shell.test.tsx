@@ -93,3 +93,17 @@ describe("menu by role", () => {
     for (const name of ["Payments", "Staff"]) expect(has(name)).toBe(false);
   });
 });
+
+describe("required password change (D-111)", () => {
+  it("shows only the change-password screen until it's done", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ kind: "staff", id: "s1", name: "Sam", roleId: "r", roleName: "Owner", isOwner: true, permissions: [], mustChangePassword: true }), { status: 200 })));
+    render(
+      <StaffSessionProvider>
+        <AdminShell>console page</AdminShell>
+      </StaffSessionProvider>
+    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Choose a new password" })).toBeTruthy());
+    expect(screen.queryByText("console page")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Classes" })).toBeNull();
+  });
+});

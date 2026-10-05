@@ -1,9 +1,9 @@
+import { appUrl } from "@/lib/app-url";
 import { z } from "zod";
 import type { Db } from "@/lib/db";
 import type { MemberActor } from "@/lib/auth/session";
 import { zCents, zId } from "@/lib/http/route";
 import { ApiError } from "@/lib/http/errors";
-import { env } from "@/lib/env";
 import { gym } from "@/lib/config";
 import { logAction } from "@/lib/audit";
 import { recordAcceptance } from "@/lib/legal";
@@ -41,7 +41,6 @@ export async function startMembershipCheckout(db: Db, member: MemberActor, planI
     throw new ApiError("conflict", "You already have a membership. Change plans from your membership page.");
   }
 
-  const appUrl = env().NEXT_PUBLIC_APP_URL;
   const session = await getStripe().checkout.sessions.create({
     mode: "subscription",
     // Card only: an asynchronous method (such as direct debit) would make the
@@ -62,8 +61,8 @@ export async function startMembershipCheckout(db: Db, member: MemberActor, planI
     metadata: { memberId: member.id, planId: plan.id, termsVersion: gym.legal.termsVersion },
     subscription_data: { metadata: { memberId: member.id, planId: plan.id } },
     ...(record.stripeCustomerId ? { customer: record.stripeCustomerId } : { customer_email: record.email }),
-    success_url: `${appUrl}/member?checkout=success`,
-    cancel_url: `${appUrl}/member?checkout=cancelled`,
+    success_url: appUrl("/member?checkout=success"),
+    cancel_url: appUrl("/member?checkout=cancelled"),
   });
   await db.$transaction(async (tx) => {
     await recordAcceptance(tx, member.id, "checkout");
@@ -80,7 +79,7 @@ export async function openBillingPortal(db: Db, memberId: string): Promise<strin
   if (!record.stripeCustomerId) throw new ApiError("conflict", "There's no card on file yet.");
   const session = await getStripe().billingPortal.sessions.create({
     customer: record.stripeCustomerId,
-    return_url: `${env().NEXT_PUBLIC_APP_URL}/member`,
+    return_url: appUrl("/member"),
   });
   return session.url;
 }

@@ -51,7 +51,7 @@ describe("R-108 plain dates are gym-local days", () => {
 describe("R-95 seed data", () => {
   it("gives each seeded order to its intended buyer, and reset clears everything", async () => {
     const { seedDatabase, resetDatabase } = await import("@/prisma/seed-data");
-    await seedDatabase(prisma);
+    await seedDatabase(prisma, { password: "integration-seed-password" });
     const ordersOf = async (email: string) =>
       (await prisma.order.findMany({ where: { member: { email } }, select: { status: true }, orderBy: { createdAt: "asc" } })).map((o) => o.status).sort();
     expect(await ordersOf("charlotte.pham@example.com")).toEqual(["COMPLETED", "PAID"]);

@@ -25,4 +25,5 @@ export interface Me {
   benefits: { classCreditsPerCycle: number | null; guestPassesPerCycle: number; shopDiscountPercent: number; guestRateCents: number };
   usage: { classCreditsRemaining: number | null; guestPassesRemaining: number | null; cycleEnd: string | null };
   outstandingAcceptances: ("TERMS" | "PRIVACY")[];
+  mustChangePassword: boolean;
 }

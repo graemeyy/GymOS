@@ -62,7 +62,9 @@ DATABASE_URL="$PRODUCTION_DATABASE_URL" npx prisma migrate reset --force --skip-
 
 # 3. Fill it with the fictional demo data. The seed refuses NODE_ENV=production,
 #    so run it from your machine, not from a Vercel build. It only fills an
-#    empty database, which it now is.
+#    empty database, which it now is. Without SEED_DEMO_PASSWORD it prints a
+#    random password for the demo accounts once, in your terminal; or set
+#    SEED_DEMO_PASSWORD in your shell first to choose one.
 DATABASE_URL="$PRODUCTION_DATABASE_URL" npm run db:seed
 
 # 4. Check the history is complete: every migration listed, none failed.
@@ -72,7 +74,7 @@ DATABASE_URL="$PRODUCTION_DATABASE_URL" npx prisma migrate status
 Then redeploy production (Vercel → Deployments → the latest `main` deployment → Redeploy). Its `migrate deploy` should report no pending migrations.
 
 After the reset:
-- **Demo accounts have a published password.** The demo staff and member accounts share the password in `prisma/demo.ts`, which is in the repository. On a public URL, change the owner's password straight away (Settings → Your password), or deactivate the demo staff accounts you don't need.
+- **Demo accounts start with the password the seed printed or `SEED_DEMO_PASSWORD`.** Nothing in the repository says what it is (D-110), and each account must choose its own at first sign-in (D-111). Sign in as the owner first and change it, and deactivate the demo staff accounts you don't need.
 - **Sessions end.** Everyone is signed out, because their accounts no longer exist.
 - **Stripe test data no longer matches.** Test-mode customers and subscriptions in Stripe point at members that are gone. Harmless in test mode; webhooks for them are ignored.
 - Without the seed, the database is empty. The first owner is then created at `/admin/setup`, which needs `SETUP_TOKEN` set in Production (D-083).

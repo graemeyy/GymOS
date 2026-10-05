@@ -4,7 +4,7 @@ import type { MemberActor, StaffActor } from "@/lib/auth/session";
 
 // Only who, not their access: sign-ins and setup log against an account
 // before any session exists.
-export type Actor = Pick<StaffActor, "kind" | "id" | "name"> | MemberActor | { kind: "system"; name: string };
+export type Actor = Pick<StaffActor, "kind" | "id" | "name"> | Pick<MemberActor, "kind" | "id" | "name" | "email"> | { kind: "system"; name: string };
 
 // Records who did what. Staff actions link to the staff row; member and
 // system actions keep the name in staffName and put the member ID in details.

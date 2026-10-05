@@ -5,10 +5,9 @@ import { syncPlansFromConfig } from "../lib/plans/service";
 import { gym } from "../lib/config";
 import { DAY_MS } from "../lib/time";
 import { PRESET_ROLES, PRESETS } from "../lib/auth/permissions";
-import { DEMO_PASSWORD } from "./demo";
 import { CLASSES, daysAgo, DEMO_MEMBERS, DEMO_STAFF, EQUIPMENT, inDays, INVENTORY, PRODUCTS, TEMPLATES } from "./seed-fixtures";
 
-export { DEMO_PASSWORD, DEMO_MEMBERS, DEMO_STAFF };
+export { DEMO_MEMBERS, DEMO_STAFF };
 
 export async function isDatabaseEmpty(prisma: PrismaClient) {
   const [members, staff] = await Promise.all([prisma.member.count(), prisma.staff.count()]);
@@ -65,13 +64,18 @@ export async function restorePresetRoles(prisma: PrismaClient) {
   }
 }
 
-export async function seedDatabase(prisma: PrismaClient) {
+// `password` is for every demo account that can sign in. Nothing in the
+// repository says what it is (D-110): prisma/seed.ts takes it from
+// SEED_DEMO_PASSWORD or makes a random one. Every seeded account has to
+// change it at first sign-in (D-111).
+export async function seedDatabase(prisma: PrismaClient, opts: { password: string }) {
+  if (opts.password.length < 10) throw new Error("The demo password must be at least 10 characters.");
   await syncPlansFromConfig(prisma);
   const plans = new Map((await prisma.membershipPlan.findMany()).map((p) => [p.slug, p]));
-  const passwordHash = await hashPassword(DEMO_PASSWORD);
+  const passwordHash = await hashPassword(opts.password);
 
   for (const s of DEMO_STAFF) {
-    await prisma.staff.create({ data: { name: s.name, email: s.email, role: s.role, roleId: presetRoleId(s.preset), passwordHash } });
+    await prisma.staff.create({ data: { name: s.name, email: s.email, role: s.role, roleId: presetRoleId(s.preset), passwordHash, mustChangePassword: true } });
   }
 
   const memberIds: string[] = [];
@@ -89,6 +93,7 @@ export async function seedDatabase(prisma: PrismaClient) {
         keycardIssued: m.status !== "CANCELED" && m.status !== "PENDING",
         onboardedAt: m.status === "PENDING" ? null : joined,
         passwordHash: m.login ? passwordHash : null,
+        mustChangePassword: Boolean(m.login),
         createdAt: joined,
         pastDueSince: m.status === "PAST_DUE" ? daysAgo(m.retentionScore > 50 ? 2 : 9) : null,
         amountOwingCents: m.status === "PAST_DUE" && plan ? plan.priceCents : 0,

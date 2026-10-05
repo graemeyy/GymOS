@@ -13,7 +13,12 @@ export const serverEnvSchema = z
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "DATABASE_URL must be a postgres:// URL"),
     SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters (use `openssl rand -base64 48`)"),
-    NEXT_PUBLIC_APP_URL: z.url().default("http://localhost:3000"),
+    // Optional: without it, links use Vercel's URLs or localhost (lib/app-url.ts).
+    NEXT_PUBLIC_APP_URL: z.url().optional().or(z.literal("").transform(() => undefined)),
+    // Set by Vercel on every deployment. Host names, no scheme.
+    VERCEL_ENV: z.string().optional(),
+    VERCEL_URL: z.string().optional(),
+    VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
     STRIPE_SECRET_KEY: z
       .string()
       .regex(/^(sk|rk)_(test|live)_/, "STRIPE_SECRET_KEY must start with sk_test_ or rk_test_ (live keys, sk_live_ or rk_live_, also need STRIPE_ALLOW_LIVE_KEYS=true)")

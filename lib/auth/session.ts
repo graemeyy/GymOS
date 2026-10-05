@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma, type Db } from "@/lib/db";
 import { ApiError } from "@/lib/http/errors";
 import { env } from "@/lib/env";
+import { appUrl } from "@/lib/app-url";
 import { assertSignInAllowed, RATE_LIMITS, recordFailedSignIn } from "@/lib/rate-limit";
 import { allows, can, effectivePermissions, type Access, type PermissionRule } from "./permissions";
 import { verifyPasswordOrDummy } from "./password";
@@ -21,6 +22,8 @@ export interface StaffActor extends Access {
   name: string;
   roleId: string;
   roleName: string;
+  // Must choose a new password before anything else works (D-111).
+  mustChangePassword: boolean;
 }
 
 export interface MemberActor {
@@ -28,6 +31,7 @@ export interface MemberActor {
   id: string;
   name: string;
   email: string;
+  mustChangePassword: boolean;
 }
 
 export async function readSession(request: Request): Promise<SessionPayload | null> {
@@ -50,12 +54,12 @@ export async function resolveStaff(request: Request, db: Db = prisma): Promise<S
 export async function loadStaffActor(db: Db, id: string, sessionVersion?: number): Promise<StaffActor | null> {
   const staff = await db.staff.findUnique({
     where: { id },
-    select: { id: true, name: true, sessionVersion: true, deactivatedAt: true, assignedRole: { select: { id: true, name: true, isOwner: true, permissions: true } } },
+    select: { id: true, name: true, sessionVersion: true, deactivatedAt: true, mustChangePassword: true, assignedRole: { select: { id: true, name: true, isOwner: true, permissions: true } } },
   });
   if (!staff || staff.deactivatedAt || !staff.assignedRole) return null;
   if (sessionVersion !== undefined && staff.sessionVersion !== sessionVersion) return null;
   const role = staff.assignedRole;
-  return { kind: "staff", id: staff.id, name: staff.name, roleId: role.id, roleName: role.name, isOwner: role.isOwner, permissions: effectivePermissions(role) };
+  return { kind: "staff", id: staff.id, name: staff.name, roleId: role.id, roleName: role.name, isOwner: role.isOwner, permissions: effectivePermissions(role), mustChangePassword: staff.mustChangePassword };
 }
 
 export async function resolveMember(request: Request, db: Db = prisma): Promise<MemberActor | null> {
@@ -63,10 +67,10 @@ export async function resolveMember(request: Request, db: Db = prisma): Promise<
   if (!session || session.kind !== "member") return null;
   const member = await db.member.findUnique({
     where: { id: session.sub },
-    select: { id: true, name: true, email: true, sessionVersion: true, archivedAt: true },
+    select: { id: true, name: true, email: true, sessionVersion: true, archivedAt: true, mustChangePassword: true },
   });
   if (!member || member.archivedAt || member.sessionVersion !== session.ver) return null;
-  return { kind: "member", id: member.id, name: member.name ?? member.email, email: member.email };
+  return { kind: "member", id: member.id, name: member.name ?? member.email, email: member.email, mustChangePassword: member.mustChangePassword };
 }
 
 // Sign-in checks the per-account lockouts before the password. Only failed
@@ -141,7 +145,7 @@ export async function requireMember(request: Request, db: Db = prisma): Promise<
 // Secure whenever the site is served over HTTPS, not only when NODE_ENV says
 // production, so a staging site run in development mode still gets it (R-82).
 function secureCookies() {
-  return env().NODE_ENV === "production" || env().NEXT_PUBLIC_APP_URL.startsWith("https://");
+  return env().NODE_ENV === "production" || appUrl().startsWith("https://");
 }
 
 export async function setSessionCookie(response: NextResponse, input: SessionInput): Promise<void> {

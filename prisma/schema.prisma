@@ -105,6 +105,9 @@ model Member {
   retentionScore       Int               @default(100)
   notes                String?
   passwordHash         String?
+  // Set on seeded accounts: the password must be changed at the next
+  // sign-in before anything else works (D-111).
+  mustChangePassword   Boolean           @default(false)
   sessionVersion       Int               @default(0)
   archivedAt           DateTime?
   referredById         String?
@@ -423,26 +426,29 @@ enum StaffRole {
 }
 
 model Staff {
-  id              String          @id @default(cuid())
-  email           String          @unique
-  name            String
+  id                 String          @id @default(cuid())
+  email              String          @unique
+  name               String
   // Null until an invited person sets their password.
-  passwordHash    String?
+  passwordHash       String?
   // Legacy fixed role, kept for rollback; access comes from roleId (D-098).
-  role            StaffRole       @default(FRONT_DESK)
-  roleId          String?
-  assignedRole    Role?           @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  deactivatedAt   DateTime?
-  inviteTokenHash String?         @unique
-  inviteExpiresAt DateTime?
-  sessionVersion  Int             @default(0)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  auditLogs       AuditLog[]
-  shifts          Shift[]
-  classes         Class[]         @relation("ClassTrainer")
-  templates       ClassTemplate[] @relation("TemplateTrainer")
-  announcements   Announcement[]
+  role               StaffRole       @default(FRONT_DESK)
+  roleId             String?
+  assignedRole       Role?           @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  deactivatedAt      DateTime?
+  inviteTokenHash    String?         @unique
+  inviteExpiresAt    DateTime?
+  // Set on seeded and newly invited accounts: the password must be changed
+  // before anything else works. Accepting an invitation counts (D-111).
+  mustChangePassword Boolean         @default(false)
+  sessionVersion     Int             @default(0)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  auditLogs          AuditLog[]
+  shifts             Shift[]
+  classes            Class[]         @relation("ClassTrainer")
+  templates          ClassTemplate[] @relation("TemplateTrainer")
+  announcements      Announcement[]
 
   @@index([roleId])
 }
