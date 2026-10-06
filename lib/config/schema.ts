@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BODY_FONT_IDS, DISPLAY_FONT_IDS } from "@/lib/branding/fonts";
 
 // ABN check digit rule published by the ATO: subtract 1 from the first digit,
 // weight the 11 digits, and the sum must divide by 89.
@@ -15,9 +16,9 @@ export function isValidAbn(input: string): boolean {
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use 24-hour HH:MM");
 const cents = z.number().int().nonnegative();
 
-export const AU_STATES = ["NSW", "VIC", "QLD", "WA", "SA", "TAS", "ACT", "NT"] as const;
-export const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
-export const BILLING_INTERVALS = ["WEEK", "FORTNIGHT", "MONTH", "YEAR"] as const;
+import { AU_STATES, BILLING_INTERVALS, DAYS } from "./constants";
+
+export { AU_STATES, BILLING_INTERVALS, DAYS };
 
 export const planBenefitsSchema = z.object({
   // null means unlimited.
@@ -45,6 +46,11 @@ export const gymConfigSchema = z
       shortName: z.string().min(1).max(20),
       tagline: z.string().min(1),
       logoText: z.string().min(1).max(3),
+      // Defaults for the Branding page (D-124); the database overrides them.
+      primaryColour: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a hex colour like #1F5AA6"),
+      accentColour: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Use a hex colour like #F2C230"),
+      bodyFont: z.enum(BODY_FONT_IDS),
+      displayFont: z.enum(DISPLAY_FONT_IDS),
     }),
     business: z.object({
       legalName: z.string().min(1),

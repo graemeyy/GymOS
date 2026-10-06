@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { gym } from "@/lib/config";
+import { brandingForPage } from "@/lib/branding/service";
 import { formatAud } from "@/lib/money";
 import { currentMemberId } from "@/lib/auth/server-session";
 import { getCatalogue } from "@/lib/shop/queries";
@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Shop" };
 export const dynamic = "force-dynamic";
 
 export default async function ShopPage() {
-  const [catalogue, plans] = await Promise.all([getCatalogue(await currentMemberId()), listPlans()]);
+  const [catalogue, plans, brand] = await Promise.all([getCatalogue(await currentMemberId()), listPlans(), brandingForPage()]);
   const bestDiscount = Math.max(0, ...plans.map((p) => p.shopDiscountPercent));
   const groups = Object.entries(CATEGORY_TEXT)
     .map(([category, label]) => ({ category, label, products: catalogue.products.filter((p) => p.category === category) }))
@@ -33,7 +33,7 @@ export default async function ShopPage() {
           .join(" ")}
       />
       {groups.length === 0 ? (
-        <EmptyState title="Nothing in the shop yet">Check back soon, or ask at the front desk at {gym.business.address.suburb}.</EmptyState>
+        <EmptyState title="Nothing in the shop yet">Check back soon, or ask at the front desk at {brand.address.suburb}.</EmptyState>
       ) : (
         <div className="space-y-10">
           {groups.map((group) => (

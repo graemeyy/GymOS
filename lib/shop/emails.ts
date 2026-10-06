@@ -3,6 +3,7 @@ import type { Db } from "@/lib/db";
 import { gym } from "@/lib/config";
 import { formatAud } from "@/lib/money";
 import { sendEmail, signature } from "@/lib/email";
+import { getBranding } from "@/lib/branding/service";
 
 export type OrderEmailKind = "confirmed" | "ready" | "shipped" | "refunded";
 
@@ -22,7 +23,8 @@ export async function sendOrderEmail(db: Db, orderId: string, kind: OrderEmailKi
   ]
     .filter(Boolean)
     .join("\n");
-  const pickup = `Collect it from the front desk at ${gym.business.address.line1}, ${gym.business.address.suburb}.`;
+  const { address } = await getBranding(db);
+  const pickup = `Collect it from the front desk at ${address.line1}, ${address.suburb}.`;
   const messages: Record<OrderEmailKind, { subject: string; body: string }> = {
     confirmed: {
       subject: `Order ${order.number} confirmed`,
@@ -36,6 +38,6 @@ export async function sendOrderEmail(db: Db, orderId: string, kind: OrderEmailKi
     refunded: { subject: `Order ${order.number} refunded`, body: `We've refunded order ${order.number}. Card refunds usually take 5 to 10 business days to appear.\n\nOrder details: ${link}` },
   };
   const message = messages[kind];
-  await sendEmail({ to: order.email, subject: message.subject, text: `Hi ${first},\n\n${message.body}${signature()}` });
+  await sendEmail({ to: order.email, subject: message.subject, text: `Hi ${first},\n\n${message.body}${await signature()}` });
   if (kind === "confirmed") await db.order.update({ where: { id: order.id }, data: { confirmationSentAt: new Date() } });
 }

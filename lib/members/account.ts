@@ -7,6 +7,7 @@ import { logAction, type Actor } from "@/lib/audit";
 import { recordAcceptance } from "@/lib/legal";
 import { releaseFutureBookings } from "@/lib/classes/service";
 import { sendEmailVerification } from "./verification";
+import { getBranding } from "@/lib/branding/service";
 
 export const ERASED = "[erased]";
 
@@ -105,9 +106,10 @@ export async function exportMemberData(db: Db, actor: MemberActor) {
     },
   });
   await logAction(db, actor, { action: "member.data_exported", targetType: "Member", targetId: actor.id });
+  const brand = await getBranding(db);
   return {
     exportedAt: new Date().toISOString(),
-    gym: { name: gym.business.legalName, abn: gym.business.abn, contact: gym.business.email },
+    gym: { name: brand.legalName, abn: brand.abn, contact: brand.contactEmail },
     note: "This is the personal information this gym holds about you in GymOS. Card details are held by Stripe, not the gym. Contact the gym to correct anything.",
     ...member,
   };

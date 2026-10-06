@@ -7,6 +7,7 @@ import { api, useMutation, useResource } from "@/lib/client/api";
 import { useCart } from "@/lib/client/cart";
 import { formatAud } from "@/lib/money";
 import { gym } from "@/lib/config/client";
+import { useBranding } from "@/components/branding/branding-provider";
 import { priceOrder } from "@/lib/shop/pricing";
 import type { Catalogue } from "@/lib/shop/catalogue";
 import { cn } from "@/lib/client/cn";
@@ -17,10 +18,11 @@ import { FormMessage, SelectField, TextField } from "@/components/ui/form";
 const STATES = ["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"];
 
 export function CartView() {
+  const brand = useBranding();
   const catalogue = useResource<Catalogue>("/api/shop/products");
   const { lines, setQuantity } = useCart();
   const [fulfilment, setFulfilment] = useState<"PICKUP" | "SHIPPING">("PICKUP");
-  const [address, setAddress] = useState<{ line1: string; line2: string; suburb: string; state: string; postcode: string }>({ line1: "", line2: "", suburb: "", state: gym.business.address.state, postcode: "" });
+  const [address, setAddress] = useState<{ line1: string; line2: string; suburb: string; state: string; postcode: string }>({ line1: "", line2: "", suburb: "", state: brand.address.state, postcode: "" });
   // Stays busy after success, while the browser goes to Stripe.
   const [redirecting, setRedirecting] = useState(false);
 
@@ -126,7 +128,7 @@ export function CartView() {
                     </div>
                   </fieldset>
                 ) : (
-                  <p className="text-sm">Collect from the front desk at {gym.business.address.line1}, {gym.business.address.suburb}.</p>
+                  <p className="text-sm">Collect from the front desk at {brand.address.line1}, {brand.address.suburb}.</p>
                 )}
                 {fulfilment === "SHIPPING" ? (
                   <div className="space-y-3">

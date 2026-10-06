@@ -26,6 +26,7 @@ import {
   Receipt,
   ShieldCheck,
   UserCog,
+  Palette,
 } from "lucide-react";
 import { api } from "@/lib/client/api";
 import { cn } from "@/lib/client/cn";
@@ -78,6 +79,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/admin/staff", label: "Staff", icon: UserCog, permission: "staff.manage" },
       { href: "/admin/roles", label: "Roles", icon: ShieldCheck, permission: null },
       { href: "/admin/audit", label: "Audit log", icon: ClipboardList, permission: "audit.view" },
+      { href: "/admin/branding", label: "Branding", icon: Palette, permission: "branding.edit" },
       { href: "/admin/settings", label: "Settings", icon: Settings, permission: null },
     ],
   },

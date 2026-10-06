@@ -7,6 +7,7 @@ import { listPaymentsPaidBetween, listRefundsBetween } from "@/lib/finance/queri
 import { resolveRange } from "@/lib/finance/range";
 import { ExportQuery } from "@/lib/finance/schema";
 import { invoiceNo } from "@/lib/format";
+import { getBranding } from "@/lib/branding/service";
 
 const dollars = (cents: number) => (cents / 100).toFixed(2);
 const ymd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: gym.business.timezone }).format(d);
@@ -15,8 +16,9 @@ const ymd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: gym.busine
 // summary, not tax advice.
 export const GET = staffRoute({ permission: "finance.export", query: ExportQuery }, async ({ query, db, staff }) => {
   const range = resolveRange(query);
+  const brand = await getBranding(db);
   const header = [
-    `# ${gym.business.legalName} (ABN ${gym.business.abn}). ${range.label}. Amounts in AUD and include GST.`,
+    `# ${brand.legalName} (ABN ${brand.abn}). ${range.label}. Amounts in AUD and include GST.`,
     "# This is a summary for your records, not tax advice. Check it with your accountant before lodging a BAS.",
   ].join("\r\n");
   let body: string;

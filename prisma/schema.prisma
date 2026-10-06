@@ -418,6 +418,38 @@ model GymSettings {
   hideRevenueFromFrontDesk Boolean @default(false)
 }
 
+// The gym's branding (D-124). One row. Every column is optional: empty means
+// the default from config/gym.config.json, so a new copy looks right before
+// anyone opens the Branding page.
+model Branding {
+  id              String    @id @default("singleton")
+  name            String?
+  appName         String?
+  tagline         String?
+  logoText        String?
+  primaryColour   String?
+  accentColour    String?
+  bodyFont        String?
+  displayFont     String?
+  emailSenderName String?
+  emailFooter     String?
+  legalName       String?
+  abn             String?
+  contactEmail    String?
+  contactPhone    String?
+  addressLine1    String?
+  addressLine2    String?
+  suburb          String?
+  state           String?
+  postcode        String?
+  // Uploaded images, small enough to keep in the row (at most 256 KB each).
+  logoData        Bytes?
+  logoType        String?
+  iconData        Bytes?
+  updatedAt       DateTime  @updatedAt
+  imagesUpdatedAt DateTime?
+}
+
 model InventoryItem {
   id            String   @id @default(cuid())
   name          String

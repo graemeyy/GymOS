@@ -4,6 +4,10 @@ import { cleanup, render, screen } from "@testing-library/react";
 
 vi.mock("@/lib/plans/queries", () => ({ listPlans: async () => [], benefitsOf: () => [] }));
 vi.mock("@/components/public/site-chrome", () => ({ SiteHeader: () => null, SiteFooter: () => null }));
+vi.mock("@/lib/branding/service", async () => {
+  const { brandingFrom } = await import("@/lib/branding/defaults");
+  return { brandingForPage: async () => brandingFrom(null) };
+});
 const { default: HomePage } = await import("./page");
 
 afterEach(cleanup);

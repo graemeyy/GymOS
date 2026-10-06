@@ -47,6 +47,7 @@ export async function resetDatabase(prisma: PrismaClient) {
     prisma.stripeEvent.deleteMany(),
     prisma.rateLimit.deleteMany(),
     prisma.gymSettings.deleteMany(),
+    prisma.branding.deleteMany(),
   ]);
   await restorePresetRoles(prisma);
 }

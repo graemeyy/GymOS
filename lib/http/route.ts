@@ -27,6 +27,8 @@ interface RouteOptions<B, Q> {
   body?: ZodType<B>;
   query?: ZodType<Q>;
   rateLimit?: RateLimitRule;
+  // For the few routes that take more than 64 KB, such as image uploads.
+  maxBodyBytes?: number;
 }
 
 interface SignedInOptions {
@@ -104,10 +106,10 @@ export async function readBodyText(request: Request, limit = MAX_BODY_BYTES): Pr
   return Buffer.concat(chunks).toString("utf8");
 }
 
-async function readJsonBody<B>(request: Request, schema: ZodType<B> | undefined): Promise<B> {
+async function readJsonBody<B>(request: Request, schema: ZodType<B> | undefined, limit = MAX_BODY_BYTES): Promise<B> {
   if (!schema) return undefined as B;
   if (!isJson(request)) throw new ApiError("bad_request", "Send the request body as JSON.");
-  const text = await readBodyText(request);
+  const text = await readBodyText(request, limit);
   let raw: unknown;
   try {
     raw = text ? JSON.parse(text) : {};
@@ -178,7 +180,7 @@ export function publicRoute<B = undefined, Q = undefined>(
     try {
       const params = await prepare(request, context, opts);
       const query = parseQuery(request, opts.query);
-      const body = await readJsonBody(request, opts.body);
+      const body = await readJsonBody(request, opts.body, opts.maxBodyBytes);
       return toResponse(await handler({ request, params, body, query, db: prisma }));
     } catch (error) {
       return handleError(error);
@@ -200,7 +202,7 @@ export function staffRoute<B = undefined, Q = undefined>(
       const staff = await requireStaff(request, opts.permission);
       assertPasswordChanged(staff, opts);
       const query = parseQuery(request, opts.query);
-      const body = await readJsonBody(request, opts.body);
+      const body = await readJsonBody(request, opts.body, opts.maxBodyBytes);
       return toResponse(await handler({ request, params, body, query, db: prisma, staff }));
     } catch (error) {
       return handleError(error);
@@ -218,7 +220,7 @@ export function memberRoute<B = undefined, Q = undefined>(
       const member = await requireMember(request);
       assertPasswordChanged(member, opts);
       const query = parseQuery(request, opts.query);
-      const body = await readJsonBody(request, opts.body);
+      const body = await readJsonBody(request, opts.body, opts.maxBodyBytes);
       return toResponse(await handler({ request, params, body, query, db: prisma, member }));
     } catch (error) {
       return handleError(error);

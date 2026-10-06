@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { gym, formatAddress } from "@/lib/config";
+import { gym } from "@/lib/config";
+import { brandingForPage } from "@/lib/branding/service";
+import { formatBrandAddress } from "@/lib/branding/types";
 import { listPlans, benefitsOf } from "@/lib/plans/queries";
 import { formatAud, INTERVAL_LABELS } from "@/lib/money";
 import { LinkButton } from "@/components/ui/primitives";
@@ -27,7 +29,7 @@ async function loadPlans() {
 }
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
-  const [plans, { deleted }] = await Promise.all([loadPlans(), searchParams]);
+  const [plans, { deleted }, brand] = await Promise.all([loadPlans(), searchParams, brandingForPage()]);
   return (
     <div className="min-h-dvh">
       <SiteHeader />
@@ -40,8 +42,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </p>
         ) : null}
         <section className="mx-auto max-w-5xl px-4 pb-12 pt-12 sm:pt-16">
-          <h1 className="max-w-3xl text-4xl sm:text-5xl">{gym.brand.name}</h1>
-          <p className="mt-3 max-w-prose text-lg text-ink-soft">{gym.brand.tagline}. {formatAddress()}.</p>
+          <h1 className="max-w-3xl text-4xl sm:text-5xl">{brand.name}</h1>
+          <p className="mt-3 max-w-prose text-lg text-ink-soft">{brand.tagline}. {formatBrandAddress(brand.address)}.</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <LinkButton href="/signup">Join online</LinkButton>
             <LinkButton href="/shop" variant="secondary">

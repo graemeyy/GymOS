@@ -11,6 +11,7 @@ import { prorationCents } from "./proration";
 import { monthlyEquivalentCents } from "@/lib/money";
 import { countPausesInLastYear } from "./queries";
 import { DAY_MS } from "@/lib/time";
+import { getBranding } from "@/lib/branding/service";
 
 type Policies = GymConfig["policies"];
 
@@ -261,7 +262,7 @@ export async function changePlan(db: Db, actor: Actor, memberId: string, newPlan
         currency: "aud",
         unit_amount: plan.priceCents,
         recurring: stripeRecurring(plan.interval),
-        product_data: { name: `${gym.brand.name} ${plan.name} membership` },
+        product_data: { name: `${(await getBranding()).name} ${plan.name} membership` },
         metadata: { planId: plan.id },
       });
       await stripe.subscriptions.update(member.stripeSubscriptionId!, {

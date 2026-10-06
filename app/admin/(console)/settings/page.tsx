@@ -13,7 +13,7 @@ export default function SettingsPage() {
     <>
       <PageHeader title="Settings" />
       <div className="space-y-6">
-        <GymDetails />
+        <GymDetails canEditBranding={allowed("branding.edit")} />
         <Panel className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg">Plans and prices</h2>

@@ -8,7 +8,7 @@ A **gym** here is one business: one ABN, one Stripe account, one set of members.
 
 **A. One copy per gym (recommended for now).** Each gym gets its own Vercel project, its own Postgres databases (Production and Preview), its own Stripe account, its own email domain and its own custom domain. The code is the same; the copy is configured with environment variables, then branded and set up from the staff console.
 
-**B. One shared multi-gym app.** One deployment and one database serve every gym. Each row belongs to a gym (`gymId`), every query is filtered by it, and the gym is chosen from the domain (`members.ironbark.example` versus `members.anothergym.example`). Payments go through Stripe Connect, with each gym as a connected account.
+**B. One shared multi-gym app.** One deployment and one database serve every gym. Each row belongs to a gym (`gymId`), every query is filtered by it, and the gym is chosen from the domain (`members.gym-one.example` versus `members.gym-two.example`). Payments go through Stripe Connect, with each gym as a connected account.
 
 ## Comparison
 

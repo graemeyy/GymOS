@@ -6,13 +6,13 @@ import { ApiError } from "@/lib/http/errors";
 import { logAction } from "@/lib/audit";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { sendEmail } from "@/lib/email";
-import { gym } from "@/lib/config";
 import { DAY_MS } from "@/lib/time";
 import { assertCanGrant, assertNotMorePowerful, legacyRoleFor } from "@/lib/roles/service";
 import { getPresetRole } from "@/lib/roles/queries";
 import { effectivePermissions } from "@/lib/auth/permissions";
 import { staffSelect, toStaffView } from "./queries";
 import type { FirstOwnerInput, InviteStaffInput, UpdateStaffInput } from "./schema";
+import { getBranding } from "@/lib/branding/service";
 
 const INVITE_DAYS = 7;
 // Changes that could leave the gym without an owner take this advisory lock
@@ -58,10 +58,11 @@ export async function inviteStaff(db: Db, actor: StaffActor, input: InviteStaffI
     return created;
   });
   const inviteUrl = appUrl(`/admin/invite?token=${token}`);
+  const { name: gymName } = await getBranding(db);
   const email = await sendEmail({
     to: input.email,
-    subject: `You're invited to ${gym.brand.name}'s staff console`,
-    text: `Hi ${input.name},\n\n${actor.name} has invited you to the ${gym.brand.name} staff console. Set your password here (the link works for ${INVITE_DAYS} days):\n\n${inviteUrl}\n\nIf you weren't expecting this, you can ignore this email.`,
+    subject: `You're invited to ${gymName}'s staff console`,
+    text: `Hi ${input.name},\n\n${actor.name} has invited you to the ${gymName} staff console. Set your password here (the link works for ${INVITE_DAYS} days):\n\n${inviteUrl}\n\nIf you weren't expecting this, you can ignore this email.`,
   });
   return { staff: toStaffView(result), emailed: email.sent, inviteUrl: email.sent ? null : inviteUrl };
 }
@@ -79,7 +80,8 @@ export async function resendInvite(db: Db, actor: StaffActor, id: string) {
     return updated;
   });
   const inviteUrl = appUrl(`/admin/invite?token=${token}`);
-  const email = await sendEmail({ to: row.email, subject: `Your invitation to ${gym.brand.name}'s staff console`, text: `Hi ${row.name},\n\nHere's a new link to set your password (it works for ${INVITE_DAYS} days):\n\n${inviteUrl}` });
+  const { name: gymName } = await getBranding(db);
+  const email = await sendEmail({ to: row.email, subject: `Your invitation to ${gymName}'s staff console`, text: `Hi ${row.name},\n\nHere's a new link to set your password (it works for ${INVITE_DAYS} days):\n\n${inviteUrl}` });
   return { staff: toStaffView(row), emailed: email.sent, inviteUrl: email.sent ? null : inviteUrl };
 }
 

@@ -51,10 +51,22 @@ describe("preset roles in the database", () => {
       ])
     );
     expect(Object.keys(parsed).sort()).toEqual([...PRESETS].sort());
-    for (const p of PRESETS) {
-      expect(parsed[p]).toEqual({ id: p.toLowerCase(), name: PRESET_ROLES[p].name, description: PRESET_ROLES[p].description, isOwner: PRESET_ROLES[p].isOwner, permissions: [...PRESET_ROLES[p].permissions] });
-    }
+    for (const p of PRESETS) expect(parsed[p]).toMatchObject({ id: p.toLowerCase(), name: PRESET_ROLES[p].name, isOwner: PRESET_ROLES[p].isOwner });
     for (const [legacy, preset] of Object.entries(LEGACY_ROLE_PRESET)) expect(sql).toContain(`WHEN '${legacy}' THEN 'role_${preset.toLowerCase()}'`);
+  });
+
+  // Later migrations keep the stored presets in step with the code, as when
+  // branding.edit was added (D-124).
+  it("after every migration, the stored presets match lib/auth/permissions.ts", async () => {
+    for (const p of PRESETS) {
+      const row = await prisma.role.findUniqueOrThrow({ where: { id: `role_${p.toLowerCase()}` } });
+      expect({ name: row.name, description: row.description, isOwner: row.isOwner, permissions: [...row.permissions].sort() }, p).toEqual({
+        name: PRESET_ROLES[p].name,
+        description: PRESET_ROLES[p].description,
+        isOwner: PRESET_ROLES[p].isOwner,
+        permissions: [...PRESET_ROLES[p].permissions].sort(),
+      });
+    }
   });
 
   it("/api/auth/me reports the role and its permissions", async () => {

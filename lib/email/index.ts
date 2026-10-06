@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { gym } from "@/lib/config";
+import { getBranding } from "@/lib/branding/service";
 
 export interface EmailMessage {
   to: string;
@@ -11,13 +11,13 @@ export interface EmailMessage {
 
 export type SendResult = { sent: true; id: string | null } | { sent: false; reason: "not_configured" | "failed" };
 
-let outboxForTests: EmailMessage[] | null = null;
+let outboxForTests: (EmailMessage & { from: string })[] | null = null;
 
 export function captureEmailsForTests(enable: boolean) {
   outboxForTests = enable ? [] : null;
 }
 
-export function capturedEmails(): EmailMessage[] {
+export function capturedEmails(): (EmailMessage & { from: string })[] {
   return outboxForTests ?? [];
 }
 
@@ -30,8 +30,9 @@ export function emailConfigured(): boolean {
 // says so: the app works without email, and nothing is silently lost because
 // every caller records what it tried to send.
 export async function sendEmail(message: EmailMessage): Promise<SendResult> {
+  const from = await sender();
   if (outboxForTests) {
-    outboxForTests.push(message);
+    outboxForTests.push({ ...message, from });
     return { sent: true, id: `test-${outboxForTests.length}` };
   }
   const key = env().RESEND_API_KEY;
@@ -44,7 +45,7 @@ export async function sendEmail(message: EmailMessage): Promise<SendResult> {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: env().EMAIL_FROM ?? `${gym.brand.name} <${gym.business.email}>`,
+        from,
         to: [message.to],
         subject: message.subject,
         text: message.text,
@@ -63,6 +64,23 @@ export async function sendEmail(message: EmailMessage): Promise<SendResult> {
   }
 }
 
-export function signature() {
-  return `\n\n${gym.brand.name}\n${gym.business.phone} · ${gym.business.email}`.replace(" · ", ", ");
+// The address in EMAIL_FROM ("Name <hello@gym.example>" or just the
+// address), which must be on a domain verified with Resend.
+function addressOf(value: string | undefined): string | null {
+  if (!value) return null;
+  const match = /<([^<>\s]+@[^<>\s]+)>/.exec(value);
+  return match ? match[1] : value.includes("@") ? value.trim() : null;
+}
+
+// Who emails come from: the sender name on the Branding page (D-124) and the
+// address from EMAIL_FROM, or the gym's contact email without one.
+export async function sender(): Promise<string> {
+  const b = await getBranding();
+  return `${b.emailSenderName} <${addressOf(env().EMAIL_FROM) ?? b.contactEmail}>`;
+}
+
+// The footer from the Branding page, after every email's message.
+export async function signature(): Promise<string> {
+  const footer = (await getBranding()).emailFooter.trim();
+  return footer ? `\n\n${footer}` : "";
 }

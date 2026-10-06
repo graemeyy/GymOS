@@ -1,5 +1,10 @@
+"use client";
+
 import React from "react";
-import { gym, formatAddress } from "@/lib/config/client";
+import Link from "next/link";
+import { gym } from "@/lib/config/client";
+import { useBranding } from "@/components/branding/branding-provider";
+import { formatBrandAddress } from "@/lib/branding/types";
 import { formatAud } from "@/lib/money";
 import { Panel, PanelHeader } from "@/components/ui/primitives";
 
@@ -12,23 +17,32 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-export function GymDetails() {
+export function GymDetails({ canEditBranding = false }: { canEditBranding?: boolean }) {
   const p = gym.policies;
+  const brand = useBranding();
   return (
     <Panel aria-labelledby="gym-heading">
       <PanelHeader id="gym-heading" title="Gym details and policies" />
       <p className="border-b border-line px-4 py-3 text-sm text-ink-soft">
-        These come from <code className="rounded bg-sunken px-1">config/gym.config.json</code>, so a new gym can be set up without code changes. Edit that file and redeploy to change them.
-        {gym.isDemo ? " The current values are fictional demo details." : ""}
+        The business name, ABN, address and contact details are set on the{" "}
+        {canEditBranding ? (
+          <Link href="/admin/branding" className="font-medium text-plate underline underline-offset-2">
+            Branding page
+          </Link>
+        ) : (
+          "Branding page (Owner only)"
+        )}
+        . Policies come from <code className="rounded bg-sunken px-1">config/gym.config.json</code>; edit that file and redeploy to change them.
+        {gym.isDemo ? " The shipped values are fictional demo details." : ""}
       </p>
       <dl className="divide-y divide-line">
         <Row label="Business">
-          {gym.business.legalName}, ABN {gym.business.abn}
+          {brand.legalName}, ABN {brand.abn}
           {gym.business.gstRegistered ? ", registered for GST" : ", not registered for GST"}
         </Row>
-        <Row label="Address">{formatAddress()}</Row>
+        <Row label="Address">{formatBrandAddress(brand.address)}</Row>
         <Row label="Contact">
-          {gym.business.phone}, {gym.business.email}
+          {brand.contactPhone}, {brand.contactEmail}
         </Row>
         <Row label="Timezone">{gym.business.timezone}</Row>
         <Row label="Cancellation">

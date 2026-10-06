@@ -1,17 +1,19 @@
 import type { Metadata } from "next";
 import { gym } from "@/lib/config";
+import { brandingForPage } from "@/lib/branding/service";
 import { LegalPage } from "@/components/legal/legal-page";
 
 export const metadata: Metadata = { title: "Privacy policy" };
 
 // Template privacy policy describing what GymOS actually collects and keeps.
 // Retention periods come from config, so this page and the app agree.
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const brand = await brandingForPage();
   const r = gym.policies.dataRetention;
   return (
     <LegalPage title="Privacy policy" version={gym.legal.privacyVersion}>
       <p>
-        {gym.business.legalName} handles personal information under the Privacy Act 1988 and the Australian Privacy Principles. This policy says what we collect, why, who sees it, how long we keep it, and how to see, correct or delete it.
+        {brand.legalName} handles personal information under the Privacy Act 1988 and the Australian Privacy Principles. This policy says what we collect, why, who sees it, how long we keep it, and how to see, correct or delete it.
       </p>
 
       <h2>What we collect</h2>
@@ -44,7 +46,7 @@ export default function PrivacyPage() {
 
       <h2>Seeing, correcting and deleting your information</h2>
       <p>
-        In the member app you can download a copy of your information and delete your account. Deleting erases your name, email, bookings and staff notes. Payment records stay for the time tax law requires, without your details attached. To correct anything, ask at the front desk or email {gym.business.email}.
+        In the member app you can download a copy of your information and delete your account. Deleting erases your name, email, bookings and staff notes. Payment records stay for the time tax law requires, without your details attached. To correct anything, ask at the front desk or email {brand.contactEmail}.
       </p>
 
       <h2>Security</h2>
@@ -52,7 +54,7 @@ export default function PrivacyPage() {
 
       <h2>Questions and complaints</h2>
       <p>
-        Email {gym.business.email}. If you&apos;re not satisfied with our answer, you can complain to the Office of the Australian Information Commissioner at oaic.gov.au.
+        Email {brand.contactEmail}. If you&apos;re not satisfied with our answer, you can complain to the Office of the Australian Information Commissioner at oaic.gov.au.
       </p>
     </LegalPage>
   );

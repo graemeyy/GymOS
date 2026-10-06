@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { AUTH, accountPassword, expectNoA11yViolations, expectNoHorizontalScroll, screenshot } from "./helpers";
+import { gym, seededTee } from "./brand";
 import { E2E_SESSION_SECRET } from "../../playwright.config";
 import { signPayload } from "../../lib/auth/token";
 
@@ -108,7 +109,7 @@ test.describe("as a member", () => {
     await page.goto("/member/membership");
     await page.getByRole("link", { name: /^Invoice INV-/ }).first().click();
     await expect(page.getByRole("heading", { name: "Tax invoice" })).toBeVisible();
-    await expect(page.getByText("ABN 94 687 093 963")).toBeVisible();
+    await expect(page.getByText(`ABN ${gym.business.abn}`)).toBeVisible();
     await expectNoA11yViolations(page);
   });
 
@@ -132,7 +133,7 @@ test.describe("as a member", () => {
     await expectNoA11yViolations(page);
     await screenshot(page, "p3-shop");
 
-    await page.getByRole("link", { name: /Ironbark tee/ }).click();
+    await page.getByRole("link", { name: new RegExp(seededTee.name) }).click();
     await expect(page.getByText("$31.50")).toBeVisible();
     await expectNoA11yViolations(page);
     await screenshot(page, "p3-product");
@@ -164,7 +165,7 @@ test.describe("as a member", () => {
 });
 
 test("signed-out shoppers are asked to sign in to pay, and come back to the cart", async ({ page }) => {
-  await page.goto("/shop/ironbark-tee");
+  await page.goto(`/shop/${seededTee.slug}`);
   await page.getByRole("button", { name: "Add to cart" }).click();
   await page.goto("/shop/cart");
   await page.getByRole("link", { name: "Sign in to pay" }).click();

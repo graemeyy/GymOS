@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { AUTH, expectNoA11yViolations, expectNoHorizontalScroll, screenshot } from "./helpers";
 import { createPaidOrder } from "./fixtures";
+import { gym } from "./brand";
 
 test.describe("owner features", () => {
   test.use({ storageState: AUTH.owner });
@@ -62,7 +63,7 @@ test.describe("owner features", () => {
 
     const [invoice] = await Promise.all([context.waitForEvent("page"), page.getByRole("link", { name: "Tax invoice" }).click()]);
     await expect(invoice.getByRole("heading", { name: "Tax invoice" })).toBeVisible();
-    await expect(invoice.getByText("ABN 94 687 093 963")).toBeVisible();
+    await expect(invoice.getByText(`ABN ${gym.business.abn}`)).toBeVisible();
     await expect(invoice.getByText("GST included")).toBeVisible();
     await expectNoA11yViolations(invoice);
     await screenshot(invoice, "p2-tax-invoice");

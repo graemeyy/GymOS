@@ -2,12 +2,12 @@ import type { Db } from "@/lib/db";
 import { ApiError } from "@/lib/http/errors";
 import { logAction } from "@/lib/audit";
 import { appUrl } from "@/lib/app-url";
-import { gym } from "@/lib/config";
 import { hashPassword } from "@/lib/auth/password";
 import { linksGoOnScreen, runAfterResponse, sendLinkEmail } from "@/lib/email/links";
 import { signature } from "@/lib/email";
 import { hitRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { consumeAuthToken, findUsableAuthToken, issueAuthToken } from "./auth-tokens";
+import { getBranding } from "@/lib/branding/service";
 
 export type AccountKind = "staff" | "member";
 
@@ -51,8 +51,8 @@ async function issueResetLink(db: Db, kind: AccountKind, email: string): Promise
   return sendLinkEmail(
     {
       to: account.email,
-      subject: `Reset your ${gym.brand.shortName} password`,
-      text: `Hi ${account.name.split(" ")[0]},\n\nSomeone asked to reset the password for this ${kind === "staff" ? "staff" : "member"} account. To choose a new one, open this link within ${RESET_MINUTES} minutes:\n\n${link}\n\nIt works once. If you didn't ask, ignore this email; your password hasn't changed.${signature()}`,
+      subject: `Reset your ${(await getBranding(db)).appName} password`,
+      text: `Hi ${account.name.split(" ")[0]},\n\nSomeone asked to reset the password for this ${kind === "staff" ? "staff" : "member"} account. To choose a new one, open this link within ${RESET_MINUTES} minutes:\n\n${link}\n\nIt works once. If you didn't ask, ignore this email; your password hasn't changed.${await signature()}`,
     },
     link
   );

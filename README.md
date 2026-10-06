@@ -2,7 +2,7 @@
 
 The software an independent gym runs on. Staff manage members, plans, classes, check-in, payments, the shop and announcements; members join online, manage their own membership, book classes, show a QR pass at the door and buy from the shop. Installable on a phone as a web app. Built for Australian gyms: prices in AUD with GST included, tax invoices with an ABN, and cancellation rules set by the owner.
 
-The gym's name, ABN, address, hours, plans and policies all live in one validated file, [`config/gym.config.json`](config/gym.config.json), so a new gym can adopt the app without code changes.
+Each gym runs its own copy (docs/TENANCY.md). Its branding (name, logo, colours, fonts, app name, email sender and footer, and business details) is set by the owner on the **Branding** page in the staff console, with defaults from [`config/gym.config.json`](config/gym.config.json). Hours, plans and policies live in that validated file, so a new gym can adopt the app without code changes.
 
 ## Stack
 
@@ -93,7 +93,7 @@ Set the environment variables from `.env.example` in the hosting provider. `CRON
 
 ## Adopting GymOS for a new gym
 
-1. Edit `config/gym.config.json`: brand, legal name, ABN, address, timezone, hours, plans and policies. Set `isDemo` to `false`.
+1. Edit `config/gym.config.json`: brand defaults, legal name, ABN, address, timezone, hours, plans and policies. Set `isDemo` to `false`. (Name, logo, colours, fonts and business details can also be changed later on the Branding page, without a redeploy.)
 2. Run `npm run check:config`. It explains anything that's wrong, such as an ABN whose check digits don't add up.
 3. Have a lawyer review the membership terms and privacy policy. See [docs/COMPLIANCE-NOTES.md](docs/COMPLIANCE-NOTES.md).
 4. Set `SETUP_TOKEN`, deploy, open `/admin/setup`, and create the owner account with the token.

@@ -116,7 +116,7 @@ async function emailPromotion(promoted: Promoted | null, cls: LockedClass) {
   await sendEmail({
     to: promoted.email,
     subject: `You're in: ${cls.name}`,
-    text: `Hi ${promoted.name?.split(" ")[0] ?? "there"},\n\nA spot opened up and you've been moved off the waitlist into ${cls.name} on ${when}. If you can't make it, cancel from your bookings so someone else can go.${signature()}\n\nStop waitlist emails: ${unsubscribe.page}`,
+    text: `Hi ${promoted.name?.split(" ")[0] ?? "there"},\n\nA spot opened up and you've been moved off the waitlist into ${cls.name} on ${when}. If you can't make it, cancel from your bookings so someone else can go.${await signature()}\n\nStop waitlist emails: ${unsubscribe.page}`,
     headers: unsubscribe.headers,
   });
 }

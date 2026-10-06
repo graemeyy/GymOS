@@ -3,11 +3,11 @@ import type { Db } from "@/lib/db";
 import type { StaffActor } from "@/lib/auth/session";
 import { ApiError } from "@/lib/http/errors";
 import { logAction } from "@/lib/audit";
-import { gym } from "@/lib/config";
 import { sendEmail, signature } from "@/lib/email";
 import { unsubscribeLinks } from "@/lib/members/unsubscribe";
 import { audienceWhere } from "./queries";
 import type { AnnouncementInput } from "./schema";
+import { getBranding } from "@/lib/branding/service";
 
 function announcementData(input: AnnouncementInput) {
   return { ...input, planId: input.audience === "PLAN" ? input.planId : null, expiresAt: input.expiresAt ?? null };
@@ -72,14 +72,15 @@ export async function emailAnnouncement(db: Db, announcementId: string) {
   if (claimed.count === 0) return { sent: 0, alreadySent: true };
   // Only addresses the member has confirmed (D-114).
   const recipients = await db.member.findMany({ where: { ...where, notifyAnnouncements: true, emailVerifiedAt: { not: null } }, select: { id: true, email: true, name: true } });
+  const { appName } = await getBranding(db);
   let sent = 0;
   for (const r of recipients) {
     // Every announcement email can be stopped in one click (D-118).
     const unsubscribe = await unsubscribeLinks(r.id, "announcements");
     const res = await sendEmail({
       to: r.email,
-      subject: `${gym.brand.shortName}: ${a.title}`,
-      text: `Hi ${r.name?.split(" ")[0] ?? "there"},\n\n${a.body}${signature()}\n\nUnsubscribe from gym news emails: ${unsubscribe.page}`,
+      subject: `${appName}: ${a.title}`,
+      text: `Hi ${r.name?.split(" ")[0] ?? "there"},\n\n${a.body}${await signature()}\n\nUnsubscribe from gym news emails: ${unsubscribe.page}`,
       headers: unsubscribe.headers,
     });
     if (res.sent) sent++;

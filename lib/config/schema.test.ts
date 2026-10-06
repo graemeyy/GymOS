@@ -5,8 +5,10 @@ import { parseGymConfig } from "./index";
 
 describe("isValidAbn", () => {
   it("accepts check-digit-valid ABNs with or without spaces", () => {
-    expect(isValidAbn("94 687 093 963")).toBe(true);
-    expect(isValidAbn("94687093963")).toBe(true);
+    // Random, checksum-valid, not knowingly anyone's (like the demo's, D-012).
+    expect(isValidAbn("82 110 202 798")).toBe(true);
+    expect(isValidAbn("82110202798")).toBe(true);
+    expect(isValidAbn(rawConfig.business.abn)).toBe(true);
   });
   it("rejects wrong lengths and bad check digits", () => {
     expect(isValidAbn("12 345 678 901")).toBe(false);

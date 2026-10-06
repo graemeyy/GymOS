@@ -1,5 +1,6 @@
 import { gym } from "@/lib/config/client";
 import { SiteFooter, SiteHeader } from "@/components/public/site-chrome";
+import { BusinessName } from "@/components/branding/business-name";
 
 // Shared frame for the template legal documents. Until the owner records a
 // lawyer's review in config, every page says plainly that it's a template.
@@ -10,7 +11,7 @@ export function LegalPage({ title, version, children }: { title: string; version
       <main id="main" className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
         <h1 className="text-4xl">{title}</h1>
         <p className="mt-2 text-sm text-ink-soft">
-          {gym.business.legalName}, ABN {gym.business.abn}. Version {version}.
+          <BusinessName />. Version {version}.
         </p>
         {!gym.legal.reviewedByLawyer ? (
           <p role="note" className="mt-6 rounded border border-warn bg-warn-tint px-4 py-3 text-sm font-medium text-warn">
