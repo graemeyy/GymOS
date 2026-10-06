@@ -1,9 +1,9 @@
-// Runs `prisma migrate deploy`. If the target database already has this schema
-// from the old `prisma db push` workflow (no migration history yet), the first
-// `migrate deploy` fails with P3005 "database schema is not empty" — baseline
-// the initial migration as already-applied and retry once, so the switch from
-// `db push` to `migrate deploy` doesn't require a manual one-time step against
-// production.
+// Runs `prisma migrate deploy`: the only way any database gets its schema.
+// Nothing here creates or changes tables any other way, and there is no
+// automatic baselining (R-68, D-120). A database that already has tables but
+// no migration history (P3005) stops the build with instructions, because
+// guessing which migrations it already has could skip or repeat one. See
+// docs/MERGE-PLAN.md, "Baselining an existing database".
 const { execSync } = require("child_process");
 
 // Preview deployments (every pull request branch) must not change a database
@@ -15,23 +15,16 @@ if (process.env.VERCEL && process.env.VERCEL_ENV !== "production" && process.env
   process.exit(0);
 }
 
-function run(cmd) {
-  return execSync(cmd, { encoding: "utf8" });
-}
-
 try {
-  process.stdout.write(run("npx prisma migrate deploy"));
+  process.stdout.write(execSync("npx prisma migrate deploy", { encoding: "utf8" }));
 } catch (err) {
   const output = `${err.stdout || ""}${err.stderr || ""}`;
   process.stderr.write(output);
-
   if (output.includes("P3005")) {
     process.stderr.write(
-      "\nDetected pre-existing schema with no migration history — baselining 20250101000000_init.\n"
+      "\nThis database already has tables but no migration history, so migrations can't be applied safely.\n" +
+        "Follow docs/MERGE-PLAN.md, \"Baselining an existing database\", or point DATABASE_URL at an empty database.\n"
     );
-    process.stdout.write(run("npx prisma migrate resolve --applied 20250101000000_init"));
-    process.stdout.write(run("npx prisma migrate deploy"));
-  } else {
-    process.exit(1);
   }
+  process.exit(1);
 }

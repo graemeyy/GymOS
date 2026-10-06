@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { AUTH, accountPassword, expectNoA11yViolations, expectNoHorizontalScroll, screenshot } from "./helpers";
+import { E2E_SESSION_SECRET } from "../../playwright.config";
+import { signPayload } from "../../lib/auth/token";
 
 test("a new member signs up, accepts the terms and chooses to pay at the front desk", async ({ page }, info) => {
   const email = `e2e-${info.project.name}-${Date.now()}@example.com`;
@@ -52,6 +54,31 @@ test.describe("as a member", () => {
     await expectNoHorizontalScroll(page);
     await expectNoA11yViolations(page);
     await screenshot(page, "p3-classes");
+  });
+
+  test("unsubscribes from an email's link without signing in (D-118)", async ({ page, browser, baseURL }, testInfo) => {
+    const me = (await (await page.request.get("/api/me")).json()) as { id: string };
+    // The link an email would carry, signed with the test server's secret.
+    process.env.SESSION_SECRET = E2E_SESSION_SECRET;
+    const token = await signPayload("unsubscribe", { m: me.id, t: "waitlist" });
+    const signedOut = await browser.newContext({ baseURL, viewport: testInfo.project.use.viewport });
+    try {
+      const anon = await signedOut.newPage();
+      await anon.goto(`/unsubscribe?token=${encodeURIComponent(token)}`);
+      await anon.getByRole("button", { name: "Unsubscribe from waitlist emails" }).click();
+      await expect(anon.getByText("You're unsubscribed. We won't send waitlist emails to")).toBeVisible();
+      await expectNoHorizontalScroll(anon);
+      await expectNoA11yViolations(anon);
+      expect(((await (await page.request.get("/api/me")).json()) as { notifyWaitlist: boolean }).notifyWaitlist).toBe(false);
+
+      // A link that's been tampered with explains itself.
+      await anon.goto(`/unsubscribe?token=${encodeURIComponent(`${token.slice(0, -2)}AA`)}`);
+      await expect(anon.getByText("This unsubscribe link isn't valid.", { exact: false })).toBeVisible();
+    } finally {
+      await signedOut.close();
+      // Back on, for the other viewport and the rest of the suite.
+      expect((await page.request.patch("/api/me", { data: { notifyWaitlist: true } })).ok()).toBe(true);
+    }
   });
 
   test("shows a QR pass", async ({ page }) => {
