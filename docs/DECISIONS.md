@@ -290,3 +290,7 @@ and warns if `STRIPE_ALLOW_LIVE_KEYS` is on. It then prints the webhook URL, the
 With `--remote` it also asks Stripe, read-only and only with a test-mode key, whether an enabled test-mode endpoint points at the site, sends every needed event and uses the right API version. `--url` checks a different site, such as production from a laptop.
 
 It describes keys by kind, never by value, and strips anything key-shaped from Stripe's error messages. A test runs the script with a fake live key and checks the key isn't in the output. The site URL follows the same order as PR A's link helper, written out here so this change stands alone.
+
+## Rebrandable GymOS
+
+**D-123. One copy of GymOS per gym, for now.** (Part 0) Each gym (one business, one ABN) runs its own copy: its own Vercel project, Production and Preview databases, Stripe account, email domain and custom domain, from the same code. A chain with several sites is one gym with several locations. The alternative, one shared app for many gyms with a `gymId` on every row and Stripe Connect, would make separating one gym's members from another's depend on every query, and make GymOS a payments platform. The comparison, when to revisit, and the exact list of changes for going multi-tenant later are in docs/TENANCY.md.
