@@ -86,6 +86,8 @@ export const RATE_LIMITS = {
   // Confirming email addresses, and asking for another link (per account).
   emailVerification: { name: "verify-email", limit: 20, windowSeconds: 15 * 60 },
   emailVerificationResend: { name: "verify-resend", limit: 3, windowSeconds: 60 * 60 },
+  // Unsubscribe links: checking one and using it (D-118).
+  unsubscribe: { name: "unsubscribe", limit: 30, windowSeconds: 15 * 60 },
   checkIn: { name: "check-in", limit: 120, windowSeconds: 60 },
   iot: { name: "iot", limit: 600, windowSeconds: 60 },
   bootstrap: { name: "bootstrap", limit: 5, windowSeconds: 60 * 60 },

@@ -31,6 +31,18 @@ describe("tax invoice", () => {
   });
 });
 
+describe("GST registration changing later (R-73, D-121)", () => {
+  const base = { invoiceNumber: 7, paidAt: new Date("2026-01-01T00:00:00Z"), refundedCents: 0, currency: "aud", description: null, planName: "Standard", member: { name: "Sam", email: "sam@example.com" } };
+  it("an invoice follows the GST recorded on the payment, not today's setting", () => {
+    expect(buildTaxInvoice({ ...base, amount: 2995, gstCents: 272 })).toMatchObject({ title: "Tax invoice", gstCents: 272, note: "Total price includes GST." });
+    expect(buildTaxInvoice({ ...base, amount: 2995, gstCents: 0 })).toMatchObject({ title: "Receipt", gstCents: 0, note: "No GST has been charged." });
+  });
+  it("a refund takes back the GST the payment had, and none when it had none", () => {
+    expect(refundGst({ amount: 2995, gstCents: 272 }, 0, 2995)).toBe(272);
+    expect(refundGst({ amount: 2995, gstCents: 0 }, 0, 2995)).toBe(0);
+  });
+});
+
 describe("failed-payment grace period (config: 7 days)", () => {
   const now = new Date("2026-10-10T00:00:00Z");
   it("lets a member in for 7 days after a failed payment", () => {

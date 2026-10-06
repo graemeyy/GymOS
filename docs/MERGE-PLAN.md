@@ -36,7 +36,7 @@ What I could check, from the repository (I have no access to the database or to 
 
 What I can't check: production's `_prisma_migrations` table itself. Two things there would stop `migrate deploy`, and only a look at the table or the build log shows them:
 - **A failed migration** (a row with `finished_at` empty and `rolled_back_at` empty), for example if a preview build's migration was interrupted. `migrate deploy` then refuses with error P3009.
-- **A schema made with `prisma db push`** rather than migrations, without history for the 2025 migrations (R-68). The baseline fallback in `scripts/deploy-migrations.js` only marks the first one as applied, and the next would fail with "relation already exists".
+- **A schema made with `prisma db push`** rather than migrations, without history for the 2025 migrations (R-68). `scripts/deploy-migrations.js` used to mark only the first one as applied and carry on, so the next would fail with "relation already exists". It now stops with error P3005 and points to section 7 instead of guessing (D-120).
 
 **So I'm confident in the files and the data, not in the recorded history.** If the first production build after a merge fails at `migrate deploy`, use 0.3. Since the data is demo, that's the quickest safe fix; don't try to repair the history by hand.
 
@@ -279,3 +279,29 @@ The guard stops preview builds migrating production, but preview deployments sti
    - Keep Vercel's Deployment Protection on for previews.
 
 Whichever you choose, also give Preview its own `SESSION_SECRET`, Stripe **test** keys (never live) and no `RESEND_API_KEY`, so previews can't sign people into production sessions, take payments or email members.
+
+## 7. New environments, and baselining an existing database
+
+Every database gets its schema from `prisma migrate deploy` and nothing else (D-120). Nothing in the scripts or docs uses `prisma db push`. CI proves it on every pull request: `npm run check:fresh-db` applies every migration to an empty database, seeds it, and checks that `prisma migrate status` reports it up to date and that it matches `schema.prisma` exactly.
+
+### 7.1 A new environment (staging, a new preview database, a second gym)
+
+1. Create an **empty** Postgres database and put its connection string in the environment's `DATABASE_URL` (in Vercel, or in your shell; never in the repository).
+2. Apply the migrations: deploy, or run `npx prisma migrate deploy` from a trusted machine.
+3. Optional demo data: `npm run db:seed` (refuses `NODE_ENV=production`, and only fills an empty database). Or leave it empty and create the owner at `/admin/setup` with `SETUP_TOKEN`.
+4. Check: `npx prisma migrate status` lists every migration and says "Database schema is up to date!".
+
+### 7.2 Baselining an existing database that has tables but no migration history
+
+This is the P3005 case: a database made with `db push`, or restored from a dump without `_prisma_migrations`. The deploy stops rather than guessing. In order of preference:
+
+1. **If the data doesn't matter (demo, staging): reset it.** Use 0.3. It's the only option that's certain.
+2. **If the data matters: baseline it, carefully.**
+   1. Take a backup: `pg_dump --format=custom --no-owner --file=before-baseline.dump "$DATABASE_URL"`.
+   2. Find which migrations the database already matches. For N = 1, 2, 3 and so on, copy the first N migration folders (and `migration_lock.toml`) into a scratch folder and compare: `npx prisma migrate diff --from-url "$DATABASE_URL" --to-migrations ./scratch-migrations --shadow-database-url "$SHADOW_URL" --exit-code`, where `$SHADOW_URL` is an empty throwaway database whose name contains `test`. The command only reads `$DATABASE_URL`. Exit code 0 means the database is exactly the first N migrations; that N is the baseline point. If no N gives 0, the database has drifted: reset it (option 1) or fix the drift by hand first.
+   3. Mark each migration up to and including that point as applied, oldest first, without running it: `DATABASE_URL="$DATABASE_URL" npx prisma migrate resolve --applied <migration_name>`.
+   4. Apply the rest: `npx prisma migrate deploy`.
+   5. Check: `npx prisma migrate status` is up to date, and `npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code` exits 0. If it doesn't, restore the backup and reset instead.
+
+   Never mark a migration as applied unless every change it makes is already in the database: Prisma won't run it again, so anything missing stays missing.
+

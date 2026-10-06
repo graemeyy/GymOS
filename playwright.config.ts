@@ -2,6 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 export const E2E_DATABASE_URL = process.env.E2E_DATABASE_URL ?? "postgresql://gymos:gymos@localhost:5432/gymos_e2e_test";
+// Throwaway, for the test server only. Tests use it to sign links the way an
+// email would carry them (unsubscribe, D-118).
+export const E2E_SESSION_SECRET = "e2e-session-secret-not-for-production-0123456789";
 
 // Runs against a production build (`npm run build` first) on a seeded,
 // throwaway database. Chromium comes from the environment if provided.
@@ -29,7 +32,7 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       DATABASE_URL: E2E_DATABASE_URL,
-      SESSION_SECRET: "e2e-session-secret-not-for-production-0123456789",
+      SESSION_SECRET: E2E_SESSION_SECRET,
       NEXT_PUBLIC_APP_URL: `http://localhost:${PORT}`,
       CRON_SECRET: "e2e-cron-secret-0123456789",
       STRIPE_SECRET_KEY: "",

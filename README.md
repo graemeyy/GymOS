@@ -77,9 +77,10 @@ npm test              # Vitest: unit tests and integration tests against Postgre
 npm run build         # production build (doesn't touch any database)
 npm run test:e2e      # Playwright + axe, against the production build
 npm run check:config  # validate config/gym.config.json
-npm run check:setup   # is this copy fully set up for a gym? Reports what's missing, never values
-npm run check:rollback               # every down.sql rolls back cleanly (needs ROLLBACK_DATABASE_URL)
-npm run check:locations-migration    # existing data moves to the main location (same database)
+npm run check:setup                  # is this copy fully set up for a gym? Reports what's missing, never values
+npm run check:rollback               # every down.sql rolls back cleanly (needs ROLLBACK_DATABASE_URL, a test database)
+npm run check:fresh-db               # a new database builds from migrations alone, seeds and is up to date (needs FRESH_DATABASE_URL, a test database)
+npm run check:locations-migration    # existing data moves to the main location (uses ROLLBACK_DATABASE_URL)
 ```
 
 Integration tests need a Postgres database whose name contains `test` (default `postgresql://gymos:gymos@localhost:5432/gymos_test`, override with `TEST_DATABASE_URL`). They reset it on every run. End-to-end tests use `gymos_e2e_test` (override with `E2E_DATABASE_URL`) and need `npm run build` first. If Chromium is already installed elsewhere, set `PLAYWRIGHT_CHROMIUM_PATH`.

@@ -1,5 +1,4 @@
 import type { Db } from "@/lib/db";
-import { gym } from "@/lib/config";
 import { ApiError } from "@/lib/http/errors";
 import { formatAud } from "@/lib/money";
 import { getStripe } from "./stripe";
@@ -23,8 +22,10 @@ export interface RefundInput {
 // GST on a partial refund is the payment's GST in proportion to what has been
 // refunded so far, minus what earlier refunds already took. Working it out
 // cumulatively means the parts always add up to the payment's GST (R-17).
+// It follows the GST recorded on the payment, whatever the gym's registration
+// is today (R-73, D-121).
 export function refundGst(payment: { amount: number; gstCents: number }, alreadyRefundedCents: number, refundCents: number): number {
-  if (payment.amount <= 0 || !gym.business.gstRegistered) return 0;
+  if (payment.amount <= 0 || payment.gstCents <= 0) return 0;
   const share = (refundedCents: number) => Math.round((payment.gstCents * refundedCents) / payment.amount);
   return share(alreadyRefundedCents + refundCents) - share(alreadyRefundedCents);
 }

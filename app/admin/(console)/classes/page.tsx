@@ -29,7 +29,7 @@ export default function ClassesPage() {
   const from = new Date(Math.floor((Date.now() - DAY_MS + weekOffset * WEEK) / HOUR_MS) * HOUR_MS);
   const to = new Date(from.getTime() + WEEK + 24 * 60 * 60 * 1000);
   const classes = useResource<ClassRow[]>(me && filter.ready ? `/api/classes?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}${mine ? "&mine=1" : ""}${filter.param()}` : null);
-  const members = useResource<{ items: Person[] }>(can("bookings.manage") ? "/api/members?status=ACTIVE&take=500" : null);
+  const members = useResource<{ items: Person[] }>(can("bookings.manage") ? "/api/members?status=ACTIVE&take=500&sort=name" : null);
   const staffList = useResource<{ id: string; name: string; roleName: string }[]>(can("classes.manage") ? "/api/staff/directory" : null);
   const [newOpen, setNewOpen] = useState(false);
 

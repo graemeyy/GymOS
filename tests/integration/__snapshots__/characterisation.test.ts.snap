@@ -442,7 +442,9 @@ exports[`GET response shapes (characterisation) > member me/orders/[id] 1`] = `
 exports[`GET response shapes (characterisation) > member me/pass 1`] = `
 {
   "body": {
+    "expiresAt": "date",
     "name": "string",
+    "refreshSeconds": "number",
     "status": "string",
     "svgDataUrl": "string",
     "token": "string",
