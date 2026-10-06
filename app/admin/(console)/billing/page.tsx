@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { api, useMutation, useResource } from "@/lib/client/api";
+import { useLocationFilter } from "@/components/admin/location-filter";
 import { useDebounced } from "@/lib/client/use-debounced";
 import { formatAud } from "@/lib/money";
 import { gym } from "@/lib/config/client";
@@ -24,6 +25,7 @@ interface Payment {
   description: string | null;
   invoiceNumber: number;
   paidAt: string;
+  location: { id: string; name: string } | null;
   member: { id: string; name: string | null; email: string };
 }
 interface Overdue {
@@ -126,7 +128,8 @@ export default function PaymentsPage() {
   const params = new URLSearchParams({ take: "200" });
   if (debounced) params.set("q", debounced);
   if (kind) params.set("kind", kind);
-  const payments = useResource<Payment[]>(`/api/payments?${params.toString()}`);
+  const filter = useLocationFilter();
+  const payments = useResource<Payment[]>(filter.ready ? `/api/payments?${params.toString()}${filter.param()}` : null);
 
   return (
     <>
@@ -172,6 +175,7 @@ export default function PaymentsPage() {
                     ),
                   },
                   { header: "Date", cell: (p) => <span className="tabular">{fmtDate(p.paidAt)}</span> },
+                  ...(filter.multiple && !filter.selected ? [{ header: "Location", cell: (p: Payment) => p.location?.name ?? "" }] : []),
                   { header: "Amount", align: "right", cell: (p) => <span className="tabular font-medium">{money(p, p.amount)}</span> },
                   { header: "GST", align: "right", cell: (p) => <span className="tabular text-ink-soft">{money(p, p.gstCents)}</span> },
                   { header: "Status", cell: statusTag },

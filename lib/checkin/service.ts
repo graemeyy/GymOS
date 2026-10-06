@@ -4,13 +4,18 @@ import { logAction, type Actor } from "@/lib/audit";
 import type { StaffActor } from "@/lib/auth/session";
 import { withinGracePeriod } from "@/lib/billing/reminders";
 import { readPassToken } from "./qr";
+import { MAIN_LOCATION_ID } from "@/lib/locations/constants";
+import { defaultLocationFor } from "@/lib/locations/scope";
+import { assertOpenLocation, memberMayUseLocation } from "@/lib/locations/members";
+import { findLocationByCode } from "@/lib/locations/queries";
 
 export type CheckInDecision = { granted: true; warning: string | null } | { granted: false; reason: string };
 
 export async function accessDecision(
   db: Db,
-  member: { status: string; keycardIssued: boolean; archivedAt: Date | null; pastDueSince?: Date | null },
-  now = new Date()
+  member: { id?: string; status: string; keycardIssued: boolean; archivedAt: Date | null; pastDueSince?: Date | null },
+  now = new Date(),
+  locationId?: string
 ): Promise<CheckInDecision> {
   if (member.archivedAt) return { granted: false, reason: "Membership archived" };
   // Allow-list rather than deny-list, so a status added later (like PENDING)
@@ -24,6 +29,8 @@ export async function accessDecision(
     if (!withinGracePeriod(member.pastDueSince ?? null, now)) return { granted: false, reason: "Payment overdue" };
     warning = "Payment overdue. Ask them to update their card.";
   }
+  // The plan must cover this location (D-126).
+  if (locationId && member.id && !(await memberMayUseLocation(db, member.id, locationId))) return { granted: false, reason: "Membership doesn't include this location" };
   const settings = await db.gymSettings.findUnique({ where: { id: "singleton" } });
   if (settings?.requireKeycardForEntry && !member.keycardIssued) return { granted: false, reason: "No keycard issued" };
   return { granted: true, warning };
@@ -31,7 +38,7 @@ export async function accessDecision(
 
 // Records a check-in only when entry is granted. A refused scan is logged in
 // the audit trail but doesn't count as a visit.
-export async function checkInMember(db: Db, actor: Actor, memberId: string, location: string, method: "MANUAL" | "QR" | "GATEWAY" = "MANUAL") {
+export async function checkInMember(db: Db, actor: Actor, memberId: string, location: string, method: "MANUAL" | "QR" | "GATEWAY" = "MANUAL", locationId: string = MAIN_LOCATION_ID) {
   const member = await db.member.findUnique({
     where: { id: memberId },
     select: {
@@ -47,17 +54,17 @@ export async function checkInMember(db: Db, actor: Actor, memberId: string, loca
     },
   });
   if (!member) throw new ApiError("not_found", "No member matches that.");
-  const decision = await accessDecision(db, member);
+  const decision = await accessDecision(db, member, new Date(), locationId);
   await db.$transaction(async (tx) => {
     if (decision.granted) {
-      await tx.checkIn.create({ data: { memberId: member.id, location, method } });
+      await tx.checkIn.create({ data: { memberId: member.id, location, method, locationId } });
       await tx.member.update({ where: { id: member.id }, data: { lastCheckIn: new Date() } });
     }
     await logAction(tx, actor, {
       action: decision.granted ? "member.checked_in" : "member.check_in_refused",
       targetType: "Member",
       targetId: member.id,
-      details: { location, method, ...(decision.granted ? {} : { reason: decision.reason }) },
+      details: { location, locationId, method, ...(decision.granted ? {} : { reason: decision.reason }) },
     });
   });
   return { member, decision };
@@ -66,7 +73,11 @@ export async function checkInMember(db: Db, actor: Actor, memberId: string, loca
 // The front desk scans a QR pass or types a member ID or email. A pass that
 // has been reissued since it was shown is refused, so a shared screenshot
 // stops working.
-export async function checkInByQuery(db: Db, staff: StaffActor, query: string) {
+export async function checkInByQuery(db: Db, staff: StaffActor, query: string, requestedLocation?: string) {
+  // The desk's location must be one the staff member's role covers (D-128).
+  const locationId = defaultLocationFor(staff, requestedLocation);
+  const desk = await assertOpenLocation(db, locationId);
+  if (!desk) throw new ApiError("validation_failed", "Choose an open location for this desk.", { locationId: "Not found or archived" });
   let memberId: string | null = null;
   let method: "MANUAL" | "QR" = "MANUAL";
   if (query.startsWith("GYM1.")) {
@@ -82,7 +93,7 @@ export async function checkInByQuery(db: Db, staff: StaffActor, query: string) {
     if (!found) throw new ApiError("not_found", "No member matches that ID or email.");
     memberId = found.id;
   }
-  return { ...(await checkInMember(db, staff, memberId, "Front desk", method)), method };
+  return { ...(await checkInMember(db, staff, memberId, `Front desk, ${desk.name}`, method, desk.id)), method };
 }
 
 // A door gateway only knows the card's member ID. Returns null for a card
@@ -90,5 +101,9 @@ export async function checkInByQuery(db: Db, staff: StaffActor, query: string) {
 export async function checkInAtGateway(db: Db, memberId: string, location: string) {
   const exists = await db.member.findUnique({ where: { id: memberId }, select: { id: true } });
   if (!exists) return null;
-  return checkInMember(db, { kind: "system", name: `Gateway ${location}` }, exists.id, location, "GATEWAY");
+  // The gateway names its location by code (D-125). An unknown code is
+  // treated as the main location, so a misconfigured door still applies the
+  // plan's rules rather than letting everyone in.
+  const site = await findLocationByCode(db, location);
+  return checkInMember(db, { kind: "system", name: `Gateway ${location}` }, exists.id, location, "GATEWAY", site?.id ?? MAIN_LOCATION_ID);
 }

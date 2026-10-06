@@ -10,6 +10,7 @@ export const memberListSelect = {
   status: true,
   planId: true,
   membershipPlan: { select: { id: true, name: true, slug: true } },
+  homeLocation: { select: { id: true, name: true } },
   lastCheckIn: true,
   retentionScore: true,
   referredById: true,
@@ -23,6 +24,7 @@ export async function listMembers(db: Db, query: MemberListInput, opts: { search
   const where: Prisma.MemberWhereInput = {
     ...(query.status ? { status: query.status } : {}),
     ...(query.planId ? { planId: query.planId } : {}),
+    ...(query.locationId ? { homeLocationId: query.locationId } : {}),
     ...(query.archived === "exclude" ? { archivedAt: null } : query.archived === "only" ? { archivedAt: { not: null } } : {}),
     ...(query.q
       ? opts.searchEmail === false
@@ -57,7 +59,8 @@ export function getMemberDetail(db: Db, memberId: string, opts: { showPayments: 
       email: true,
       status: true,
       planId: true,
-      membershipPlan: { select: { id: true, name: true, priceCents: true, interval: true } },
+      membershipPlan: { select: { id: true, name: true, priceCents: true, interval: true, locationAccess: true } },
+      homeLocation: { select: { id: true, name: true } },
       pendingPlan: { select: { id: true, name: true } },
       currentPeriodStart: true,
       currentPeriodEnd: true,
@@ -76,7 +79,7 @@ export function getMemberDetail(db: Db, memberId: string, opts: { showPayments: 
       notes: true,
       archivedAt: true,
       createdAt: true,
-      checkIns: { orderBy: { timestamp: "desc" }, take: 20, select: { id: true, location: true, timestamp: true } },
+      checkIns: { orderBy: { timestamp: "desc" }, take: 20, select: { id: true, location: true, timestamp: true, site: { select: { id: true, name: true } } } },
       payments: opts.showPayments
         ? {
             orderBy: { paidAt: "desc" },
@@ -113,6 +116,7 @@ export function getMemberProfile(db: Db, memberId: string) {
       name: true,
       email: true,
       status: true,
+      homeLocation: { select: { id: true, name: true } },
       createdAt: true,
       onboardedAt: true,
       stripeCustomerId: true,

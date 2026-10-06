@@ -13,6 +13,8 @@ import { useToast } from "@/components/ui/feedback";
 import { useStaff } from "@/components/admin/staff-session";
 import { addCalendarDays, localDateIn } from "@/lib/dates";
 import type { MemberDetail, PlanOptionFull } from "./types";
+import { useLocationFilter } from "@/components/admin/location-filter";
+import { LOCATION_ACCESS_TEXT } from "@/lib/locations/constants";
 
 const todayIso = () => localDateIn(gym.business.timezone);
 const plusDaysIso = (days: number) => addCalendarDays(todayIso(), days);
@@ -50,12 +52,17 @@ export function MembershipPanel({ member, plans, onChanged }: { member: MemberDe
 
   const run = (fn: () => Promise<unknown>, success: string) => void change.run(fn, success);
 
+  const filter = useLocationFilter();
   const status = member.status;
   const rows: [string, React.ReactNode][] = [
     ["Status", <StatusTag key="s" tone={STATUS_TONE[status]}>{STATUS_TEXT[status]}</StatusTag>],
     ["Plan", member.membershipPlan ? `${member.membershipPlan.name}, ${formatPlanPrice(member.membershipPlan.priceCents, member.membershipPlan.interval)}` : "None"],
     ["Next billing date", member.nextBillingDate ? fmtDate(member.nextBillingDate) : "None"],
   ];
+  // Only worth a row when there's more than one location (D-126).
+  if (filter.multiple && member.homeLocation) {
+    rows.push(["Home location", `${member.homeLocation.name}${member.membershipPlan ? `. ${LOCATION_ACCESS_TEXT[member.membershipPlan.locationAccess]} on this plan.` : ""}`]);
+  }
   if (member.pendingPlan) rows.push(["Changing to", `${member.pendingPlan.name} from the next billing date`]);
   if (member.pausedUntil) rows.push(["Paused", `${member.pausedFrom ? fmtDate(member.pausedFrom) : "Now"} to ${fmtDate(member.pausedUntil)}`]);
   if (member.cancelAt) rows.push(["Cancelling", `Takes effect ${fmtDate(member.cancelAt)}${member.cancelReason ? `. Reason: ${member.cancelReason}` : ""}`]);

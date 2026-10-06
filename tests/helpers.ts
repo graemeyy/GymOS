@@ -5,6 +5,7 @@ import { createSessionToken, SESSION_COOKIE } from "@/lib/auth/token";
 import { hashPassword } from "@/lib/auth/password";
 import { presetRoleId, resetDatabase } from "@/prisma/seed-data";
 import { syncPlansFromConfig } from "@/lib/plans/service";
+import { MAIN_LOCATION_ID } from "@/lib/locations/constants";
 
 export { prisma };
 
@@ -107,4 +108,21 @@ export async function call(handler: Handler, request: Request, params: Record<st
 export async function createStaffWith(permissions: Permission[], name = `Custom ${unique()}`) {
   const role = await prisma.role.create({ data: { name, permissions } });
   return createStaff({ roleId: role.id });
+}
+
+// Stock is counted per location (D-127). Tests that create variants directly
+// with Prisma call stockFromQty() to give each one its stockQty at the main
+// location, then read and set stock with these.
+export async function stockFromQty() {
+  for (const v of await prisma.productVariant.findMany({ select: { id: true, stockQty: true } })) {
+    await prisma.variantStock.upsert({ where: { variantId_locationId: { variantId: v.id, locationId: MAIN_LOCATION_ID } }, create: { variantId: v.id, locationId: MAIN_LOCATION_ID, quantity: v.stockQty }, update: {} });
+  }
+}
+
+export async function stockOf(variantId: string, locationId = MAIN_LOCATION_ID) {
+  return (await prisma.variantStock.findUnique({ where: { variantId_locationId: { variantId, locationId } } }))?.quantity ?? 0;
+}
+
+export async function setStock(variantId: string, quantity: number, locationId = MAIN_LOCATION_ID) {
+  await prisma.variantStock.upsert({ where: { variantId_locationId: { variantId, locationId } }, create: { variantId, locationId, quantity }, update: { quantity } });
 }

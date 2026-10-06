@@ -12,6 +12,7 @@ import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
 import { DataList } from "@/components/ui/data-list";
+import { LocationField, useLocationFilter } from "@/components/admin/location-filter";
 
 interface Shift {
   id: string;
@@ -19,6 +20,7 @@ interface Shift {
   endTime: string;
   notes: string | null;
   staff: { id: string; name: string; role: string };
+  location: { id: string; name: string } | null;
 }
 interface StaffRow {
   id: string;
@@ -28,10 +30,11 @@ interface StaffRow {
 export default function ShiftsPage() {
   const { can } = useStaff();
   const toast = useToast();
-  const shifts = useResource<Shift[]>("/api/shifts");
+  const filter = useLocationFilter();
+  const shifts = useResource<Shift[]>(filter.ready ? `/api/shifts${filter.param("?")}` : null);
   const staff = useResource<StaffRow[]>(can("classes.manage") ? "/api/staff/directory" : null);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ staffId: "", date: "", start: "06:00", end: "14:00", notes: "" });
+  const [form, setForm] = useState({ staffId: "", locationId: "", date: "", start: "06:00", end: "14:00", notes: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   // Removing a shift asks first and is sent once (R-57).
@@ -72,7 +75,8 @@ export default function ShiftsPage() {
     // Overnight shift: the finish time on the next calendar day, not 24 hours
     // later, which is an hour out when daylight saving changes (R-109).
     if (endTime <= startTime) endTime = zonedTimeToUtc(addCalendarDays(form.date, 1), form.end, tz);
-    void add.run({ staffId: form.staffId, startTime: startTime.toISOString(), endTime: endTime.toISOString(), notes: form.notes || null });
+    const locationId = form.locationId || filter.current;
+    void add.run({ staffId: form.staffId, ...(locationId ? { locationId } : {}), startTime: startTime.toISOString(), endTime: endTime.toISOString(), notes: form.notes || null });
   };
 
   return (
@@ -103,6 +107,7 @@ export default function ShiftsPage() {
                 columns={[
                   { header: "Staff", primary: true, cell: (s) => <span className="font-medium">{s.staff.name}</span> },
                   { header: "Role", cell: (s) => s.staff.role },
+                  ...(filter.multiple ? [{ header: "Location", cell: (s: Shift) => s.location?.name ?? "" }] : []),
                   { header: "When", cell: (s) => <span className="tabular">{fmtDateTime(s.startTime)} to {fmtTime(s.endTime)}</span> },
                   { header: "Notes", cell: (s) => s.notes ?? <span className="text-ink-soft">None</span> },
                 ]}
@@ -144,6 +149,7 @@ export default function ShiftsPage() {
               </option>
             ))}
           </SelectField>
+          <LocationField value={form.locationId || (filter.current ?? "")} error={errors.locationId} onChange={(locationId) => setForm({ ...form, locationId })} />
           <TextField label="Date" type="date" required value={form.date} error={errors.startTime} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
             <TextField label="Start" type="time" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />

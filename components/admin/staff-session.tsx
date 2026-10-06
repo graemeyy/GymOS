@@ -13,6 +13,8 @@ export interface StaffMe {
   isOwner: boolean;
   permissions: Permission[];
   mustChangePassword?: boolean;
+  // The locations their role applies at, or null for all (D-128).
+  locationIds?: string[] | null;
 }
 
 interface Ctx {

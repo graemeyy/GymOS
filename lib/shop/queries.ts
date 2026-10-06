@@ -2,8 +2,11 @@ import { prisma, type Db, type Tx } from "@/lib/db";
 import { gym } from "@/lib/config";
 import { variantLabel } from "./labels";
 import type { Catalogue } from "./catalogue";
+import type { Prisma } from "@prisma/client";
 import type { OrderListFilter, ProductListFilter } from "./schema";
 import { LOW_STOCK_AT, MAX_PER_ITEM } from "./limits";
+import { MAIN_LOCATION_ID } from "@/lib/locations/constants";
+import { listLocations } from "@/lib/locations/queries";
 
 // The discount the member gets right now: their plan's shop discount while
 // their membership is active. Signed-up members without a plan, and paused,
@@ -16,7 +19,20 @@ export async function memberShopDiscount(db: Db | Tx, memberId: string): Promise
 // The public catalogue. Exact stock counts stay private; customers see
 // whether something is available or nearly gone. A signed-in member's
 // discount is included so pages can show the price they'll pay.
-export async function getCatalogue(memberId: string | null, where: { slug?: string } = {}, db: Db = prisma): Promise<Catalogue> {
+// Where a shopper's order comes from: the location asked for if it's open,
+// else their home location, else the main location.
+export async function shopLocation(db: Db | Tx, memberId: string | null, requested?: string | null): Promise<string> {
+  if (requested && (await db.location.count({ where: { id: requested, archivedAt: null } }))) return requested;
+  if (memberId) {
+    const member = await db.member.findUnique({ where: { id: memberId }, select: { homeLocation: { select: { id: true, archivedAt: true } } } });
+    if (member && !member.homeLocation.archivedAt) return member.homeLocation.id;
+  }
+  return MAIN_LOCATION_ID;
+}
+
+export async function getCatalogue(memberId: string | null, where: { slug?: string } = {}, db: Db = prisma, requestedLocation?: string | null): Promise<Catalogue> {
+  const locationId = await shopLocation(db, memberId, requestedLocation);
+  const locations = (await listLocations(db)).map((l) => ({ id: l.id, name: l.name, address: [l.addressLine1, l.suburb].filter(Boolean).join(", ") }));
   const products = await db.product.findMany({
     where: { active: true, variants: { some: { active: true } }, ...where },
     orderBy: [{ category: "asc" }, { name: "asc" }],
@@ -27,24 +43,22 @@ export async function getCatalogue(memberId: string | null, where: { slug?: stri
       description: true,
       category: true,
       imageUrl: true,
-      variants: { where: { active: true }, orderBy: { priceCents: "asc" }, select: { id: true, size: true, colour: true, flavour: true, priceCents: true, stockQty: true } },
+      variants: { where: { active: true }, orderBy: { priceCents: "asc" }, select: { id: true, size: true, colour: true, flavour: true, priceCents: true, stock: { where: { locationId }, select: { quantity: true } } } },
     },
   });
   return {
+    location: locations.find((l) => l.id === locationId) ?? { id: locationId, name: "", address: "" },
+    locations,
     discountPercent: memberId ? await memberShopDiscount(db, memberId) : 0,
     signedIn: Boolean(memberId),
     shipping: { pickupOnly: gym.policies.shop.pickupOnly, flatCents: gym.policies.shop.flatShippingCents, freeOverCents: gym.policies.shop.freeShippingOverCents },
     changeOfMindReturnsDays: gym.policies.shop.changeOfMindReturnsDays,
     products: products.map((p) => ({
       ...p,
-      variants: p.variants.map((v) => ({
-        id: v.id,
-        label: variantLabel(v),
-        priceCents: v.priceCents,
-        available: v.stockQty > 0,
-        lowStock: v.stockQty > 0 && v.stockQty <= LOW_STOCK_AT,
-        maxQuantity: Math.min(v.stockQty, MAX_PER_ITEM),
-      })),
+      variants: p.variants.map((v) => {
+        const units = v.stock[0]?.quantity ?? 0;
+        return { id: v.id, label: variantLabel(v), priceCents: v.priceCents, available: units > 0, lowStock: units > 0 && units <= LOW_STOCK_AT, maxQuantity: Math.min(units, MAX_PER_ITEM) };
+      }),
     })),
   };
 }
@@ -66,9 +80,9 @@ export function getProduct(db: Db, id: string) {
   return db.product.findUnique({ where: { id }, include: { variants: { orderBy: [{ size: "asc" }, { colour: "asc" }] } } });
 }
 
-export function listOrders(db: Db, filter: OrderListFilter) {
+export function listOrders(db: Db, filter: OrderListFilter, where: Prisma.OrderWhereInput = {}) {
   return db.order.findMany({
-    where: filter.status ? { status: filter.status } : filter.open === "1" ? { status: { in: ["PAID", "PACKED", "READY_FOR_PICKUP"] } } : {},
+    where: { ...(filter.status ? { status: filter.status } : filter.open === "1" ? { status: { in: ["PAID", "PACKED", "READY_FOR_PICKUP"] } } : {}), ...where },
     orderBy: { createdAt: "desc" },
     take: filter.take,
     select: {
@@ -81,6 +95,7 @@ export function listOrders(db: Db, filter: OrderListFilter) {
       totalCents: true,
       createdAt: true,
       paidAt: true,
+      location: { select: { id: true, name: true } },
       _count: { select: { items: true } },
     },
   });
@@ -90,6 +105,7 @@ export function getOrder(db: Db, id: string) {
   return db.order.findUnique({
     where: { id },
     include: {
+      location: { select: { id: true, name: true } },
       items: true,
       events: { orderBy: { createdAt: "asc" } },
       payment: { select: { id: true, amount: true, refundedCents: true, invoiceNumber: true } },
@@ -126,6 +142,7 @@ export function getOrderForMember(db: Db, memberId: string, id: string) {
       gstCents: true,
       shippingAddress: true,
       trackingNumber: true,
+      locationId: true,
       createdAt: true,
       paidAt: true,
       items: { select: { id: true, productName: true, variantLabel: true, quantity: true, unitPriceCents: true, lineTotalCents: true } },

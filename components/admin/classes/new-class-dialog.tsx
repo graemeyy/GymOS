@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/feedback";
 import { Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
+import { LocationField, useDefaultLocation } from "@/components/admin/location-filter";
 
 export function NewClassDialog({ open, onClose, onSaved, trainers }: { open: boolean; onClose: () => void; onSaved: () => void; trainers: { id: string; name: string }[] }) {
   const toast = useToast();
-  const [form, setForm] = useState({ name: "", trainerId: "", date: "", time: "06:00", durationMinutes: "45", capacity: "16" });
+  const defaultLocation = useDefaultLocation();
+  const [form, setForm] = useState({ name: "", trainerId: "", locationId: "", date: "", time: "06:00", durationMinutes: "45", capacity: "16" });
   const [dateError, setDateError] = useState<string | null>(null);
   const create = useMutation(
     () =>
@@ -22,6 +24,7 @@ export function NewClassDialog({ open, onClose, onSaved, trainers }: { open: boo
           startTime: zonedTimeToUtc(form.date, form.time, gym.business.timezone).toISOString(),
           durationMinutes: Number(form.durationMinutes),
           capacity: Number(form.capacity),
+          ...((form.locationId || defaultLocation) ? { locationId: form.locationId || defaultLocation } : {}),
         },
       }),
     {
@@ -69,6 +72,7 @@ export function NewClassDialog({ open, onClose, onSaved, trainers }: { open: boo
             </option>
           ))}
         </SelectField>
+        <LocationField value={form.locationId || defaultLocation} error={errors.locationId} onChange={(locationId) => setForm({ ...form, locationId })} />
         <div className="grid grid-cols-2 gap-4">
           <TextField label="Date" type="date" required value={form.date} error={errors.startTime} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           <TextField label="Start time" type="time" required value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />

@@ -9,6 +9,8 @@ export const RangeQuery = z.object({
   period: z.string().max(40).optional(),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  // One location, or every location the person can see (D-129).
+  locationId: z.string().min(1).max(40).optional(),
 });
 
 // A named period ("this-quarter") or explicit dates. `to` is inclusive of the

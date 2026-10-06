@@ -11,6 +11,7 @@ export interface ClassRow {
   startTime: string;
   durationMinutes: number;
   capacity: number;
+  location: { id: string; name: string } | null;
   bookings: { id: string; memberId: string; status: "BOOKED" | "ATTENDED" | "NO_SHOW"; member: Person }[];
   waitlist: { id: string; memberId: string; member: Person }[];
 }

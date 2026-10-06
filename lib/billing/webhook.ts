@@ -127,7 +127,7 @@ async function handleSubscriptionChange(ctx: EventContext, sub: Stripe.Subscript
 async function memberForInvoice(tx: Tx, invoice: Stripe.Invoice) {
   const subscriptionId = idOf(invoice.subscription);
   const customerId = idOf(invoice.customer);
-  const select = { id: true, status: true, lastFailedInvoiceId: true, currentPeriodEnd: true, stripeEventAt: true, membershipStartedAt: true, membershipPlan: { select: { name: true } } } as const;
+  const select = { id: true, status: true, lastFailedInvoiceId: true, currentPeriodEnd: true, stripeEventAt: true, membershipStartedAt: true, homeLocationId: true, membershipPlan: { select: { name: true } } } as const;
   const linked = await tx.member.findFirst({
     where: { OR: [...(subscriptionId ? [{ stripeSubscriptionId: subscriptionId }] : []), ...(customerId ? [{ stripeCustomerId: customerId }] : [])] },
     select,
@@ -160,6 +160,8 @@ async function handleInvoicePaid(ctx: EventContext, invoice: Stripe.Invoice) {
       status: "succeeded",
       stripeInvoiceId: invoice.id,
       stripePaymentIntentId: idOf(invoice.payment_intent),
+      // Reported under the member's home location (D-129).
+      locationId: member.homeLocationId,
       description: line?.description ?? "Membership",
       planName: member.membershipPlan?.name ?? null,
       kind: "MEMBERSHIP",

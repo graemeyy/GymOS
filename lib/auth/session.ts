@@ -24,6 +24,8 @@ export interface StaffActor extends Access {
   roleName: string;
   // Must choose a new password before anything else works (D-111).
   mustChangePassword: boolean;
+  // The locations their role applies at, or null for every location (D-128).
+  locationIds: string[] | null;
 }
 
 export interface MemberActor {
@@ -54,12 +56,23 @@ export async function resolveStaff(request: Request, db: Db = prisma): Promise<S
 export async function loadStaffActor(db: Db, id: string, sessionVersion?: number): Promise<StaffActor | null> {
   const staff = await db.staff.findUnique({
     where: { id },
-    select: { id: true, name: true, sessionVersion: true, deactivatedAt: true, mustChangePassword: true, assignedRole: { select: { id: true, name: true, isOwner: true, permissions: true } } },
+    select: {
+      id: true,
+      name: true,
+      sessionVersion: true,
+      deactivatedAt: true,
+      mustChangePassword: true,
+      assignedRole: { select: { id: true, name: true, isOwner: true, permissions: true } },
+      locations: { select: { locationId: true } },
+    },
   });
   if (!staff || staff.deactivatedAt || !staff.assignedRole) return null;
   if (sessionVersion !== undefined && staff.sessionVersion !== sessionVersion) return null;
   const role = staff.assignedRole;
-  return { kind: "staff", id: staff.id, name: staff.name, roleId: role.id, roleName: role.name, isOwner: role.isOwner, permissions: effectivePermissions(role), mustChangePassword: staff.mustChangePassword };
+  // Owners always cover every location; for everyone else, no rows means
+  // every location.
+  const locationIds = role.isOwner || staff.locations.length === 0 ? null : staff.locations.map((l) => l.locationId);
+  return { kind: "staff", id: staff.id, name: staff.name, roleId: role.id, roleName: role.name, isOwner: role.isOwner, permissions: effectivePermissions(role), mustChangePassword: staff.mustChangePassword, locationIds };
 }
 
 export async function resolveMember(request: Request, db: Db = prisma): Promise<MemberActor | null> {

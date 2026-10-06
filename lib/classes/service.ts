@@ -9,6 +9,8 @@ import { sendEmail, signature } from "@/lib/email";
 import { generateClasses } from "./timetable";
 import type { AttendanceInput, ClassInput, TemplateInput } from "./schema";
 import { assertCanMarkAttendance } from "@/lib/auth/access";
+import { assertLocation, type LocationScope } from "@/lib/locations/scope";
+import { assertOpenLocation, memberMayUseLocation } from "@/lib/locations/members";
 
 interface LockedClass {
   id: string;
@@ -17,6 +19,7 @@ interface LockedClass {
   startTime: Date;
   durationMinutes: number;
   cancelledAt: Date | null;
+  locationId: string;
 }
 
 // Locks the class row for the rest of the transaction. Every booking path
@@ -24,7 +27,7 @@ interface LockedClass {
 // other instead of both seeing a free place.
 async function lockClass(tx: Tx, classId: string): Promise<LockedClass> {
   const rows = await tx.$queryRaw<LockedClass[]>`
-    SELECT "id", "name", "capacity", "startTime", "durationMinutes", "cancelledAt" FROM "Class" WHERE "id" = ${classId} FOR UPDATE`;
+    SELECT "id", "name", "capacity", "startTime", "durationMinutes", "cancelledAt", "locationId" FROM "Class" WHERE "id" = ${classId} FOR UPDATE`;
   const cls = rows[0];
   if (!cls) throw new ApiError("not_found", "Class not found.");
   return cls;
@@ -41,7 +44,9 @@ function assertBookingOpen(cls: LockedClass) {
 // Who can be booked in. Members book themselves only while active. Staff
 // can't book a member whose membership has ended or not started, except as
 // a casual (paid-on-the-day) visit (R-86).
-async function assertBookableMember(tx: Tx, actor: Actor, memberId: string, opts: { casual?: boolean } = {}) {
+// The class's location must be one the member's plan covers (D-126); staff
+// can still book anyone in as a casual visit.
+async function assertBookableMember(tx: Tx, actor: Actor, memberId: string, cls: LockedClass, opts: { casual?: boolean } = {}) {
   const member = await tx.member.findUnique({ where: { id: memberId }, select: { id: true, archivedAt: true, status: true } });
   if (!member) throw new ApiError("not_found", "Member not found.");
   if (member.archivedAt) throw new ApiError("conflict", "This member is archived.");
@@ -50,6 +55,18 @@ async function assertBookableMember(tx: Tx, actor: Actor, memberId: string, opts
   } else if ((member.status === "CANCELED" || member.status === "PENDING") && !opts.casual) {
     throw new ApiError("conflict", "This member doesn't have a current membership. Book them as a casual visit instead.");
   }
+  if (!opts.casual && !(await memberMayUseLocation(tx, memberId, cls.locationId))) {
+    const where = (await tx.location.findUnique({ where: { id: cls.locationId }, select: { name: true } }))?.name ?? "this location";
+    throw new ApiError(
+      "conflict",
+      actor.kind === "member" ? `Your membership doesn't include classes at ${where}.` : `This member's plan doesn't include ${where}. Book them as a casual visit instead.`
+    );
+  }
+}
+
+// Staff whose role is limited to some locations act only on classes there (D-128).
+function assertStaffLocation(actor: Actor, cls: { locationId: string }) {
+  if (actor.kind === "staff" && "locationIds" in actor) assertLocation(actor as unknown as LocationScope, cls.locationId);
 }
 
 // Books a member in and spends a class credit if their plan has a limit.
@@ -63,8 +80,9 @@ export async function bookMember(db: Db, actor: Actor, classId: string, memberId
       if (hasStarted(cls)) throw new ApiError("conflict", "This class has already started.");
       assertBookingOpen(cls);
     }
+    assertStaffLocation(actor, cls);
     const casual = Boolean(opts.casual) && actor.kind === "staff";
-    await assertBookableMember(tx, actor, memberId, { casual });
+    await assertBookableMember(tx, actor, memberId, cls, { casual });
     const existing = await tx.classBooking.findUnique({ where: { classId_memberId: { classId, memberId } } });
     if (existing) throw new ApiError("conflict", "Already booked into this class.");
     const booked = await tx.classBooking.count({ where: { classId } });
@@ -124,6 +142,7 @@ async function emailPromotion(promoted: Promoted | null, cls: LockedClass) {
 export async function cancelBooking(db: Db, actor: Actor, classId: string, memberId: string) {
   const result = await db.$transaction(async (tx) => {
     const cls = await lockClass(tx, classId);
+    assertStaffLocation(actor, cls);
     const booking = await tx.classBooking.findUnique({ where: { classId_memberId: { classId, memberId } } });
     if (!booking) throw new ApiError("not_found", "No booking to cancel.");
     const hoursBefore = (cls.startTime.getTime() - Date.now()) / HOUR_MS;
@@ -147,6 +166,7 @@ export async function cancelBooking(db: Db, actor: Actor, classId: string, membe
 export async function cancelClass(db: Db, actor: Actor, classId: string) {
   return db.$transaction(async (tx) => {
     const cls = await lockClass(tx, classId);
+    assertStaffLocation(actor, cls);
     if (cls.cancelledAt) throw new ApiError("conflict", "This class is already cancelled.");
     const bookings = await tx.classBooking.findMany({ where: { classId }, select: { memberId: true, usedCredit: true } });
     for (const b of bookings) {
@@ -171,7 +191,8 @@ export async function joinWaitlist(db: Db, actor: Actor, classId: string, member
     if (cls.cancelledAt) throw new ApiError("conflict", "This class has been cancelled.");
     if (hasStarted(cls)) throw new ApiError("conflict", "This class has already started.");
     if (actor.kind === "member") assertBookingOpen(cls);
-    await assertBookableMember(tx, actor, memberId);
+    assertStaffLocation(actor, cls);
+    await assertBookableMember(tx, actor, memberId, cls);
     const booked = await tx.classBooking.count({ where: { classId } });
     if (booked < cls.capacity) throw new ApiError("conflict", "This class still has spots. Book directly.");
     if (await tx.classBooking.findUnique({ where: { classId_memberId: { classId, memberId } } })) {
@@ -205,6 +226,7 @@ export async function leaveWaitlist(db: Db, actor: Actor, classId: string, membe
 export async function promoteFromWaitlist(db: Db, actor: Actor, classId: string, memberId: string) {
   return db.$transaction(async (tx) => {
     const cls = await lockClass(tx, classId);
+    assertStaffLocation(actor, cls);
     if (cls.cancelledAt) throw new ApiError("conflict", "This class has been cancelled.");
     const booked = await tx.classBooking.count({ where: { classId } });
     if (booked >= cls.capacity) throw new ApiError("conflict", "The class is full. Free up a spot before promoting.");
@@ -234,8 +256,14 @@ async function getTrainer(tx: Tx, trainerId: string | null | undefined) {
   return trainer;
 }
 
+async function assertClassLocation(tx: Tx, staff: StaffActor, locationId: string) {
+  assertLocation(staff, locationId);
+  if (!(await assertOpenLocation(tx, locationId))) throw new ApiError("validation_failed", "Choose an open location.", { locationId: "Not found or archived" });
+}
+
 export async function createClass(db: Db, staff: StaffActor, input: ClassInput) {
   return db.$transaction(async (tx) => {
+    await assertClassLocation(tx, staff, input.locationId);
     const trainer = await getTrainer(tx, input.trainerId);
     const cls = await tx.class.create({ data: { ...input, trainerId: trainer?.id ?? null, instructor: trainer?.name ?? null } });
     await logAction(tx, staff, { action: "class.created", targetType: "Class", targetId: cls.id, details: { name: cls.name, startTime: cls.startTime.toISOString(), trainer: trainer?.name ?? null } });
@@ -258,6 +286,7 @@ export async function markAttendance(db: Db, staff: StaffActor, classId: string,
 
 export async function createTemplate(db: Db, staff: StaffActor, input: TemplateInput) {
   return db.$transaction(async (tx) => {
+    await assertClassLocation(tx, staff, input.locationId);
     await getTrainer(tx, input.trainerId);
     const t = await tx.classTemplate.create({ data: { ...input, trainerId: input.trainerId ?? null } });
     await logAction(tx, staff, { action: "timetable.slot_created", targetType: "ClassTemplate", targetId: t.id, details: { name: t.name, weekday: t.weekday, startTime: t.startTime } });
@@ -269,6 +298,10 @@ export async function createTemplate(db: Db, staff: StaffActor, input: TemplateI
 // classes are left as they are (members may already be booked).
 export async function updateTemplate(db: Db, staff: StaffActor, id: string, input: TemplateInput) {
   return db.$transaction(async (tx) => {
+    const existing = await tx.classTemplate.findUnique({ where: { id }, select: { locationId: true } });
+    if (!existing) throw new ApiError("not_found", "Timetable slot not found.");
+    assertLocation(staff, existing.locationId);
+    await assertClassLocation(tx, staff, input.locationId);
     await getTrainer(tx, input.trainerId);
     const t = await tx.classTemplate.update({ where: { id }, data: { ...input, trainerId: input.trainerId ?? null } });
     await logAction(tx, staff, { action: "timetable.slot_updated", targetType: "ClassTemplate", targetId: t.id, details: { name: t.name } });
@@ -278,6 +311,9 @@ export async function updateTemplate(db: Db, staff: StaffActor, id: string, inpu
 
 export async function deleteTemplate(db: Db, staff: StaffActor, id: string) {
   await db.$transaction(async (tx) => {
+    const existing = await tx.classTemplate.findUnique({ where: { id }, select: { locationId: true } });
+    if (!existing) throw new ApiError("not_found", "Timetable slot not found.");
+    assertLocation(staff, existing.locationId);
     const t = await tx.classTemplate.delete({ where: { id } });
     await logAction(tx, staff, { action: "timetable.slot_deleted", targetType: "ClassTemplate", targetId: t.id, details: { name: t.name } });
   });
@@ -285,7 +321,8 @@ export async function deleteTemplate(db: Db, staff: StaffActor, id: string) {
 
 export async function generateTimetable(db: Db, staff: StaffActor, weeks: number) {
   return db.$transaction(async (tx) => {
-    const result = await generateClasses(tx, gym.business.timezone, weeks);
+    // Only the locations the person's role covers (D-128).
+    const result = await generateClasses(tx, gym.business.timezone, weeks, new Date(), staff.isOwner ? null : staff.locationIds);
     await logAction(tx, staff, { action: "timetable.generated", targetType: "Class", details: { weeks, created: result.created } });
     return result;
   });

@@ -30,6 +30,7 @@ interface OrderDetail {
   trackingNumber: string | null;
   shippingAddress: { line1?: string; line2?: string; suburb?: string; state?: string; postcode?: string } | null;
   createdAt: string;
+  location: { id: string; name: string } | null;
   member: { id: string; name: string | null } | null;
   payment: { id: string; amount: number; refundedCents: number; invoiceNumber: number } | null;
   items: { id: string; productName: string; variantLabel: string; unitPriceCents: number; quantity: number; lineTotalCents: number }[];
@@ -156,7 +157,7 @@ export default function OrderDetailPage() {
                   <PanelHeader id="delivery-heading" title={o.fulfilment === "PICKUP" ? "Pickup" : "Shipping"} />
                   <div className="px-4 py-3 text-sm">
                     {o.fulfilment === "PICKUP" ? (
-                      <p>Collect from the front desk.</p>
+                      <p>Collect from the front desk{o.location ? ` at ${o.location.name}` : ""}.</p>
                     ) : (
                       <address className="not-italic">
                         {[o.shippingAddress?.line1, o.shippingAddress?.line2, `${o.shippingAddress?.suburb ?? ""} ${o.shippingAddress?.state ?? ""} ${o.shippingAddress?.postcode ?? ""}`.trim()].filter(Boolean).map((line) => (

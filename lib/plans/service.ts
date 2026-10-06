@@ -1,4 +1,4 @@
-import { prisma, type Db } from "@/lib/db";
+import { prisma, type Db, type Tx } from "@/lib/db";
 import { gym } from "@/lib/config";
 import type { StaffActor } from "@/lib/auth/session";
 import { ApiError } from "@/lib/http/errors";
@@ -11,7 +11,9 @@ import type { CreatePlanInput, UpdatePlanInput } from "./schema";
 const ONLY_ADMINS_PRICES = "Only admins can change prices.";
 
 // What the audit log keeps as a plan's old and new values.
-const planSnapshot = (p: MembershipPlan) => ({
+const planSnapshot = (p: MembershipPlan, locationIds: string[] = []) => ({
+  locationAccess: p.locationAccess,
+  locationIds: [...locationIds].sort(),
   name: p.name,
   description: p.description,
   priceCents: p.priceCents,
@@ -46,6 +48,16 @@ export async function syncPlansFromConfig(db: Db = prisma): Promise<{ created: s
   return { created };
 }
 
+// The chosen locations for a "selected locations" plan, checked to exist;
+// none for the other kinds of access (D-126).
+async function planLocationIds(tx: Tx, access: string, ids: string[]): Promise<string[]> {
+  if (access !== "SELECTED") return [];
+  const unique = [...new Set(ids)];
+  const found = await tx.location.count({ where: { id: { in: unique } } });
+  if (found !== unique.length || unique.length === 0) throw new ApiError("validation_failed", "Choose locations that exist.", { locationIds: "Choose at least one location" });
+  return unique;
+}
+
 // A new plan sets a price, so it needs prices.edit as well as plans.edit.
 export async function createPlan(db: Db, staff: StaffActor, input: CreatePlanInput) {
   if (!can(staff, "prices.edit")) throw new ApiError("forbidden", ONLY_ADMINS_PRICES, { priceCents: ONLY_ADMINS_PRICES });
@@ -54,8 +66,10 @@ export async function createPlan(db: Db, staff: StaffActor, input: CreatePlanInp
   return db.$transaction(async (tx) => {
     if (await tx.membershipPlan.findUnique({ where: { slug } })) throw new ApiError("conflict", "A plan with that name already exists.", { name: "Already used" });
     const max = await tx.membershipPlan.aggregate({ _max: { sortOrder: true } });
-    const plan = await tx.membershipPlan.create({ data: { ...input, description: input.description ?? null, slug, sortOrder: (max._max.sortOrder ?? 0) + 1 } });
-    await logAction(tx, staff, { action: "plan.created", targetType: "MembershipPlan", targetId: plan.id, details: { name: plan.name }, after: planSnapshot(plan) });
+    const { locationIds, ...fields } = input;
+    const ids = await planLocationIds(tx, input.locationAccess, locationIds);
+    const plan = await tx.membershipPlan.create({ data: { ...fields, description: input.description ?? null, slug, sortOrder: (max._max.sortOrder ?? 0) + 1, locations: { create: ids.map((locationId) => ({ locationId })) } } });
+    await logAction(tx, staff, { action: "plan.created", targetType: "MembershipPlan", targetId: plan.id, details: { name: plan.name }, after: planSnapshot(plan, ids) });
     return plan;
   });
 }
@@ -68,7 +82,8 @@ export async function createPlan(db: Db, staff: StaffActor, input: CreatePlanInp
 // well as plans.edit.
 export function updatePlan(db: Db, staff: StaffActor, id: string, input: UpdatePlanInput) {
   return db.$transaction(async (tx) => {
-    const before = await tx.membershipPlan.findUniqueOrThrow({ where: { id } });
+    const before = await tx.membershipPlan.findUniqueOrThrow({ where: { id }, include: { locations: { select: { locationId: true } } } });
+    const beforeIds = before.locations.map((l) => l.locationId);
     const priceChanged = input.priceCents !== undefined && input.priceCents !== before.priceCents;
     const intervalChanged = input.interval !== undefined && input.interval !== before.interval;
     const guestRateChanged = input.guestRateCents !== undefined && input.guestRateCents !== before.guestRateCents;
@@ -83,11 +98,18 @@ export function updatePlan(db: Db, staff: StaffActor, id: string, input: UpdateP
     if (intervalChanged && (await tx.member.count({ where: { OR: [{ planId: id }, { pendingPlanId: id }], archivedAt: null } })) > 0) {
       throw new ApiError("conflict", "Members are on this plan, so its billing interval can't change. Create a new plan and move members to it.");
     }
+    const { locationIds, ...fields } = input;
+    const access = input.locationAccess ?? before.locationAccess;
+    const ids = locationIds !== undefined || input.locationAccess !== undefined ? await planLocationIds(tx, access, locationIds ?? beforeIds) : beforeIds;
     const plan = await tx.membershipPlan.update({
       where: { id },
-      data: { ...input, ...(priceChanged || intervalChanged ? { stripePriceId: null } : {}) },
+      data: { ...fields, ...(priceChanged || intervalChanged ? { stripePriceId: null } : {}) },
     });
-    await logAction(tx, staff, { action: priceChanged || intervalChanged || guestRateChanged ? "plan.price_changed" : "plan.updated", targetType: "MembershipPlan", targetId: plan.id, details: { name: plan.name }, before: planSnapshot(before), after: planSnapshot(plan) });
+    if (ids !== beforeIds) {
+      await tx.planLocation.deleteMany({ where: { planId: id } });
+      if (ids.length) await tx.planLocation.createMany({ data: ids.map((locationId) => ({ planId: id, locationId })) });
+    }
+    await logAction(tx, staff, { action: priceChanged || intervalChanged || guestRateChanged ? "plan.price_changed" : "plan.updated", targetType: "MembershipPlan", targetId: plan.id, details: { name: plan.name }, before: planSnapshot(before, beforeIds), after: planSnapshot(plan, ids) });
     return plan;
   });
 }

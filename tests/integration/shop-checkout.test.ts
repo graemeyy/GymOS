@@ -8,7 +8,7 @@ import * as orderById from "@/app/api/orders/[id]/route";
 import * as refund from "@/app/api/payments/[id]/refund/route";
 import * as webhook from "@/app/api/webhooks/stripe/route";
 import { captureEmailsForTests, capturedEmails } from "@/lib/email";
-import { call, createMember, createStaff, makeRequest, prisma, resetDb, type As } from "../helpers";
+import { call, createMember, createStaff, makeRequest, prisma, resetDb, setStock, stockFromQty, stockOf, type As } from "../helpers";
 import { installFakeStripe } from "../fake-stripe";
 
 let stripe: ReturnType<typeof installFakeStripe>;
@@ -32,6 +32,7 @@ beforeEach(async () => {
     data: { name: "Old shaker", slug: "old-shaker", category: "ACCESSORIES", active: false, variants: { create: [{ sku: "S-1", priceCents: 1000, stockQty: 5 }] } },
     include: { variants: true },
   });
+  await stockFromQty();
   tee = apparel.variants[0];
   whey = supplement.variants[0];
   hidden = retired.variants[0];
@@ -149,7 +150,7 @@ describe("payment webhook", () => {
     expect(order.payment).toMatchObject({ amount: 7000, gstCents: 636, kind: "SHOP", stripePaymentIntentId: "pi_shop_1" });
     expect(order.payment?.invoiceNumber).toBeGreaterThan(0);
     expect(await prisma.payment.count({ where: { orderId } })).toBe(1);
-    expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: tee.id } })).stockQty).toBe(1);
+    expect((await stockOf(tee.id))).toBe(1);
     const emails = capturedEmails().filter((e) => e.subject.includes("confirmed"));
     expect(emails).toHaveLength(1);
     expect(emails[0].text).toContain("includes $6.36 GST");
@@ -157,13 +158,13 @@ describe("payment webhook", () => {
 
   it("keeps the payment and flags the order when stock ran out before payment", async () => {
     const { orderId } = await pendingOrder(3);
-    await prisma.productVariant.update({ where: { id: tee.id }, data: { stockQty: 1 } });
+    await setStock(tee.id, 1);
     await sendEvent("checkout.session.completed", await paidSession(orderId, 10500));
     const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { events: true, payment: true } });
     expect(order).toMatchObject({ status: "PAID", stockCommitted: false });
     expect(order.payment?.amount).toBe(10500);
     expect(order.events.find((e) => e.status === "PAID")?.note).toContain("out of stock");
-    expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: tee.id } })).stockQty).toBe(1);
+    expect((await stockOf(tee.id))).toBe(1);
     expect(await prisma.auditLog.count({ where: { action: "order.paid_stock_short" } })).toBe(1);
   });
 
@@ -183,7 +184,7 @@ describe("payment webhook", () => {
     const res = await call(refund.POST, await makeRequest("POST", "/x", { as: manager, body: { amountCents: 3500, reason: "Wrong size", method: "STRIPE" } }), { id: payment.id });
     expect(res.status).toBe(201);
     expect((await prisma.order.findUniqueOrThrow({ where: { id: orderId } })).status).toBe("REFUNDED");
-    expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: tee.id } })).stockQty).toBe(3);
+    expect((await stockOf(tee.id))).toBe(3);
     expect(await prisma.refund.findFirstOrThrow({ where: { paymentId: payment.id } })).toMatchObject({ amountCents: 3500, gstCents: 318 });
     const { number } = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
     expect(capturedEmails().some((e) => e.subject === `Order ${number} refunded`)).toBe(true);

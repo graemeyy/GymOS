@@ -57,6 +57,9 @@ jobs:
           npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$SHADOW_DATABASE_URL" --exit-code
       - name: Check every down.sql rolls back cleanly
         run: npm run check:rollback
+      # Existing data moves to the main location and no stock is lost (D-125).
+      - name: Locations migration keeps existing data
+        run: npm run check:locations-migration
       # Every copy shows its own brand: the demo gym's name and details may
       # only appear in config and seed files (D-124).
       - name: No demo gym text outside config and seed files

@@ -17,6 +17,7 @@ export const PaymentListQuery = z.object({
   kind: z.enum(["MEMBERSHIP", "SHOP", "OTHER"]).optional(),
   status: z.enum(["succeeded", "refunded", "partially_refunded"]).optional(),
   q: z.string().trim().max(120).optional(),
+  locationId: z.string().min(1).max(40).optional(),
 });
 
 export type PaymentListFilter = z.infer<typeof PaymentListQuery>;

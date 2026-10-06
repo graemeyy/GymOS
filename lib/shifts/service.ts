@@ -3,9 +3,13 @@ import type { StaffActor } from "@/lib/auth/session";
 import { ApiError } from "@/lib/http/errors";
 import { logAction } from "@/lib/audit";
 import type { ShiftInput } from "./schema";
+import { assertLocation } from "@/lib/locations/scope";
+import { assertOpenLocation } from "@/lib/locations/members";
 
 export function createShift(db: Db, staff: StaffActor, input: ShiftInput) {
   return db.$transaction(async (tx) => {
+    assertLocation(staff, input.locationId);
+    if (!(await assertOpenLocation(tx, input.locationId))) throw new ApiError("validation_failed", "Choose an open location.", { locationId: "Not found or archived" });
     const rostered = await tx.staff.findUnique({ where: { id: input.staffId }, select: { name: true } });
     if (!rostered) throw new ApiError("not_found", "Staff member not found.");
     const shift = await tx.shift.create({
@@ -21,6 +25,7 @@ export function deleteShift(db: Db, staff: StaffActor, id: string) {
   return db.$transaction(async (tx) => {
     const shift = await tx.shift.findUnique({ where: { id }, include: { staff: { select: { name: true } } } });
     if (!shift) throw new ApiError("not_found", "Shift not found.");
+    assertLocation(staff, shift.locationId);
     await tx.shift.delete({ where: { id } });
     await logAction(tx, staff, { action: "shift.deleted", targetType: "Shift", targetId: id, details: { staffName: shift.staff.name, startTime: shift.startTime.toISOString() } });
   });

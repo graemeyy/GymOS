@@ -16,27 +16,32 @@ export interface FinanceSummary {
   outstanding: { memberId: string; name: string; email: string; owingCents: number; pastDueSince: Date | null }[];
   outstandingTotalCents: number;
   otherCurrency: { currency: string; cents: number }[];
+  // Takings by where they're reported (D-129), for the combined report.
+  byLocation: { locationId: string; name: string; cents: number; count: number }[];
 }
 
 // Money in, refunds out and GST for a period. Only AUD is summed; payments in
 // another currency (older rows from before the switch to AUD) are listed
 // separately rather than mixed in.
-export async function financeSummary(db: Db, from: Date, to: Date): Promise<FinanceSummary> {
+// For some locations, or every location when `locationIds` is null.
+export async function financeSummary(db: Db, from: Date, to: Date, locationIds: readonly string[] | null = null): Promise<FinanceSummary> {
+  const at = locationIds ? { in: [...locationIds] } : undefined;
+  const here = at ? { locationId: at } : {};
   const payments = await db.payment.findMany({
-    where: { paidAt: { gte: from, lt: to }, status: { in: ["succeeded", "refunded", "partially_refunded"] } },
-    select: { amount: true, gstCents: true, currency: true, kind: true, planName: true, member: { select: { membershipPlan: { select: { name: true } } } } },
+    where: { paidAt: { gte: from, lt: to }, status: { in: ["succeeded", "refunded", "partially_refunded"] }, ...here },
+    select: { amount: true, gstCents: true, currency: true, kind: true, planName: true, locationId: true, location: { select: { name: true } }, member: { select: { membershipPlan: { select: { name: true } } } } },
   });
   // Failed refunds never reached the customer (D-116).
   const refunds = await db.refund.findMany({
-    where: { createdAt: { gte: from, lt: to }, failedAt: null },
+    where: { createdAt: { gte: from, lt: to }, failedAt: null, ...(at ? { payment: { locationId: at } } : {}) },
     select: { amountCents: true, gstCents: true, payment: { select: { currency: true } } },
   });
   const items = await db.orderItem.findMany({
-    where: { order: { paidAt: { gte: from, lt: to }, status: { notIn: ["PENDING_PAYMENT", "CANCELLED"] } } },
+    where: { order: { paidAt: { gte: from, lt: to }, status: { notIn: ["PENDING_PAYMENT", "CANCELLED"] }, ...here } },
     select: { productName: true, category: true, lineTotalCents: true, quantity: true },
   });
   const owing = await db.member.findMany({
-    where: { archivedAt: null, status: "PAST_DUE" },
+    where: { archivedAt: null, status: "PAST_DUE", ...(at ? { homeLocationId: at } : {}) },
     select: { id: true, name: true, email: true, amountOwingCents: true, pastDueSince: true },
     orderBy: { pastDueSince: "asc" },
   });
@@ -61,6 +66,11 @@ export async function financeSummary(db: Db, from: Date, to: Date): Promise<Fina
   }
   const kindMap = new Map<string, number>();
   for (const p of aud) kindMap.set(p.kind, (kindMap.get(p.kind) ?? 0) + p.amount);
+  const locationMap = new Map<string, { name: string; cents: number; count: number }>();
+  for (const p of aud) {
+    const row = locationMap.get(p.locationId) ?? { name: p.location.name, cents: 0, count: 0 };
+    locationMap.set(p.locationId, { ...row, cents: row.cents + p.amount, count: row.count + 1 });
+  }
   const otherMap = new Map<string, number>();
   for (const p of payments.filter((x) => x.currency.toLowerCase() !== "aud")) otherMap.set(p.currency.toUpperCase(), (otherMap.get(p.currency.toUpperCase()) ?? 0) + p.amount);
 
@@ -80,5 +90,6 @@ export async function financeSummary(db: Db, from: Date, to: Date): Promise<Fina
     outstanding: owing.map((m) => ({ memberId: m.id, name: m.name ?? m.email, email: m.email, owingCents: m.amountOwingCents, pastDueSince: m.pastDueSince })),
     outstandingTotalCents: owing.reduce((s, m) => s + m.amountOwingCents, 0),
     otherCurrency: [...otherMap.entries()].map(([currency, cents]) => ({ currency, cents })),
+    byLocation: [...locationMap.entries()].map(([locationId, v]) => ({ locationId, ...v })).sort((a, b) => b.cents - a.cents),
   };
 }

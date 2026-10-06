@@ -8,6 +8,8 @@ import { recordAcceptance } from "@/lib/legal";
 import { releaseFutureBookings } from "@/lib/classes/service";
 import { sendEmailVerification } from "./verification";
 import { getBranding } from "@/lib/branding/service";
+import { MAIN_LOCATION_ID } from "@/lib/locations/constants";
+import { assertOpenLocation } from "@/lib/locations/members";
 
 export const ERASED = "[erased]";
 
@@ -17,15 +19,18 @@ export const ERASED = "[erased]";
 // rather than claimed: setting a password on an existing record is what
 // "Forgot your password?" is for, because that proves the person reads the
 // inbox (D-112).
-export async function signUpMember(db: Db, input: { name: string; email: string; password: string }) {
+export async function signUpMember(db: Db, input: { name: string; email: string; password: string; homeLocationId?: string }) {
   const existing = await db.member.findUnique({ where: { email: input.email }, select: { id: true } });
   if (existing) {
     throw new ApiError("conflict", "That email already has a membership. Sign in, or use \"Forgot your password?\" to set one.", { email: "Already registered" });
   }
+  // Where they'll mainly train (D-125); an unknown or closed location is the
+  // main one, so a stale sign-up page can't fail.
+  const home = input.homeLocationId && (await assertOpenLocation(db, input.homeLocationId)) ? input.homeLocationId : MAIN_LOCATION_ID;
   const passwordHash = await hashPassword(input.password);
   const member = await db.$transaction(async (tx) => {
     const created = await tx.member.create({
-      data: { name: input.name, email: input.email, passwordHash, status: "PENDING", planId: null },
+      data: { name: input.name, email: input.email, passwordHash, status: "PENDING", planId: null, homeLocationId: home },
       select: { id: true, name: true, email: true, sessionVersion: true },
     });
     await recordAcceptance(tx, created.id, "signup");

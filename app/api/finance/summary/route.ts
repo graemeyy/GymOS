@@ -3,9 +3,10 @@ import { gym } from "@/lib/config";
 import { financeSummary } from "@/lib/finance/reports";
 import { standardPeriods } from "@/lib/finance/periods";
 import { RangeQuery, resolveRange } from "@/lib/finance/range";
+import { reportLocations } from "@/lib/locations/scope";
 
-export const GET = staffRoute({ permission: "finance.view", query: RangeQuery }, async ({ query, db }) => {
+export const GET = staffRoute({ permission: "finance.view", query: RangeQuery }, async ({ query, db, staff }) => {
   const range = resolveRange(query);
-  const summary = await financeSummary(db, range.from, range.to);
+  const summary = await financeSummary(db, range.from, range.to, reportLocations(staff, query.locationId));
   return json({ ...summary, label: range.label, periods: standardPeriods(gym.business.timezone).map(({ key, label }) => ({ key, label })) });
 });

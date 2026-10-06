@@ -9,23 +9,29 @@ type Revenue = { mrrCents: number; last30Cents: number; byPlan: { name: string; 
 
 // The staff dashboard figures. Money figures are null when the viewer can't
 // see revenue.
-export async function getDashboardStats(db: Db, showRevenue: boolean, now = new Date()) {
+// For some locations (null for every location, D-129): members by home
+// location, check-ins and orders by where they happened, money by where it's
+// reported. Equipment alerts are for the whole gym.
+export async function getDashboardStats(db: Db, showRevenue: boolean, now = new Date(), locationIds: readonly string[] | null = null) {
+  const at = locationIds ? { in: [...locationIds] } : undefined;
+  const home = at ? { homeLocationId: at } : {};
+  const here = at ? { locationId: at } : {};
   const tz = gym.business.timezone;
   const startOfDay = startOfTodayIn(tz, now);
   const since30 = new Date(now.getTime() - 30 * DAY_MS);
   const since7 = new Date(startOfDay.getTime() - 6 * DAY_MS);
 
   const [active, newSignups, cancellations, pastDue, owing, checkInsToday, recentCheckIns, atRisk, equipmentAlerts, openOrders] = await Promise.all([
-    db.member.findMany({ where: { status: "ACTIVE", archivedAt: null }, select: { membershipPlan: { select: { priceCents: true, interval: true } } } }),
-    db.member.count({ where: { createdAt: { gte: since30 } } }),
-    db.member.count({ where: { cancelledAt: { gte: since30 } } }),
-    db.member.count({ where: { status: "PAST_DUE", archivedAt: null } }),
-    db.member.aggregate({ where: { status: "PAST_DUE", archivedAt: null }, _sum: { amountOwingCents: true } }),
-    db.checkIn.count({ where: { timestamp: { gte: startOfDay } } }),
-    db.checkIn.findMany({ where: { timestamp: { gte: since7 } }, select: { timestamp: true } }),
-    db.member.count({ where: { status: "ACTIVE", archivedAt: null, retentionScore: { lt: AT_RISK_BELOW } } }),
+    db.member.findMany({ where: { status: "ACTIVE", archivedAt: null, ...home }, select: { membershipPlan: { select: { priceCents: true, interval: true } } } }),
+    db.member.count({ where: { createdAt: { gte: since30 }, ...home } }),
+    db.member.count({ where: { cancelledAt: { gte: since30 }, ...home } }),
+    db.member.count({ where: { status: "PAST_DUE", archivedAt: null, ...home } }),
+    db.member.aggregate({ where: { status: "PAST_DUE", archivedAt: null, ...home }, _sum: { amountOwingCents: true } }),
+    db.checkIn.count({ where: { timestamp: { gte: startOfDay }, ...here } }),
+    db.checkIn.findMany({ where: { timestamp: { gte: since7 }, ...here }, select: { timestamp: true } }),
+    db.member.count({ where: { status: "ACTIVE", archivedAt: null, retentionScore: { lt: AT_RISK_BELOW }, ...home } }),
     db.equipment.count({ where: { status: { in: ["WARNING", "OFFLINE"] } } }),
-    db.order.count({ where: { status: { in: ["PAID", "PACKED", "READY_FOR_PICKUP"] } } }),
+    db.order.count({ where: { status: { in: ["PAID", "PACKED", "READY_FOR_PICKUP"] }, ...here } }),
   ]);
 
   // Churn over the last 30 days: cancellations divided by members who were
@@ -44,8 +50,8 @@ export async function getDashboardStats(db: Db, showRevenue: boolean, now = new 
   let revenue: null | Revenue = null;
   if (showRevenue) {
     const [payments, items] = await Promise.all([
-      db.payment.findMany({ where: { createdAt: { gte: since30 }, currency: "aud", kind: "MEMBERSHIP" }, select: { amount: true, refundedCents: true, planName: true } }),
-      db.orderItem.findMany({ where: { order: { paidAt: { gte: since30 }, status: { notIn: ["PENDING_PAYMENT", "CANCELLED", "REFUNDED"] } } }, select: { productName: true, lineTotalCents: true } }),
+      db.payment.findMany({ where: { createdAt: { gte: since30 }, currency: "aud", kind: "MEMBERSHIP", ...here }, select: { amount: true, refundedCents: true, planName: true } }),
+      db.orderItem.findMany({ where: { order: { paidAt: { gte: since30 }, status: { notIn: ["PENDING_PAYMENT", "CANCELLED", "REFUNDED"] }, ...here } }, select: { productName: true, lineTotalCents: true } }),
     ]);
     const byPlan = new Map<string, number>();
     for (const p of payments) byPlan.set(p.planName ?? "Other", (byPlan.get(p.planName ?? "Other") ?? 0) + p.amount - p.refundedCents);

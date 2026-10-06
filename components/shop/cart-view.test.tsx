@@ -11,6 +11,8 @@ afterEach(() => {
 });
 
 const catalogue: Catalogue = {
+  location: { id: "main", name: "Main location", address: "" },
+  locations: [{ id: "main", name: "Main location", address: "" }],
   discountPercent: 0,
   signedIn: true,
   shipping: { pickupOnly: true, flatCents: 0, freeOverCents: null },

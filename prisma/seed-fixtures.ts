@@ -12,7 +12,26 @@ export const DEMO_STAFF = [
   { name: "Tom Nguyen", email: "manager@example.com", role: "MANAGER", preset: "MANAGER" },
   { name: "Aisha Rahman", email: "frontdesk@example.com", role: "FRONT_DESK", preset: "STAFF" },
   { name: "Lachie Brennan", email: "trainer@example.com", role: "TRAINER", preset: "TRAINER" },
-] as const;
+  // Works the second location's desk only (D-128).
+  { name: "Sione Taufa", email: "desk.second@example.com", role: "FRONT_DESK", preset: "STAFF", locations: ["second"] },
+] as const satisfies readonly { name: string; email: string; role: string; preset: string; locations?: readonly string[] }[];
+
+// The demo's second location (D-125). The first is the main location the
+// migration creates, named from the config address by the seed.
+export const SECOND_LOCATION = {
+  id: "second",
+  name: "Newtown",
+  code: "newtown",
+  addressLine1: "88 Example Road",
+  suburb: "Newtown",
+  state: "NSW",
+  postcode: "2042",
+  sortOrder: 1,
+};
+
+// Off-peak covers the member's home location only (D-126); the other plans
+// cover every location.
+export const PLAN_ACCESS: Record<string, "HOME" | "SELECTED" | "ALL"> = { "off-peak": "HOME" };
 
 export const daysAgo = (days: number, hours = 0) => new Date(Date.now() - days * DAY_MS - hours * HOUR_MS);
 
@@ -32,6 +51,8 @@ type SeedMember = {
   visitsPerWeek: number;
   login?: boolean;
   notes?: string;
+  // Home location when it isn't the main one.
+  home?: string;
 };
 
 export const DEMO_MEMBERS: SeedMember[] = [
@@ -45,31 +66,35 @@ export const DEMO_MEMBERS: SeedMember[] = [
   { name: "Sam Whitlock", email: "sam.whitlock@example.com", plan: "off-peak", status: "CANCELED", retentionScore: 12, lastSeenDays: 60, visitsPerWeek: 0 },
   { name: "Olivia Marchetti", email: "olivia.marchetti@example.com", plan: "standard", status: "PAUSED", retentionScore: 45, lastSeenDays: 21, visitsPerWeek: 0 },
   { name: "Ben Adeyemi", email: "ben.adeyemi@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 93, lastSeenDays: 0, visitsPerWeek: 5 },
-  { name: "Tahlia Moore", email: "tahlia.moore@example.com", plan: "standard", status: "ACTIVE", retentionScore: 67, lastSeenDays: 3, visitsPerWeek: 2 },
-  { name: "Hamish Fraser", email: "hamish.fraser@example.com", plan: "off-peak", status: "ACTIVE", retentionScore: 58, lastSeenDays: 7, visitsPerWeek: 2 },
-  { name: "Mei Tanaka", email: "mei.tanaka@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 71, lastSeenDays: 1, visitsPerWeek: 3 },
+  { name: "Tahlia Moore", email: "tahlia.moore@example.com", plan: "standard", status: "ACTIVE", retentionScore: 67, lastSeenDays: 3, visitsPerWeek: 2, home: "second" },
+  { name: "Hamish Fraser", email: "hamish.fraser@example.com", plan: "off-peak", status: "ACTIVE", retentionScore: 58, lastSeenDays: 7, visitsPerWeek: 2, home: "second" },
+  { name: "Mei Tanaka", email: "mei.tanaka@example.com", plan: "unlimited", status: "ACTIVE", retentionScore: 71, lastSeenDays: 1, visitsPerWeek: 3, home: "second" },
   { name: "Riley Dunstan", email: "riley.dunstan@example.com", plan: "standard", status: "PAST_DUE", retentionScore: 48, lastSeenDays: 4, visitsPerWeek: 2 },
   // Signed up online yesterday and hasn't chosen a plan yet.
   { name: "Oliver Brandt", email: "oliver.brandt@example.com", plan: "", status: "PENDING", retentionScore: 100, lastSeenDays: null, visitsPerWeek: 0, login: true },
 ];
 
-export const CLASSES = [
+// `location` is the second location's id when the class isn't at the main one.
+export const CLASSES: { name: string; instructor: string; day: number; hourUtc: number; durationMinutes: number; capacity: number; location?: string }[] = [
   { name: "Barbell Basics", instructor: "Lachie Brennan", day: 0, hourUtc: 20, durationMinutes: 60, capacity: 10 },
   { name: "Conditioning", instructor: "Lachie Brennan", day: 1, hourUtc: 7, durationMinutes: 45, capacity: 16 },
   { name: "Mobility", instructor: "Tom Nguyen", day: 1, hourUtc: 22, durationMinutes: 45, capacity: 12 },
   { name: "Strongman", instructor: "Lachie Brennan", day: 3, hourUtc: 22, durationMinutes: 75, capacity: 8 },
   { name: "Conditioning", instructor: "Lachie Brennan", day: 4, hourUtc: 7, durationMinutes: 45, capacity: 16 },
+  { name: "Kettlebells", instructor: "Tom Nguyen", day: 2, hourUtc: 8, durationMinutes: 45, capacity: 12, location: "second" },
 ];
 
-export const TEMPLATES = [
+export const TEMPLATES: { name: string; trainer: string; weekday: number; startTime: string; durationMinutes: number; capacity: number; location?: string }[] = [
   { name: "Conditioning", trainer: "Lachie Brennan", weekday: 0, startTime: "06:00", durationMinutes: 45, capacity: 16 },
   { name: "Barbell Basics", trainer: "Lachie Brennan", weekday: 1, startTime: "18:00", durationMinutes: 60, capacity: 10 },
   { name: "Mobility", trainer: "Tom Nguyen", weekday: 2, startTime: "07:00", durationMinutes: 45, capacity: 12 },
   { name: "Conditioning", trainer: "Lachie Brennan", weekday: 3, startTime: "06:00", durationMinutes: 45, capacity: 16 },
   { name: "Strongman", trainer: "Lachie Brennan", weekday: 5, startTime: "09:00", durationMinutes: 75, capacity: 8 },
+  { name: "Kettlebells", trainer: "Tom Nguyen", weekday: 2, startTime: "18:30", durationMinutes: 45, capacity: 12, location: "second" },
 ];
 
-type SeedVariant = { sku: string; priceCents: number; stockQty: number; size?: string; colour?: string; flavour?: string };
+// `stockQty` is the main location's stock; `secondStock` the second's (D-127).
+type SeedVariant = { sku: string; priceCents: number; stockQty: number; secondStock?: number; size?: string; colour?: string; flavour?: string };
 export const PRODUCTS: { name: string; slug: string; description: string; category: ProductCategory; variants: SeedVariant[] }[] = [
   {
     name: "Ironbark tee",
@@ -78,8 +103,8 @@ export const PRODUCTS: { name: string; slug: string; description: string; catego
     category: "APPAREL",
     variants: [
       { sku: "TEE-IB-S-BLK", size: "S", colour: "Black", priceCents: 3500, stockQty: 6 },
-      { sku: "TEE-IB-M-BLK", size: "M", colour: "Black", priceCents: 3500, stockQty: 10 },
-      { sku: "TEE-IB-L-BLK", size: "L", colour: "Black", priceCents: 3500, stockQty: 8 },
+      { sku: "TEE-IB-M-BLK", size: "M", colour: "Black", priceCents: 3500, stockQty: 10, secondStock: 4 },
+      { sku: "TEE-IB-L-BLK", size: "L", colour: "Black", priceCents: 3500, stockQty: 8, secondStock: 2 },
       { sku: "TEE-IB-M-WHT", size: "M", colour: "White", priceCents: 3500, stockQty: 0 },
     ],
   },
@@ -99,7 +124,7 @@ export const PRODUCTS: { name: string; slug: string; description: string; catego
     description: "Whey protein isolate powder. 1 kg bag, about 33 serves. See the label for ingredients, allergens and nutrition information.",
     category: "SUPPLEMENTS",
     variants: [
-      { sku: "WPI-1KG-CHOC", flavour: "Chocolate", priceCents: 6995, stockQty: 12 },
+      { sku: "WPI-1KG-CHOC", flavour: "Chocolate", priceCents: 6995, stockQty: 12, secondStock: 3 },
       { sku: "WPI-1KG-VAN", flavour: "Vanilla", priceCents: 6995, stockQty: 5 },
     ],
   },
@@ -115,14 +140,14 @@ export const PRODUCTS: { name: string; slug: string; description: string; catego
     slug: "lifting-straps",
     description: "Cotton lifting straps, sold as a pair.",
     category: "ACCESSORIES",
-    variants: [{ sku: "STRAPS-STD", priceCents: 2500, stockQty: 15 }],
+    variants: [{ sku: "STRAPS-STD", priceCents: 2500, stockQty: 15, secondStock: 5 }],
   },
   {
     name: "Chalk block 250 g",
     slug: "chalk-block-250g",
     description: "Magnesium carbonate block chalk.",
     category: "ACCESSORIES",
-    variants: [{ sku: "CHALK-250", priceCents: 800, stockQty: 30 }],
+    variants: [{ sku: "CHALK-250", priceCents: 800, stockQty: 30, secondStock: 10 }],
   },
 ];
 

@@ -8,6 +8,8 @@ import { resolveRange } from "@/lib/finance/range";
 import { ExportQuery } from "@/lib/finance/schema";
 import { invoiceNo } from "@/lib/format";
 import { getBranding } from "@/lib/branding/service";
+import { reportLocations } from "@/lib/locations/scope";
+import { locationNames } from "@/lib/locations/queries";
 
 const dollars = (cents: number) => (cents / 100).toFixed(2);
 const ymd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: gym.business.timezone }).format(d);
@@ -17,13 +19,15 @@ const ymd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: gym.busine
 export const GET = staffRoute({ permission: "finance.export", query: ExportQuery }, async ({ query, db, staff }) => {
   const range = resolveRange(query);
   const brand = await getBranding(db);
+  const locations = reportLocations(staff, query.locationId);
+  const names = locations ? await locationNames(db, locations) : "";
   const header = [
-    `# ${brand.legalName} (ABN ${brand.abn}). ${range.label}. Amounts in AUD and include GST.`,
+    `# ${brand.legalName} (ABN ${brand.abn}). ${range.label}. ${locations ? `Locations: ${names}.` : "All locations."} Amounts in AUD and include GST.`,
     "# This is a summary for your records, not tax advice. Check it with your accountant before lodging a BAS.",
   ].join("\r\n");
   let body: string;
   if (query.type === "summary") {
-    const s = await financeSummary(db, range.from, range.to);
+    const s = await financeSummary(db, range.from, range.to, locations);
     const rows = [
       { line: "Gross takings (G1)", amount: dollars(s.grossCents) },
       { line: "GST on sales (1A)", amount: dollars(s.gstCollectedCents) },
@@ -33,6 +37,7 @@ export const GET = staffRoute({ permission: "finance.export", query: ExportQuery
       { line: "Net GST", amount: dollars(s.netGstCents) },
       ...s.byPlan.map((p) => ({ line: `Memberships: ${p.name}`, amount: dollars(p.cents) })),
       ...s.byProduct.map((p) => ({ line: `Shop: ${p.name}`, amount: dollars(p.cents) })),
+      ...(s.byLocation.length > 1 ? s.byLocation.map((l) => ({ line: `Location: ${l.name}`, amount: dollars(l.cents) })) : []),
       { line: "Outstanding member balances (not in takings)", amount: dollars(s.outstandingTotalCents) },
     ];
     body = toCsv(rows, [
@@ -40,12 +45,13 @@ export const GET = staffRoute({ permission: "finance.export", query: ExportQuery
       { header: "Amount", value: (r) => r.amount },
     ]);
   } else if (query.type === "payments") {
-    const rows = await listPaymentsPaidBetween(db, range.from, range.to);
+    const rows = await listPaymentsPaidBetween(db, range.from, range.to, locations);
     body = toCsv(rows, [
       { header: "Date", value: (p) => ymd(p.paidAt) },
       { header: "Invoice", value: (p) => invoiceNo(p.invoiceNumber) },
       { header: "Member", value: (p) => p.member.name ?? p.member.email },
       { header: "Type", value: (p) => p.kind },
+      { header: "Location", value: (p) => p.location.name },
       { header: "Description", value: (p) => p.description ?? p.planName ?? "" },
       { header: "Amount incl. GST", value: (p) => dollars(p.amount) },
       { header: "GST", value: (p) => dollars(p.gstCents) },
@@ -54,7 +60,7 @@ export const GET = staffRoute({ permission: "finance.export", query: ExportQuery
       { header: "Status", value: (p) => p.status },
     ]);
   } else {
-    const rows = await listRefundsBetween(db, range.from, range.to);
+    const rows = await listRefundsBetween(db, range.from, range.to, locations);
     body = toCsv(rows, [
       { header: "Date", value: (r) => ymd(r.createdAt) },
       { header: "Invoice", value: (r) => invoiceNo(r.payment.invoiceNumber) },

@@ -20,7 +20,7 @@ exports[`GET response shapes (characterisation) > CSV exports keep their columns
 
 exports[`GET response shapes (characterisation) > CSV exports keep their columns 3`] = `
 {
-  "body": "Date,Invoice,Member,Type,Description,Amount incl. GST,GST,Refunded,Currency,Status
+  "body": "Date,Invoice,Member,Type,Location,Description,Amount incl. GST,GST,Refunded,Currency,Status
 ",
   "status": 200,
   "type": "text/csv",
@@ -54,6 +54,10 @@ exports[`GET response shapes (characterisation) > member me 1`] = `
     "email": "string",
     "emailVerifiedAt": "date",
     "hasCardOnFile": "boolean",
+    "homeLocation": {
+      "id": "string",
+      "name": "string",
+    },
     "id": "string",
     "membershipPlan": {
       "classCreditsPerCycle": "null",
@@ -153,6 +157,10 @@ exports[`GET response shapes (characterisation) > member me/classes 1`] = `
         "coach": "string",
         "durationMinutes": "number",
         "id": "string",
+        "location": {
+          "id": "string",
+          "name": "string",
+        },
         "name": "string",
         "spotsLeft": "number",
         "startTime": "date",
@@ -161,6 +169,12 @@ exports[`GET response shapes (characterisation) > member me/classes 1`] = `
       },
     ],
     "lateCancelForfeitsCredit": "boolean",
+    "locations": [
+      {
+        "id": "string",
+        "name": "string",
+      },
+    ],
   },
   "status": 200,
   "type": "application/json",
@@ -312,6 +326,7 @@ exports[`GET response shapes (characterisation) > member me/membership 1`] = `
         "guestRateCents": "number",
         "id": "string",
         "interval": "string",
+        "locationAccess": "string",
         "name": "string",
         "pending": "boolean",
         "priceCents": "number",
@@ -334,6 +349,7 @@ exports[`GET response shapes (characterisation) > member me/membership 1`] = `
         "guestRateCents": "number",
         "id": "string",
         "interval": "string",
+        "locationAccess": "string",
         "name": "string",
         "pending": "boolean",
         "priceCents": "number",
@@ -405,6 +421,7 @@ exports[`GET response shapes (characterisation) > member me/orders/[id] 1`] = `
     "pickupAddress": {
       "line1": "string",
       "line2": "string",
+      "name": "string",
       "postcode": "string",
       "state": "string",
       "suburb": "string",
@@ -506,6 +523,7 @@ exports[`GET response shapes (characterisation) > public endpoints 1`] = `
       "guestRateCents": "number",
       "id": "string",
       "interval": "string",
+      "locationAccess": "string",
       "name": "string",
       "priceCents": "number",
       "shopDiscountPercent": "number",
@@ -526,6 +544,7 @@ exports[`GET response shapes (characterisation) > public endpoints 1`] = `
       "guestRateCents": "number",
       "id": "string",
       "interval": "string",
+      "locationAccess": "string",
       "name": "string",
       "priceCents": "number",
       "shopDiscountPercent": "number",
@@ -543,6 +562,18 @@ exports[`GET response shapes (characterisation) > public endpoints 2`] = `
   "body": {
     "changeOfMindReturnsDays": "number",
     "discountPercent": "number",
+    "location": {
+      "address": "string",
+      "id": "string",
+      "name": "string",
+    },
+    "locations": [
+      {
+        "address": "string",
+        "id": "string",
+        "name": "string",
+      },
+    ],
     "products": [
       {
         "category": "string",
@@ -592,6 +623,7 @@ exports[`GET response shapes (characterisation) > public endpoints 4`] = `
     "id": "string",
     "isOwner": "boolean",
     "kind": "string",
+    "locationIds": "null",
     "mustChangePassword": "boolean",
     "name": "string",
     "permissions": [
@@ -630,6 +662,8 @@ exports[`GET response shapes (characterisation) > staff admin/plans 1`] = `
       "guestRateCents": "number",
       "id": "string",
       "interval": "string",
+      "locationAccess": "string",
+      "locationIds": [],
       "memberCount": "number",
       "name": "string",
       "priceCents": "number",
@@ -645,6 +679,8 @@ exports[`GET response shapes (characterisation) > staff admin/plans 1`] = `
       "guestRateCents": "number",
       "id": "string",
       "interval": "string",
+      "locationAccess": "string",
+      "locationIds": [],
       "memberCount": "number",
       "name": "string",
       "priceCents": "number",
@@ -679,6 +715,8 @@ exports[`GET response shapes (characterisation) > staff announcements 1`] = `
       "emailedAt": "null",
       "expiresAt": "date",
       "id": "string",
+      "location": "null",
+      "locationId": "null",
       "plan": "null",
       "planId": "null",
       "publishedAt": "date",
@@ -736,6 +774,10 @@ exports[`GET response shapes (characterisation) > staff check-in 1`] = `
         "status": "string",
       },
       "method": "string",
+      "site": {
+        "id": "string",
+        "name": "string",
+      },
       "timestamp": "date",
     },
   ],
@@ -753,6 +795,11 @@ exports[`GET response shapes (characterisation) > staff class-templates 1`] = `
       "createdAt": "date",
       "durationMinutes": "number",
       "id": "string",
+      "location": {
+        "id": "string",
+        "name": "string",
+      },
+      "locationId": "string",
       "name": "string",
       "startTime": "string",
       "trainer": {
@@ -771,6 +818,29 @@ exports[`GET response shapes (characterisation) > staff class-templates 1`] = `
 exports[`GET response shapes (characterisation) > staff classes 1`] = `
 {
   "body": [
+    {
+      "bookings": [],
+      "cancelledAt": "null",
+      "capacity": "number",
+      "createdAt": "date",
+      "durationMinutes": "number",
+      "id": "string",
+      "instructor": "string",
+      "location": {
+        "id": "string",
+        "name": "string",
+      },
+      "locationId": "string",
+      "name": "string",
+      "startTime": "date",
+      "templateId": "null",
+      "trainer": {
+        "id": "string",
+        "name": "string",
+      },
+      "trainerId": "string",
+      "waitlist": [],
+    },
     {
       "bookings": [
         {
@@ -793,6 +863,11 @@ exports[`GET response shapes (characterisation) > staff classes 1`] = `
       "durationMinutes": "number",
       "id": "string",
       "instructor": "string",
+      "location": {
+        "id": "string",
+        "name": "string",
+      },
+      "locationId": "string",
       "name": "string",
       "startTime": "date",
       "templateId": "null",
@@ -897,6 +972,14 @@ exports[`GET response shapes (characterisation) > staff finance/summary 1`] = `
         "kind": "string",
       },
     ],
+    "byLocation": [
+      {
+        "cents": "number",
+        "count": "number",
+        "locationId": "string",
+        "name": "string",
+      },
+    ],
     "byPlan": [
       {
         "cents": "number",
@@ -973,6 +1056,10 @@ exports[`GET response shapes (characterisation) > staff members 1`] = `
         "archivedAt": "null",
         "createdAt": "date",
         "email": "string",
+        "homeLocation": {
+          "id": "string",
+          "name": "string",
+        },
         "id": "string",
         "lastCheckIn": "date",
         "membershipPlan": {
@@ -990,6 +1077,10 @@ exports[`GET response shapes (characterisation) > staff members 1`] = `
         "archivedAt": "null",
         "createdAt": "date",
         "email": "string",
+        "homeLocation": {
+          "id": "string",
+          "name": "string",
+        },
         "id": "string",
         "lastCheckIn": "date",
         "membershipPlan": {
@@ -1007,6 +1098,10 @@ exports[`GET response shapes (characterisation) > staff members 1`] = `
         "archivedAt": "null",
         "createdAt": "date",
         "email": "string",
+        "homeLocation": {
+          "id": "string",
+          "name": "string",
+        },
         "id": "string",
         "lastCheckIn": "null",
         "membershipPlan": "null",
@@ -1037,6 +1132,10 @@ exports[`GET response shapes (characterisation) > staff members/[id] 1`] = `
       {
         "id": "string",
         "location": "string",
+        "site": {
+          "id": "string",
+          "name": "string",
+        },
         "timestamp": "date",
       },
     ],
@@ -1057,12 +1156,17 @@ exports[`GET response shapes (characterisation) > staff members/[id] 1`] = `
     "currentPeriodStart": "null",
     "email": "string",
     "hasSubscription": "boolean",
+    "homeLocation": {
+      "id": "string",
+      "name": "string",
+    },
     "id": "string",
     "keycardIssued": "boolean",
     "lastCheckIn": "date",
     "membershipPlan": {
       "id": "string",
       "interval": "string",
+      "locationAccess": "string",
       "name": "string",
       "priceCents": "number",
     },
@@ -1170,6 +1274,10 @@ exports[`GET response shapes (characterisation) > staff orders 1`] = `
       "email": "string",
       "fulfilment": "string",
       "id": "string",
+      "location": {
+        "id": "string",
+        "name": "string",
+      },
       "number": "number",
       "paidAt": "date",
       "status": "string",
@@ -1216,6 +1324,11 @@ exports[`GET response shapes (characterisation) > staff orders/[id] 1`] = `
         "variantLabel": "string",
       },
     ],
+    "location": {
+      "id": "string",
+      "name": "string",
+    },
+    "locationId": "string",
     "member": {
       "id": "string",
       "name": "string",
@@ -1256,6 +1369,10 @@ exports[`GET response shapes (characterisation) > staff payments 1`] = `
       "id": "string",
       "invoiceNumber": "number",
       "kind": "string",
+      "location": {
+        "id": "string",
+        "name": "string",
+      },
       "member": {
         "email": "string",
         "id": "string",
@@ -1286,6 +1403,7 @@ exports[`GET response shapes (characterisation) > staff payments/[id] 1`] = `
     "id": "string",
     "invoiceNumber": "number",
     "kind": "string",
+    "locationId": "string",
     "member": {
       "email": "string",
       "id": "string",
@@ -1365,6 +1483,39 @@ exports[`GET response shapes (characterisation) > staff products 1`] = `
           "productId": "string",
           "size": "null",
           "sku": "string",
+          "stockByLocation": {
+            "main": "number",
+            "second": "number",
+          },
+          "stockQty": "number",
+          "updatedAt": "date",
+        },
+      ],
+    },
+    {
+      "active": "boolean",
+      "category": "string",
+      "createdAt": "date",
+      "description": "string",
+      "id": "string",
+      "imageUrl": "null",
+      "name": "string",
+      "slug": "string",
+      "updatedAt": "date",
+      "variants": [
+        {
+          "active": "boolean",
+          "colour": "null",
+          "createdAt": "date",
+          "flavour": "null",
+          "id": "string",
+          "priceCents": "number",
+          "productId": "string",
+          "size": "null",
+          "sku": "string",
+          "stockByLocation": {
+            "main": "number",
+          },
           "stockQty": "number",
           "updatedAt": "date",
         },
@@ -1391,6 +1542,26 @@ exports[`GET response shapes (characterisation) > staff products 1`] = `
           "productId": "string",
           "size": "null",
           "sku": "string",
+          "stockByLocation": {
+            "main": "number",
+            "second": "number",
+          },
+          "stockQty": "number",
+          "updatedAt": "date",
+        },
+        {
+          "active": "boolean",
+          "colour": "null",
+          "createdAt": "date",
+          "flavour": "string",
+          "id": "string",
+          "priceCents": "number",
+          "productId": "string",
+          "size": "null",
+          "sku": "string",
+          "stockByLocation": {
+            "main": "number",
+          },
           "stockQty": "number",
           "updatedAt": "date",
         },
@@ -1417,6 +1588,55 @@ exports[`GET response shapes (characterisation) > staff products 1`] = `
           "productId": "string",
           "size": "string",
           "sku": "string",
+          "stockByLocation": {
+            "main": "number",
+            "second": "number",
+          },
+          "stockQty": "number",
+          "updatedAt": "date",
+        },
+        {
+          "active": "boolean",
+          "colour": "string",
+          "createdAt": "date",
+          "flavour": "null",
+          "id": "string",
+          "priceCents": "number",
+          "productId": "string",
+          "size": "string",
+          "sku": "string",
+          "stockByLocation": {
+            "main": "number",
+          },
+          "stockQty": "number",
+          "updatedAt": "date",
+        },
+      ],
+    },
+    {
+      "active": "boolean",
+      "category": "string",
+      "createdAt": "date",
+      "description": "string",
+      "id": "string",
+      "imageUrl": "null",
+      "name": "string",
+      "slug": "string",
+      "updatedAt": "date",
+      "variants": [
+        {
+          "active": "boolean",
+          "colour": "string",
+          "createdAt": "date",
+          "flavour": "null",
+          "id": "string",
+          "priceCents": "number",
+          "productId": "string",
+          "size": "string",
+          "sku": "string",
+          "stockByLocation": {
+            "main": "number",
+          },
           "stockQty": "number",
           "updatedAt": "date",
         },
@@ -1452,6 +1672,10 @@ exports[`GET response shapes (characterisation) > staff products/[id] 1`] = `
         "productId": "string",
         "size": "null",
         "sku": "string",
+        "stockByLocation": {
+          "main": "number",
+          "second": "number",
+        },
         "stockQty": "number",
         "updatedAt": "date",
       },
@@ -1510,6 +1734,11 @@ exports[`GET response shapes (characterisation) > staff shifts 1`] = `
       "createdAt": "date",
       "endTime": "date",
       "id": "string",
+      "location": {
+        "id": "string",
+        "name": "string",
+      },
+      "locationId": "string",
       "notes": "null",
       "staff": {
         "id": "string",
@@ -1523,6 +1752,11 @@ exports[`GET response shapes (characterisation) > staff shifts 1`] = `
       "createdAt": "date",
       "endTime": "date",
       "id": "string",
+      "location": {
+        "id": "string",
+        "name": "string",
+      },
+      "locationId": "string",
       "notes": "string",
       "staff": {
         "id": "string",
@@ -1546,6 +1780,23 @@ exports[`GET response shapes (characterisation) > staff staff 1`] = `
       "email": "string",
       "id": "string",
       "inviteExpiresAt": "null",
+      "locationIds": [
+        "string",
+      ],
+      "name": "string",
+      "role": {
+        "id": "string",
+        "isOwner": "boolean",
+        "name": "string",
+      },
+      "status": "string",
+    },
+    {
+      "createdAt": "date",
+      "email": "string",
+      "id": "string",
+      "inviteExpiresAt": "null",
+      "locationIds": [],
       "name": "string",
       "role": {
         "id": "string",

@@ -7,6 +7,8 @@ import { releaseFutureBookings } from "@/lib/classes/service";
 import { markPaidAtDesk, setPlanAtDesk, startMembership } from "@/lib/membership/service";
 import { getMemberListItem } from "./queries";
 import type { CreateMemberInput, ProfileInput, UpdateMemberInput } from "./schema";
+import { MAIN_LOCATION_ID } from "@/lib/locations/constants";
+import { assertOpenLocation } from "@/lib/locations/members";
 
 export async function assertReferrer(db: Db, referredById: string | null | undefined, selfId?: string) {
   if (!referredById) return;
@@ -63,15 +65,22 @@ export async function archiveMember(db: Db, actor: Actor, memberId: string) {
 // Needs members.edit (checked by the route). A member added with a plan pays
 // at the desk and starts straight away; without one they're PENDING (no
 // access) until a plan is started or they pay online (R-36, D-100).
+// A member's home location must be open (D-125).
+export async function assertHomeLocation(db: Db, locationId: string) {
+  if (!(await assertOpenLocation(db, locationId))) throw new ApiError("validation_failed", "Choose an open location.", { homeLocationId: "Not found or archived" });
+}
+
 export async function createMember(db: Db, staff: StaffActor, input: CreateMemberInput) {
   await assertReferrer(db, input.referredById);
   await assertPlan(db, input.planId);
+  const homeLocationId = input.homeLocationId ?? MAIN_LOCATION_ID;
+  await assertHomeLocation(db, homeLocationId);
   const existing = await db.member.findUnique({ where: { email: input.email }, select: { id: true } });
   if (existing) throw new ApiError("conflict", "A member with that email already exists.", { email: "Already in use" });
   return db.$transaction(async (tx) => {
     const row = await tx.member.create({
       // Staff add members in person, so the address is taken as confirmed (D-114).
-      data: { name: input.name, email: input.email, planId: input.planId ?? null, referredById: input.referredById ?? null, status: "PENDING", emailVerifiedAt: new Date() },
+      data: { name: input.name, email: input.email, planId: input.planId ?? null, referredById: input.referredById ?? null, status: "PENDING", emailVerifiedAt: new Date(), homeLocationId },
       select: { id: true, planId: true, referredById: true },
     });
     await logAction(tx, staff, {
@@ -102,6 +111,7 @@ export async function updateMember(db: Db, staff: StaffActor, memberId: string, 
   }
   await assertReferrer(db, details.referredById, memberId);
   await assertPlan(db, planId);
+  if (details.homeLocationId) await assertHomeLocation(db, details.homeLocationId);
   if (details.email) {
     const clash = await db.member.findUnique({ where: { email: details.email }, select: { id: true } });
     if (clash && clash.id !== memberId) throw new ApiError("conflict", "Another member already uses that email.", { email: "Already in use" });
@@ -120,7 +130,7 @@ export async function updateMember(db: Db, staff: StaffActor, memberId: string, 
     }
     return tx.member.findUniqueOrThrow({
       where: { id: memberId },
-      select: { id: true, name: true, email: true, status: true, planId: true, notes: true, referredById: true, keycardIssued: true },
+      select: { id: true, name: true, email: true, status: true, planId: true, notes: true, referredById: true, keycardIssued: true, homeLocationId: true },
     });
   });
 }

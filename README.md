@@ -77,6 +77,8 @@ npm test              # Vitest: unit tests and integration tests against Postgre
 npm run build         # production build (doesn't touch any database)
 npm run test:e2e      # Playwright + axe, against the production build
 npm run check:config  # validate config/gym.config.json
+npm run check:rollback               # every down.sql rolls back cleanly (needs ROLLBACK_DATABASE_URL)
+npm run check:locations-migration    # existing data moves to the main location (same database)
 ```
 
 Integration tests need a Postgres database whose name contains `test` (default `postgresql://gymos:gymos@localhost:5432/gymos_test`, override with `TEST_DATABASE_URL`). They reset it on every run. End-to-end tests use `gymos_e2e_test` (override with `E2E_DATABASE_URL`) and need `npm run build` first. If Chromium is already installed elsewhere, set `PLAYWRIGHT_CHROMIUM_PATH`.
@@ -95,3 +97,4 @@ Set the environment variables from `.env.example` in the hosting provider. `CRON
 2. Run `npm run check:config`. It explains anything that's wrong, such as an ABN whose check digits don't add up.
 3. Have a lawyer review the membership terms and privacy policy. See [docs/COMPLIANCE-NOTES.md](docs/COMPLIANCE-NOTES.md).
 4. Set `SETUP_TOKEN`, deploy, open `/admin/setup`, and create the owner account with the token.
+5. For a chain with several sites, name the main location and add the others on the Locations page, then say which locations each plan covers on the Plans page and where each staff member works on the Staff page (D-125 to D-128). A single-site gym can skip this: everything belongs to the main location.

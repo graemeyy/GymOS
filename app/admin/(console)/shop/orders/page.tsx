@@ -10,6 +10,7 @@ import { PageHeader, Panel, StatusTag, LinkButton } from "@/components/ui/primit
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
 import { SelectField } from "@/components/ui/form";
 import { DataList } from "@/components/ui/data-list";
+import { useLocationFilter } from "@/components/admin/location-filter";
 
 interface OrderRow {
   id: string;
@@ -19,13 +20,15 @@ interface OrderRow {
   customerName: string;
   totalCents: number;
   createdAt: string;
+  location: { id: string; name: string } | null;
   _count: { items: number };
 }
 
 export default function OrdersPage() {
   const [status, setStatus] = useState("open");
   const query = status === "open" ? "open=1" : status ? `status=${status}` : "";
-  const orders = useResource<OrderRow[]>(`/api/orders?${query}`);
+  const filter = useLocationFilter();
+  const orders = useResource<OrderRow[]>(filter.ready ? `/api/orders?${query}${filter.param()}` : null);
   return (
     <>
       <PageHeader title="Orders" description="Shop orders from members. Pack them, then mark them ready for pickup or shipped." actions={<LinkButton href="/admin/shop" variant="secondary">Products</LinkButton>} />
@@ -63,6 +66,7 @@ export default function OrdersPage() {
                         </Link>
                         <p className="text-sm text-ink-soft">
                           {o._count.items} item{o._count.items === 1 ? "" : "s"}, {o.fulfilment === "PICKUP" ? "pickup" : "shipping"}
+                          {filter.multiple && !filter.selected && o.location ? `, ${o.location.name}` : ""}
                         </p>
                       </div>
                     ),

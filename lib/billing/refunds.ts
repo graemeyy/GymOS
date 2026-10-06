@@ -6,6 +6,7 @@ import { getStripe } from "./stripe";
 import { logAction, type Actor } from "@/lib/audit";
 import { markOrderRefunded } from "@/lib/shop/orders";
 import { sendOrderEmail } from "@/lib/shop/emails";
+import { assertLocation, type LocationScope } from "@/lib/locations/scope";
 
 export interface RefundInput {
   paymentId: string;
@@ -37,6 +38,8 @@ export function statusAfterRefunds(amountCents: number, refundedCents: number, c
 export async function refundPayment(db: Db, actor: Actor & { kind: "staff" }, input: RefundInput) {
   const payment = await db.payment.findUnique({ where: { id: input.paymentId } });
   if (!payment) throw new ApiError("not_found", "Payment not found.");
+  // Staff limited to some locations refund only their locations' payments (D-128).
+  if ("locationIds" in actor) assertLocation(actor as unknown as LocationScope, payment.locationId);
   const refundable = payment.amount - payment.refundedCents;
   if (input.amountCents <= 0) throw new ApiError("validation_failed", "Enter an amount above zero.", { amountCents: "Above zero" });
   if (input.amountCents > refundable) {

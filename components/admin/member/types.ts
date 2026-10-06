@@ -9,7 +9,8 @@ export interface MemberDetail {
   email: string;
   status: MemberStatus;
   planId: string | null;
-  membershipPlan: { id: string; name: string; priceCents: number; interval: Interval } | null;
+  membershipPlan: { id: string; name: string; priceCents: number; interval: Interval; locationAccess: "HOME" | "SELECTED" | "ALL" } | null;
+  homeLocation: { id: string; name: string } | null;
   pendingPlan: { id: string; name: string } | null;
   nextBillingDate: string | null;
   pausedFrom: string | null;
@@ -26,7 +27,7 @@ export interface MemberDetail {
   retentionScore: number;
   archivedAt: string | null;
   createdAt: string;
-  checkIns: { id: string; location: string; timestamp: string }[];
+  checkIns: { id: string; location: string; site: { id: string; name: string } | null; timestamp: string }[];
   payments:
     | { id: string; amount: number; gstCents: number; refundedCents: number; currency: string; status: string; paidAt: string; invoiceNumber: number; kind: string; description: string | null }[]
     | null;

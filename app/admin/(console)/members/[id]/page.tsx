@@ -17,6 +17,7 @@ import type { MemberDetail, PlanOptionFull } from "@/components/admin/member/typ
 import { Button, LinkButton, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState, ErrorState, useToast } from "@/components/ui/feedback";
 import { ConfirmDialog } from "@/components/ui/dialog";
+import { useLocationFilter } from "@/components/admin/location-filter";
 
 function paymentTag(p: { status: string; refundedCents: number }) {
   if (p.status === "refunded") return <StatusTag tone="neutral">Refunded</StatusTag>;
@@ -29,6 +30,7 @@ export default function MemberDetailPage() {
   const router = useRouter();
   const toast = useToast();
   const { can } = useStaff();
+  const filter = useLocationFilter();
   const member = useResource<MemberDetail>(`/api/members/${id}`);
   const plans = useResource<PlanOptionFull[]>("/api/admin/plans");
   const [editOpen, setEditOpen] = useState(false);
@@ -184,7 +186,7 @@ export default function MemberDetailPage() {
                   <ul className="divide-y divide-line">
                     {m.checkIns.slice(0, 8).map((c) => (
                       <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                        <span>{c.location}</span>
+                        <span>{c.site && filter.multiple ? c.site.name : c.location}</span>
                         <span className="tabular text-sm text-ink-soft">{fmtDateTime(c.timestamp)}</span>
                       </li>
                     ))}

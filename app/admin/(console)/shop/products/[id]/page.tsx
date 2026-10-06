@@ -13,6 +13,7 @@ import { ErrorState, LoadingRows, useToast } from "@/components/ui/feedback";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField, TextareaField } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
+import { LocationField, useLocationFilter } from "@/components/admin/location-filter";
 
 interface VariantForm {
   key: string;
@@ -61,7 +62,11 @@ export default function ProductEditorPage() {
   // Prices, and new variants (which set a price), need prices.edit; without it
   // they're shown read-only.
   const canPrice = useStaff().can("prices.edit");
-  const existing = useResource<ProductData>(isNew ? null : `/api/products/${id}`);
+  const filter = useLocationFilter();
+  // Opening stock for new variants goes to one location (D-127).
+  const [stockLocation, setStockLocation] = useState("");
+  const stockLocationId = stockLocation || filter.current || "";
+  const existing = useResource<ProductData>(isNew || !filter.ready ? null : `/api/products/${id}${stockLocationId ? `?locationId=${encodeURIComponent(stockLocationId)}` : ""}`);
   const [form, setForm] = useState({ name: "", description: "", category: "APPAREL" as Category, imageUrl: "", active: true });
   const [variants, setVariants] = useState<VariantForm[]>([newVariant()]);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -116,6 +121,7 @@ export default function ProductEditorPage() {
       category: form.category,
       imageUrl: form.imageUrl || null,
       active: form.active,
+      ...(stockLocationId ? { stockLocationId } : {}),
       variants: priced.map(({ v, cents }) => ({ id: v.id, size: v.size || null, colour: v.colour || null, flavour: v.flavour || null, sku: v.sku, priceCents: cents, stockQty: Number(v.stockQty) || 0, active: v.active })),
     };
     void save.run(body);
@@ -169,6 +175,11 @@ export default function ProductEditorPage() {
             }
           />
           <p className="border-b border-line px-4 py-3 text-sm text-ink-soft">One row for each size, colour or flavour you stock. Leave fields blank if they don&apos;t apply. Prices include GST.</p>
+          {filter.multiple ? (
+            <div className="border-b border-line px-4 py-3 sm:max-w-sm">
+              <LocationField label="Stock shown for" hint="Stock for new variants goes here. Adjust existing stock on the products list." value={stockLocationId} onChange={setStockLocation} />
+            </div>
+          ) : null}
           {canPrice ? null : <AdminOnlyNote id="price-note" className="border-b border-line px-4 py-3" />}
           {errors.variants ? <p className="px-4 pt-3 text-sm font-medium text-bad">{errors.variants}</p> : null}
           <ul className="divide-y divide-line">
@@ -188,7 +199,7 @@ export default function ProductEditorPage() {
                   <TextField label="Flavour" value={v.flavour} onChange={(e) => setVariant(v.key, { flavour: e.target.value })} />
                   <TextField label="SKU" required value={v.sku} error={errors[`variants.${i}.sku`]} onChange={(e) => setVariant(v.key, { sku: e.target.value })} />
                   <TextField label="Price (AUD)" inputMode="decimal" readOnly={!canPrice} aria-describedby={canPrice ? undefined : "price-note"} value={v.price} error={errors[`price-${v.key}`] ?? errors[`variants.${i}.priceCents`]} onChange={(e) => setVariant(v.key, { price: e.target.value })} />
-                  <TextField label="In stock" type="number" inputMode="numeric" min={0} value={v.stockQty} onChange={(e) => setVariant(v.key, { stockQty: e.target.value })} />
+                  <TextField label={v.id ? "In stock" : "Opening stock"} type="number" inputMode="numeric" min={0} readOnly={Boolean(v.id)} value={v.stockQty} onChange={(e) => setVariant(v.key, { stockQty: e.target.value })} />
                 </div>
               </li>
             ))}

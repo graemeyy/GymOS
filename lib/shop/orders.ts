@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/http/errors";
 import { getStripe } from "@/lib/billing/stripe";
 import { logAction, type Actor } from "@/lib/audit";
 import { ORDER_STATUS_TEXT } from "./labels";
+import { addStock, takeStock } from "./stock";
 
 export { ORDER_STATUS_TEXT, variantLabel } from "./labels";
 
@@ -32,8 +33,7 @@ export async function commitStock(tx: Tx, orderId: string) {
   const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
   if (order.stockCommitted) return false;
   for (const item of order.items) {
-    const res = await tx.productVariant.updateMany({ where: { id: item.variantId, stockQty: { gte: item.quantity } }, data: { stockQty: { decrement: item.quantity } } });
-    if (res.count === 0) throw new ApiError("conflict", `${item.productName} (${item.variantLabel}) is out of stock.`);
+    if (!(await takeStock(tx, item.variantId, order.locationId, item.quantity))) throw new ApiError("conflict", `${item.productName} (${item.variantLabel}) is out of stock.`);
   }
   await tx.order.update({ where: { id: orderId }, data: { stockCommitted: true } });
   return true;
@@ -42,9 +42,7 @@ export async function commitStock(tx: Tx, orderId: string) {
 export async function restock(tx: Tx, orderId: string) {
   const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
   if (!order.stockCommitted) return;
-  for (const item of order.items) {
-    await tx.productVariant.update({ where: { id: item.variantId }, data: { stockQty: { increment: item.quantity } } });
-  }
+  for (const item of order.items) await addStock(tx, item.variantId, order.locationId, item.quantity);
   await tx.order.update({ where: { id: orderId }, data: { stockCommitted: false } });
 }
 

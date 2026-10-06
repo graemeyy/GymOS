@@ -11,6 +11,7 @@ import { IconButton, LinkButton, PageHeader, Panel, PanelHeader, StatusTag } fro
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { SelectField } from "@/components/ui/form";
 import { LOW_STOCK_AT } from "@/lib/shop/limits";
+import { useLocationFilter } from "@/components/admin/location-filter";
 
 interface Variant {
   id: string;
@@ -20,6 +21,7 @@ interface Variant {
   sku: string;
   priceCents: number;
   stockQty: number;
+  stockByLocation: Record<string, number>;
   active: boolean;
 }
 interface Product {
@@ -37,7 +39,12 @@ export default function ShopProductsPage() {
   const params = new URLSearchParams();
   if (category) params.set("category", category);
   if (archived) params.set("includeArchived", "1");
-  const products = useResource<Product[]>(`/api/products?${params.toString()}`);
+  const filter = useLocationFilter();
+  const products = useResource<Product[]>(filter.ready ? `/api/products?${params.toString()}${filter.param()}` : null);
+  // Stock is counted per location (D-127): it's adjusted at one location, and
+  // "All locations" shows the totals with the split underneath.
+  const stockAt = filter.multiple ? filter.selected : filter.current;
+  const names = new Map(filter.locations.map((l) => [l.id, l.name]));
 
   return (
     <>
@@ -67,6 +74,7 @@ export default function ShopProductsPage() {
           Show archived
         </label>
       </div>
+      {filter.multiple && !filter.selected ? <p className="mb-4 text-sm text-ink-soft">Showing stock across all your locations. Choose a location at the top of the page to count or adjust its stock.</p> : null}
       <AsyncBlock loading={products.loading} error={products.error} data={products.data} onRetry={products.reload} loadingLabel="Loading products">
         {(rows) =>
           rows.length === 0 ? (
@@ -97,12 +105,17 @@ export default function ShopProductsPage() {
                         <li key={v.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
                           <span className="min-w-0">
                             <span className="font-medium">{variantLabel(v)}</span> <span className="text-sm text-ink-soft">{v.sku}</span>
+                            {filter.multiple && !filter.selected ? (
+                              <span className="block text-sm text-ink-soft">
+                                {filter.locations.map((l) => `${names.get(l.id)} ${v.stockByLocation[l.id] ?? 0}`).join(", ")}
+                              </span>
+                            ) : null}
                           </span>
                           <span className="flex items-center gap-3">
                             <span className="tabular">{formatAud(v.priceCents)}</span>
                             {v.stockQty === 0 ? <StatusTag tone="bad">Sold out</StatusTag> : v.stockQty <= LOW_STOCK_AT ? <StatusTag tone="warn">{v.stockQty} left</StatusTag> : <span className="tabular w-14 text-right text-sm text-ink-soft">{v.stockQty} in stock</span>}
-                            {can("orders.manage") ? (
-                              <StockButtons label={`${p.name} ${variantLabel(v)}`} variant={v} onAdjusted={products.reload} />
+                            {can("orders.manage") && stockAt ? (
+                              <StockButtons label={`${p.name} ${variantLabel(v)}`} variant={v} locationId={stockAt} onAdjusted={products.reload} />
                             ) : null}
                           </span>
                         </li>
@@ -119,9 +132,9 @@ export default function ShopProductsPage() {
 }
 
 // Each variant owns its own request, so adjusting one never blocks another.
-function StockButtons({ label, variant, onAdjusted }: { label: string; variant: Variant; onAdjusted: () => Promise<void> }) {
+function StockButtons({ label, variant, locationId, onAdjusted }: { label: string; variant: Variant; locationId: string; onAdjusted: () => Promise<void> }) {
   const toast = useToast();
-  const adjust = useMutation((delta: number) => api(`/api/product-variants/${variant.id}`, { method: "PATCH", body: { delta } }), {
+  const adjust = useMutation((delta: number) => api(`/api/product-variants/${variant.id}`, { method: "PATCH", body: { delta, locationId } }), {
     onSuccess: () => void onAdjusted(),
     onError: (e) => toast(e.message, "bad"),
   });

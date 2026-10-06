@@ -7,7 +7,7 @@ import type { PaymentListFilter } from "./payments";
 
 // Search matches the member's name or email, or an invoice number with or
 // without its "INV-" prefix.
-export function listPayments(db: Db, filter: PaymentListFilter) {
+export function listPayments(db: Db, filter: PaymentListFilter, scope: Prisma.PaymentWhereInput = {}) {
   const invoiceNumber = filter.q?.replace(/^INV-/i, "");
   const where: Prisma.PaymentWhereInput = {
     ...(filter.kind ? { kind: filter.kind } : {}),
@@ -21,6 +21,7 @@ export function listPayments(db: Db, filter: PaymentListFilter) {
           ],
         }
       : {}),
+    ...scope,
   };
   return db.payment.findMany({
     where,
@@ -37,6 +38,7 @@ export function listPayments(db: Db, filter: PaymentListFilter) {
       description: true,
       invoiceNumber: true,
       paidAt: true,
+      location: { select: { id: true, name: true } },
       member: { select: { id: true, name: true, email: true, membershipPlan: { select: { name: true } } } },
     },
   });

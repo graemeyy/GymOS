@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/primitives";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
 import { useToast } from "@/components/ui/feedback";
 import { useStaff } from "./staff-session";
+import { LocationField, useDefaultLocation } from "./location-filter";
 
 export interface PlanOption {
   id: string;
@@ -24,6 +25,7 @@ export interface EditableMember {
   membershipPlan?: { id: string; name: string } | null;
   notes?: string | null;
   referredById?: string | null;
+  homeLocation?: { id: string; name: string } | null;
 }
 
 export function MemberFormDialog({
@@ -44,9 +46,10 @@ export function MemberFormDialog({
   const canBilling = can("members.edit");
   // Editing someone whose email the viewer can't see leaves the email alone.
   const emailHidden = Boolean(member) && member?.email === null;
+  const defaultLocation = useDefaultLocation();
   // planId null means "not chosen yet": the default comes from the plans
   // list, which may arrive after the dialog opens.
-  const [form, setForm] = useState({ name: "", email: "", planId: null as string | null, status: "ACTIVE" as MemberStatus });
+  const [form, setForm] = useState({ name: "", email: "", planId: null as string | null, status: "ACTIVE" as MemberStatus, homeLocationId: "" });
   const save = useMutation(
     (target: EditableMember | null, body: Record<string, unknown>) => (target ? api(`/api/members/${target.id}`, { method: "PUT", body }) : api("/api/members", { body })),
     {
@@ -65,7 +68,7 @@ export function MemberFormDialog({
   useEffect(() => {
     if (open && !wasOpen.current) {
       resetSave();
-      setForm({ name: member?.name ?? "", email: member?.email ?? "", planId: member ? (member.planId ?? "") : null, status: member?.status ?? "ACTIVE" });
+      setForm({ name: member?.name ?? "", email: member?.email ?? "", planId: member ? (member.planId ?? "") : null, status: member?.status ?? "ACTIVE", homeLocationId: member?.homeLocation?.id ?? "" });
     }
     wasOpen.current = open;
   }, [open, member, resetSave]);
@@ -75,10 +78,13 @@ export function MemberFormDialog({
   // "No plan" (R-56).
   const currentPlan = member?.membershipPlan && !plans.some((p) => p.id === member.membershipPlan?.id) ? member.membershipPlan : null;
 
+  const homeLocationId = form.homeLocationId || defaultLocation;
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     if (member) {
       const body: Record<string, unknown> = { name: form.name };
+      if (form.homeLocationId && form.homeLocationId !== member.homeLocation?.id) body.homeLocationId = form.homeLocationId;
       if (!emailHidden) body.email = form.email;
       if (canBilling) {
         body.planId = planId || null;
@@ -86,7 +92,7 @@ export function MemberFormDialog({
       }
       void save.run(member, body);
     } else {
-      void save.run(null, { name: form.name, email: form.email, planId: planId || null });
+      void save.run(null, { name: form.name, email: form.email, planId: planId || null, ...(homeLocationId ? { homeLocationId } : {}) });
     }
   };
 
@@ -142,6 +148,7 @@ export function MemberFormDialog({
             </SelectField>
           ) : null}
         </div>
+        <LocationField label="Home location" hint="Where they usually train. Plans limited to a home location use this." value={homeLocationId} error={save.fields.homeLocationId} onChange={(id) => setForm({ ...form, homeLocationId: id })} />
         {member && canBilling ? (
           <p className="text-sm text-ink-soft">Setting the plan or status here corrects the record only. To change a plan, pause or cancel with the gym&apos;s rules and Stripe kept in step, use the Membership panel.</p>
         ) : null}

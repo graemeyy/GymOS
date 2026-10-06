@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api, useMutation, useResource } from "@/lib/client/api";
 import { fmtDayHeading, fmtTime } from "@/lib/format";
@@ -10,6 +10,7 @@ import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { useMe } from "@/components/member/member-shell";
 import { localDateIn } from "@/lib/dates";
 import { DAY_MS, HOUR_MS } from "@/lib/time";
+import { SelectField } from "@/components/ui/form";
 
 interface ClassRow {
   id: string;
@@ -23,12 +24,14 @@ interface ClassRow {
   booked: boolean;
   waitlistPosition: number | null;
   bookingOpen: boolean;
+  location: { id: string; name: string } | null;
 }
 interface Timetable {
   bookingOpensDaysAhead: number;
   cancelWithoutPenaltyHours: number;
   lateCancelForfeitsCredit: boolean;
   classes: ClassRow[];
+  locations: { id: string; name: string }[];
 }
 
 const dayKey = (d: string) => localDateIn(gym.business.timezone, new Date(d));
@@ -48,7 +51,17 @@ export default function MemberClassesPage() {
     start.setMinutes(0, 0, 0);
     return { from: start.toISOString(), to: new Date(from.getTime() + 7 * DAY_MS).toISOString() };
   }, [week]);
-  const timetable = useResource<Timetable>(`/api/me/classes?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`);
+  // The locations the member's plan covers (D-126); with more than one they
+  // can narrow the timetable to one.
+  const [locationId, setLocationId] = useState("");
+  const timetable = useResource<Timetable>(`/api/me/classes?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}${locationId ? `&locationId=${encodeURIComponent(locationId)}` : ""}`);
+  const [locations, setLocations] = useState<Timetable["locations"]>([]);
+  // Kept while a filtered week loads, so the picker doesn't flicker away.
+  const fetched = timetable.data?.locations;
+  useEffect(() => {
+    if (fetched) setLocations(fetched);
+  }, [fetched]);
+  const manyLocations = locations.length > 1;
   const reload = async () => {
     await Promise.all([timetable.reload(), me.reload()]);
   };
@@ -69,6 +82,16 @@ export default function MemberClassesPage() {
         <p className="mb-4 rounded border border-line bg-sunken px-4 py-3 text-sm">
           {credits > 0 ? `${credits} class ${credits === 1 ? "credit" : "credits"} left this billing cycle.` : "You've used this cycle's class credits. Upgrade your plan or book a casual class at the front desk."}
         </p>
+      ) : null}
+      {manyLocations ? (
+        <SelectField label="Location" value={locationId} onChange={(e) => setLocationId(e.target.value)} wrapperClassName="mb-4 sm:w-72">
+          <option value="">All my locations</option>
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </SelectField>
       ) : null}
       <div className="mb-4 flex items-center justify-between gap-2">
         <IconButton label="Previous week" onClick={() => setWeek((w) => Math.max(0, w - 1))} disabled={week === 0}>
@@ -101,7 +124,7 @@ export default function MemberClassesPage() {
                           <div>
                             <p className="font-medium">{c.name}</p>
                             <p className="text-sm text-ink-soft">
-                              {c.durationMinutes} min{c.coach ? ` with ${c.coach}` : ""}.{" "}
+                              {c.durationMinutes} min{c.coach ? ` with ${c.coach}` : ""}{manyLocations && !locationId && c.location ? ` at ${c.location.name}` : ""}.{" "}
                               {c.booked ? null : c.spotsLeft > 0 ? `${c.spotsLeft} of ${c.capacity} spots left.` : `Full${c.waitlistLength ? `, ${c.waitlistLength} waiting` : ""}.`}
                             </p>
                           </div>
