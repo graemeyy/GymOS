@@ -37,6 +37,12 @@ const movedStaffPages = ["members", "classes", "shifts", "billing", "equipment",
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // The title and icons come from the branding row (D-124), so metadata is
+  // async. By default Next streams async metadata into the body after the
+  // first HTML for browsers; serving it in <head> for every visitor means the
+  // page never has a moment without a <title> (screen readers and the
+  // accessibility checks read it straight away).
+  htmlLimitedBots: /.*/,
   env: { NEXT_PUBLIC_BUILD_ID: buildId },
   async headers() {
     return [
