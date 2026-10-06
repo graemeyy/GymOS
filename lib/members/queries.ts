@@ -19,6 +19,12 @@ export const memberListSelect = {
 
 // Searching by email is only for viewers who can see emails; otherwise a
 // search would confirm whether an address belongs to a member.
+const MEMBER_ORDER = {
+  newest: [{ createdAt: "desc" }, { id: "desc" }],
+  name: [{ name: { sort: "asc", nulls: "last" } }, { email: "asc" }, { id: "asc" }],
+  retention: [{ retentionScore: "asc" }, { id: "asc" }],
+} satisfies Record<string, Prisma.MemberOrderByWithRelationInput[]>;
+
 export async function listMembers(db: Db, query: MemberListInput, opts: { searchEmail?: boolean } = { searchEmail: true }) {
   const where: Prisma.MemberWhereInput = {
     ...(query.status ? { status: query.status } : {}),
@@ -33,7 +39,7 @@ export async function listMembers(db: Db, query: MemberListInput, opts: { search
   const rows = await db.member.findMany({
     where,
     select: memberListSelect,
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    orderBy: MEMBER_ORDER[query.sort ?? "newest"],
     take: query.take + 1,
     ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
   });

@@ -19,6 +19,13 @@ interface Result {
   method: "MANUAL" | "QR";
   member: { id: string; name: string | null; status: MemberStatus; plan: string | null; retentionScore: number; keycardIssued: boolean };
 }
+interface Found {
+  id: string;
+  name: string | null;
+  status: MemberStatus;
+  archivedAt: string | null;
+  membershipPlan: { name: string } | null;
+}
 interface RecentRow {
   id: string;
   location: string;
@@ -77,7 +84,7 @@ export default function CheckInPage() {
     <>
       <PageHeader
         title="Check-in"
-        description="Scan a member's QR pass, or type their email."
+        description="Scan a member's QR pass, or type their email or keycard number. No pass? Find them by name."
         actions={
           <Button variant="secondary" onClick={() => setCameraOpen(true)}>
             <Camera className="h-4 w-4" aria-hidden="true" /> Scan with camera
@@ -114,6 +121,8 @@ export default function CheckInPage() {
               </p>
             ) : null}
           </Panel>
+
+          <FindMember onCheckIn={(id) => void checkIn(id)} busy={mutation.busy} />
 
           {/* Always mounted, so the first result is announced too (R-92). */}
           <div aria-live="assertive">
@@ -161,5 +170,70 @@ export default function CheckInPage() {
       </div>
       <QrScannerDialog open={cameraOpen} onClose={() => setCameraOpen(false)} onScan={onScan} />
     </>
+  );
+}
+
+// The fallback when a pass won't scan or the member's phone is flat (D-119):
+// find them by name, check who it is, and check them in.
+function FindMember({ onCheckIn, busy }: { onCheckIn: (memberId: string) => void; busy: boolean }) {
+  const [text, setText] = useState("");
+  const [query, setQuery] = useState("");
+  const found = useResource<Found[]>(query ? `/api/check-in/search?q=${encodeURIComponent(query)}` : null);
+  return (
+    <Panel aria-labelledby="find-heading" className="p-4 sm:p-5">
+      <h2 id="find-heading" className="font-display text-lg font-semibold">
+        Find a member
+      </h2>
+      <form
+        onSubmit={(event: React.FormEvent) => {
+          event.preventDefault();
+          if (text.trim().length >= 2) setQuery(text.trim());
+        }}
+        className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
+      >
+        <div className="flex-1 space-y-1.5">
+          <label htmlFor="find-input" className="block text-sm font-medium">
+            Name
+          </label>
+          <input
+            id="find-input"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            autoComplete="off"
+            className="block min-h-[44px] w-full rounded border border-line-strong bg-surface px-3 focus:border-plate focus:outline-none focus:ring-2 focus:ring-plate/30"
+          />
+        </div>
+        <Button type="submit" variant="secondary" className="min-h-[44px]">
+          Find
+        </Button>
+      </form>
+      {query ? (
+        <div className="mt-3">
+          <AsyncBlock loading={found.loading} error={found.error} data={found.data} onRetry={found.reload}>
+            {(rows) =>
+              rows.length === 0 ? (
+                <p className="text-sm text-ink-soft">Nobody matches &ldquo;{query}&rdquo;.</p>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {rows.map((m) => (
+                    <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{m.name ?? "Unnamed member"}</span>
+                        <StatusTag tone={STATUS_TONE[m.status]}>{STATUS_TEXT[m.status]}</StatusTag>
+                        {m.membershipPlan ? <span className="text-sm text-ink-soft">{m.membershipPlan.name}</span> : null}
+                        {m.archivedAt ? <span className="text-sm text-ink-soft">Archived</span> : null}
+                      </span>
+                      <Button variant="secondary" busy={busy} onClick={() => onCheckIn(m.id)} aria-label={`Check in ${m.name ?? "this member"}`}>
+                        Check in
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
+          </AsyncBlock>
+        </div>
+      ) : null}
+    </Panel>
   );
 }

@@ -275,8 +275,11 @@ describe("pass, invoices and data", () => {
   it("issues a QR pass for the signed-in member only", async () => {
     const m = await createMember();
     const res = await call(pass.GET, await makeRequest("GET", "/x", { as: asMember(m) }));
-    const payload = await readPassToken(res.body.token as string);
-    expect(payload).toEqual({ m: m.id, v: 0 });
+    expect(await readPassToken(res.body.token as string)).toMatchObject({ ok: true, memberId: m.id, version: 0 });
+    // Short-lived, and the page is told when to fetch the next one (D-119).
+    expect(new Date(res.body.expiresAt as string).getTime() - Date.now()).toBeLessThanOrEqual(90_000);
+    expect(res.body.refreshSeconds).toBe(60);
+    expect(res.headers.get("cache-control")).toBe("no-store");
   });
 
   it("shows a member their own tax invoice and nobody else's", async () => {
