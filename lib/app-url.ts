@@ -23,3 +23,12 @@ export function appUrl(path = ""): string {
   if (!path) return base;
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
+
+// For the setup check (D-132), which reports whether the address is set
+// without reading the variable itself.
+export const APP_URL_VARIABLE = "NEXT_PUBLIC_APP_URL";
+
+/** The address set explicitly for this copy, if any. */
+export function explicitAppUrl(source: Partial<Record<string, string | undefined>>): string | undefined {
+  return source[APP_URL_VARIABLE] || undefined;
+}

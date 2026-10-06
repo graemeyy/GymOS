@@ -15,6 +15,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx --conditions=react-server --env-file-if-exists=.env prisma/seed.ts",
     "check:config": "tsx scripts/check-config.ts",
+    "check:setup": "tsx --conditions=react-server --env-file-if-exists=.env scripts/check-setup.ts",
     "check:rollback": "bash scripts/check-migration-rollback.sh",
     "check:locations-migration": "bash scripts/check-locations-migration.sh",
     "stripe:check": "tsx --conditions=react-server --env-file-if-exists=.env scripts/stripe-check.ts",

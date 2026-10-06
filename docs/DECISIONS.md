@@ -341,3 +341,10 @@ Members aren't limited by location for staff: a member can train at several loca
 - **If the date passes with no card**, the daily job marks the membership overdue for one cycle's price, and the usual grace period and reminders follow. Adding a card then pays it up again.
 - **Migration** `20261015000000_import`: a nullable `Member.importedAt`, the Owner preset gaining `data.import` and the Admin preset's new description, with `down.sql`.
 - Imported members without a membership row arrive as "pending" and choose a plan and pay when they first sign in, like an online sign-up.
+
+**D-132. A setup checklist and a check that reports, never reveals.** (Part 4) `docs/NEW-GYM-SETUP.md` is the checklist for standing up a copy for a new gym, in order: details, Vercel project, separate Production and Preview databases, environment variables, the gym's own Stripe account and webhook, email domain, custom domain, the first owner through `SETUP_TOKEN`, branding, locations, import, and a final check. `npm run check:setup` checks the copy is fully configured and lists what's missing with what to do:
+- **Environment variables:** present and the right shape. It catches placeholders left from `.env.example`, a live Stripe key without `STRIPE_ALLOW_LIVE_KEYS`, `SHOW_EMAIL_LINKS` on production, and a missing `SETUP_TOKEN` before there's an owner.
+- **The config:** still the demo, or placeholder addresses.
+- **The database**, read only: migrations applied, an owner, branding saved, plans open for sign-up, the main location's address, no seeded demo accounts, and whether a Stripe webhook has arrived.
+
+It never prints a value: secrets and connection strings are only tested for presence and shape, a database error is reported by its code (the message can include the host), and a test feeds it real-looking secrets and checks none appear in the report. It exits with an error while anything fails, so it can run in a deploy pipeline. Stripe's own endpoint check stays in `npm run stripe:check -- --remote` (D-117), which the report points to.
