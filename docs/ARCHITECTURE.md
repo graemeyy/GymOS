@@ -113,4 +113,5 @@ Two layers, both validated at startup:
 - **New write that logs an audit entry:** do both inside one `db.$transaction` and add a case to `tests/integration/atomic-*.test.ts`.
 - **Changing data from the browser:** use `useMutation` from `lib/client/api.ts`.
 - **Something that belongs to a location:** add a `locationId` defaulting to `main` in a migration, filter staff lists with `locationWhere` and check writes with `assertLocation` (or `defaultLocationFor`) from `lib/locations/scope.ts`, and use `useLocationFilter()` on the page. Add a case to `tests/integration/locations.test.ts`.
+- **Importing another kind of record:** add its fields to `lib/import/fields.ts`, a planner and a writer in `lib/import/service.ts` (check every row, then write inside the transaction), and cases to `tests/integration/import.test.ts`.
 - **New Stripe event:** handle it in `lib/billing/webhook.ts` inside the transaction, and add a signed-payload test.

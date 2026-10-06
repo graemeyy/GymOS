@@ -85,6 +85,11 @@ async function handleCheckoutCompleted(ctx: EventContext, session: Stripe.Checko
       stripeCustomerId: idOf(session.customer),
       stripeSubscriptionId: subscriptionId,
       status: "ACTIVE",
+      // An imported membership that lapsed before a card was added is paid
+      // up again by this checkout (D-131).
+      pastDueSince: null,
+      amountOwingCents: 0,
+      lastFailedInvoiceId: null,
       ...(starting ? { membershipStartedAt: ctx.eventAt, cancelAt: null, cancelledAt: null, cancelReason: null } : {}),
       ...(plan ? { planId: plan.id } : {}),
     },

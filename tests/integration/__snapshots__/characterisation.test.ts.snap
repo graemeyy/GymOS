@@ -59,6 +59,7 @@ exports[`GET response shapes (characterisation) > member me 1`] = `
       "name": "string",
     },
     "id": "string",
+    "importedAt": "null",
     "membershipPlan": {
       "classCreditsPerCycle": "null",
       "guestPassesPerCycle": "number",

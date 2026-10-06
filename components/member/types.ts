@@ -5,6 +5,7 @@ export type { Interval };
 
 export interface Me {
   homeLocation: { id: string; name: string } | null;
+  importedAt: string | null;
   id: string;
   name: string | null;
   email: string;

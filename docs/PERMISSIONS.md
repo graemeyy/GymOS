@@ -7,7 +7,7 @@ This page describes the five roles GymOS starts with. If someone has edited them
 ## The starting roles
 
 - **Owner**: everything, including the owner-only actions below. There is always at least one active owner.
-- **Admin**: everything except branding (`branding.edit`, D-124) and the owner-only actions.
+- **Admin**: everything except branding (`branding.edit`, D-124), importing data (`data.import`, D-130) and the owner-only actions.
 - **Manager**: runs the gym day to day (members, bookings, the timetable and roster, shop orders, products and stock, refunds, announcements) and sees the money and the audit log. Can't change prices, plans, settings, staff accounts or roles, and can't download finance reports.
 - **Front desk**: checks members in, handles bookings and shop orders, and sees schedules and the member list. No prices, settings or money, and no members' private details.
 - **Trainer**: their own classes and attendance, and only the member details those classes need. No permissions at all by default.
@@ -41,6 +41,7 @@ Least privilege: "See money" and "See members' private details" are off for Fron
 | Send announcements (`announcements.send`) | Write, publish and email announcements to members or staff. | Yes | Yes | Yes | No | No |
 | Change settings (`settings.edit`) | Gym settings such as keycard entry, and adding, editing and archiving locations. | Yes | Yes | No | No | No |
 | Change branding (`branding.edit`) | The gym's name, logo, colours, fonts, app name, email sender and footer, and the business details on the terms and privacy pages. | Yes | No | No | No | No |
+| Import data (`data.import`) | Bring members, plans and memberships in from another system with a CSV file, and resend imported members' invitations. | Yes | No | No | No | No |
 | Manage staff accounts (`staff.manage`) | Invite staff, assign roles and deactivate accounts. Nobody can give a role with permissions they don't have themselves. | Yes | Yes | No | No | No |
 | Manage roles (`roles.manage`) | Edit what each role can do and create custom roles, within the permissions you have yourself. | Yes | Yes | No | No | No |
 | See the audit log (`audit.view`) | Who changed what and when, with old and new values, and its CSV export. | Yes | Yes | Yes | No | No |

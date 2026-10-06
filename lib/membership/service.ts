@@ -457,5 +457,18 @@ export async function applyDueTransitions(db: Db, now = new Date()) {
       await recordEvent(tx, m.id, system, "PLAN_CHANGED", now, { from: m.membershipPlan?.name ?? null, to: m.pendingPlan?.name ?? null });
     });
   });
-  return { pausesStarted, pausesEnded, cancellations, plansApplied };
+  // An imported membership paid up to a date (D-131): once that date has
+  // passed with no card added, it's overdue like any missed payment, and the
+  // usual grace period and reminders follow.
+  const lapsing = await db.member.findMany({
+    where: { archivedAt: null, importedAt: { not: null }, stripeSubscriptionId: null, status: "ACTIVE", currentPeriodEnd: { lte: now } },
+    select: { id: true, currentPeriodEnd: true, membershipPlan: { select: { priceCents: true, name: true } } },
+  });
+  const importsLapsed = await each(lapsing, (m) =>
+    db.$transaction(async (tx) => {
+      await tx.member.update({ where: { id: m.id }, data: { status: "PAST_DUE", pastDueSince: m.currentPeriodEnd, amountOwingCents: m.membershipPlan?.priceCents ?? 0 } });
+      await logAction(tx, system, { action: "membership.imported_lapsed", targetType: "Member", targetId: m.id, details: { plan: m.membershipPlan?.name ?? null } });
+    })
+  );
+  return { pausesStarted, pausesEnded, cancellations, plansApplied, importsLapsed };
 }

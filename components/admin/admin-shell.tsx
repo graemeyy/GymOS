@@ -26,6 +26,7 @@ import {
   Receipt,
   ShieldCheck,
   UserCog,
+  FileUp,
   MapPin,
   Palette,
 } from "lucide-react";
@@ -79,6 +80,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/admin/inventory", label: "Stock", icon: Package, permission: SEE_STOCK_AND_EQUIPMENT },
       { href: "/admin/access", label: "Door access", icon: DoorOpen, permission: "checkin.scan" },
       { href: "/admin/locations", label: "Locations", icon: MapPin, permission: "settings.edit" },
+      { href: "/admin/import", label: "Import", icon: FileUp, permission: "data.import" },
       { href: "/admin/staff", label: "Staff", icon: UserCog, permission: "staff.manage" },
       { href: "/admin/roles", label: "Roles", icon: ShieldCheck, permission: null },
       { href: "/admin/audit", label: "Audit log", icon: ClipboardList, permission: "audit.view" },
