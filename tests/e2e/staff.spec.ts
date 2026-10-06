@@ -100,6 +100,24 @@ test.describe("as front desk", () => {
     await screenshot(page, "admin-check-in");
   });
 
+  test("finds a member by name when their pass won't scan", async ({ page }) => {
+    await page.goto("/admin/check-in");
+    await page.getByLabel("Name", { exact: true }).fill("priya");
+    await page.getByRole("button", { name: "Find", exact: true }).click();
+    await page.getByRole("button", { name: /^Check in Priya/ }).click();
+    await expect(page.getByText("Come on in")).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await expectNoA11yViolations(page);
+  });
+
+  test("refuses an old pass that never expired", async ({ page }) => {
+    await page.goto("/admin/check-in");
+    const input = page.getByLabel("Pass, member ID or email");
+    await input.fill("GYM1.an-old-screenshot");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("alert").filter({ hasText: "old pass that no longer works" })).toBeVisible();
+  });
+
   test("can't reach staff management, change roles or prices", async ({ page }) => {
     expect((await page.request.get("/api/staff")).status()).toBe(403);
     expect((await page.request.get("/api/audit-log")).status()).toBe(403);

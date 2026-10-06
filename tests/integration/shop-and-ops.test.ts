@@ -171,13 +171,16 @@ describe("announcements", () => {
 describe("QR check-in and grace period", () => {
   it("accepts a current pass and refuses a reissued one", async () => {
     const m = await createMember();
-    const token = await createPassToken(m.id, 0);
-    const scan = async () => call(checkIn.POST, await makeRequest("POST", "/api/check-in", { as: desk, body: { query: token } }));
+    // A fresh code each time, a second apart, as the pass page shows them.
+    let n = 0;
+    const scan = async () => call(checkIn.POST, await makeRequest("POST", "/api/check-in", { as: desk, body: { query: (await createPassToken(m.id, 0, new Date(Date.now() + 1000 * n++))).token } }));
     const ok = await scan();
     expect(ok.body).toMatchObject({ granted: true, method: "QR" });
     expect((await call(pass.POST, await makeRequest("POST", "/x", { as: desk }), { id: m.id })).status).toBe(403);
     expect((await call(pass.POST, await makeRequest("POST", "/x", { as: deskEditor }), { id: m.id })).status).toBe(200);
-    expect((await scan()).status).toBe(409);
+    const replaced = await scan();
+    expect(replaced.status).toBe(409);
+    expect(replaced.body.error?.message).toContain("has been replaced");
   });
 
   it("lets a past-due member in during the grace period with a warning, then refuses", async () => {

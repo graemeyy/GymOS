@@ -13,6 +13,26 @@ import { call, createMember, createStaff, createStaffWith, makeRequest, prisma, 
 beforeEach(resetDb);
 
 describe("members", () => {
+  // R-94: lists are sorted in the database, so a capped list keeps the right
+  // members, and paging through a sorted list misses nobody.
+  it("sorts the list by retention score or name before capping it", async () => {
+    const owner = { staff: await createStaff("OWNER") };
+    const people = [
+      { name: "Cara", score: 55 },
+      { name: "Abe", score: 90 },
+      { name: "Bea", score: 12 },
+    ];
+    for (const p of people) {
+      const m = await createMember({ name: p.name });
+      await prisma.member.update({ where: { id: m.id }, data: { retentionScore: p.score } });
+    }
+    const list = async (q: string) => (await call(members.GET, await makeRequest("GET", `/api/members?${q}`, { as: owner }))).body as unknown as { items: { name: string }[]; nextCursor: string | null };
+    expect((await list("sort=retention&take=2")).items.map((m) => m.name)).toEqual(["Bea", "Cara"]);
+    const first = await list("sort=name&take=2");
+    expect(first.items.map((m) => m.name)).toEqual(["Abe", "Bea"]);
+    expect((await list(`sort=name&take=2&cursor=${first.nextCursor}`)).items.map((m) => m.name)).toEqual(["Cara"]);
+  });
+
   // D-100: the Front desk preset no longer edits members; a role with
   // members.edit does, and status still only changes through the membership
   // actions.

@@ -16,6 +16,7 @@
     "db:seed": "tsx --conditions=react-server --env-file-if-exists=.env prisma/seed.ts",
     "check:config": "tsx scripts/check-config.ts",
     "check:rollback": "bash scripts/check-migration-rollback.sh",
+    "check:fresh-db": "bash scripts/check-fresh-database.sh",
     "check:locations-migration": "bash scripts/check-locations-migration.sh",
     "stripe:check": "tsx --conditions=react-server --env-file-if-exists=.env scripts/stripe-check.ts",
     "postinstall": "prisma generate"

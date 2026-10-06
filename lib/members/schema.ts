@@ -15,6 +15,9 @@ export const MemberListQuery = z.object({
   cursor: zId.optional(),
   // Members whose home location this is (D-125).
   locationId: zLocationId.optional(),
+  // Sorted in the database, so a capped list keeps the right members: the
+  // most at-risk for retention, A to Z for pickers (R-94).
+  sort: z.enum(["newest", "name", "retention"]).default("newest"),
 });
 
 export const CreateMemberBody = z.object({

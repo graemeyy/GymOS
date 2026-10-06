@@ -227,10 +227,16 @@ describe("R-32 editing a timetable slot", () => {
   it("doesn't create a second class on days already generated", async () => {
     const owner = { staff: await createStaff("OWNER") };
     const t = await prisma.classTemplate.create({ data: { name: "HIIT", weekday: 2, startTime: "06:00", durationMinutes: 45, capacity: 10 } });
-    await generateClasses(prisma, tz, 2);
+    // Midday tomorrow at the gym, so 06:00 and 06:30 fall on the same side of
+    // "now". On the real clock, between 06:00 and 06:30 on the slot's own day,
+    // the moved class rightly appears today (today's 06:00 had already
+    // started, so none was generated for today) and the test failed.
+    const now = zonedTimeToUtc(localDateIn(tz, new Date(Date.now() + DAY)), "12:00", tz);
+    await generateClasses(prisma, tz, 2, now);
     const before = await prisma.class.count({ where: { templateId: t.id } });
+    expect(before).toBeGreaterThan(0);
     await call(templateById.PUT, await makeRequest("PUT", "/x", { as: owner, body: { name: "HIIT", weekday: 2, startTime: "06:30", durationMinutes: 45, capacity: 10 } }), { id: t.id });
-    await generateClasses(prisma, tz, 2);
+    await generateClasses(prisma, tz, 2, now);
     expect(await prisma.class.count({ where: { templateId: t.id } })).toBe(before);
   });
 
