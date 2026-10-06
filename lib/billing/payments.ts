@@ -34,17 +34,28 @@ export const MembershipCheckoutBody = z.object({
   acceptTerms: z.literal(true, { error: "Please accept the membership terms" }),
 });
 
+// An imported membership is already paid up to a date (D-131): the card is
+// collected now and first charged then, as a Stripe trial, so nobody pays
+// twice. Stripe needs a trial to end at least two days out; closer than
+// that, billing starts straight away.
+function paidUpTo(m: { importedAt: Date | null; currentPeriodEnd: Date | null; status: string }): number | null {
+  if (!m.importedAt || !m.currentPeriodEnd || (m.status !== "ACTIVE" && m.status !== "PAUSED")) return null;
+  const end = Math.floor(m.currentPeriodEnd.getTime() / 1000);
+  return end > Date.now() / 1000 + 2 * 86_400 ? end : null;
+}
+
 // Opens a Stripe Checkout page for the member's own subscription. The terms
 // acceptance and the audit entry are recorded once Stripe has the session.
 export async function startMembershipCheckout(db: Db, member: MemberActor, planId: string): Promise<string> {
   await assertEmailVerified(db, member.id);
   const plan = await db.membershipPlan.findFirst({ where: { id: planId, active: true } });
   if (!plan) throw new ApiError("validation_failed", "That plan isn't available.", { planId: "Not available" });
-  const record = await db.member.findUniqueOrThrow({ where: { id: member.id }, select: { stripeCustomerId: true, stripeSubscriptionId: true, email: true, status: true } });
+  const record = await db.member.findUniqueOrThrow({ where: { id: member.id }, select: { stripeCustomerId: true, stripeSubscriptionId: true, email: true, status: true, importedAt: true, currentPeriodEnd: true } });
   if (record.stripeSubscriptionId && record.status !== "CANCELED") {
     throw new ApiError("conflict", "You already have a membership. Change plans from your membership page.");
   }
 
+  const trialEnd = paidUpTo(record);
   const session = await getStripe().checkout.sessions.create({
     mode: "subscription",
     // Card only: an asynchronous method (such as direct debit) would make the
@@ -63,7 +74,7 @@ export async function startMembershipCheckout(db: Db, member: MemberActor, planI
     ],
     client_reference_id: member.id,
     metadata: { memberId: member.id, planId: plan.id, termsVersion: gym.legal.termsVersion },
-    subscription_data: { metadata: { memberId: member.id, planId: plan.id } },
+    subscription_data: { metadata: { memberId: member.id, planId: plan.id }, ...(trialEnd ? { trial_end: trialEnd } : {}) },
     ...(record.stripeCustomerId ? { customer: record.stripeCustomerId } : { customer_email: record.email }),
     success_url: appUrl("/member?checkout=success"),
     cancel_url: appUrl("/member?checkout=cancelled"),

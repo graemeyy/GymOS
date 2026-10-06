@@ -13,6 +13,7 @@ import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { useMe } from "@/components/member/member-shell";
 import { MembershipLine, membershipNotices } from "@/components/member/membership-summary";
 import { cn } from "@/lib/client/cn";
+import { AddCard, needsCard } from "@/components/member/add-card";
 
 interface Bookings {
   bookings: { id: string; class: { id: string; name: string; startTime: string } }[];
@@ -81,6 +82,7 @@ function MemberHome() {
                 {n.text}
               </p>
             ))}
+            {needsCard(data) ? <AddCard me={data} /> : null}
             {data.status === "PENDING" || data.status === "CANCELED" ? (
               <LinkButton href="/member/welcome">Choose a membership</LinkButton>
             ) : (

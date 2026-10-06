@@ -98,4 +98,5 @@ Set the environment variables from `.env.example` in the hosting provider. `CRON
 2. Run `npm run check:config`. It explains anything that's wrong, such as an ABN whose check digits don't add up.
 3. Have a lawyer review the membership terms and privacy policy. See [docs/COMPLIANCE-NOTES.md](docs/COMPLIANCE-NOTES.md).
 4. Set `SETUP_TOKEN`, deploy, open `/admin/setup`, and create the owner account with the token.
-5. For a chain with several sites, name the main location and add the others on the Locations page, then say which locations each plan covers on the Plans page and where each staff member works on the Staff page (D-125 to D-128). A single-site gym can skip this: everything belongs to the main location.
+5. Coming from another system? On the Import page, bring in plans, then members, then memberships from CSV files (D-130, D-131). Each file gets a dry run first. Members are emailed a link to set their password and add a card through Stripe; card details are never imported.
+6. For a chain with several sites, name the main location and add the others on the Locations page, then say which locations each plan covers on the Plans page and where each staff member works on the Staff page (D-125 to D-128). A single-site gym can skip this: everything belongs to the main location.

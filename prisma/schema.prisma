@@ -115,6 +115,10 @@ model Member {
   retentionScore       Int               @default(100)
   notes                String?
   passwordHash         String?
+  // Set when the member came in through a CSV import (D-131). An imported
+  // membership is paid up to currentPeriodEnd; the member adds a card
+  // through Stripe before then.
+  importedAt           DateTime?
   // Set on seeded accounts: the password must be changed at the next
   // sign-in before anything else works (D-111).
   mustChangePassword   Boolean           @default(false)

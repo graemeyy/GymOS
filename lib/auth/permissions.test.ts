@@ -7,7 +7,7 @@ const preset = (name: keyof typeof PRESET_ROLES) => access(PRESET_ROLES[name].pe
 describe("the permission catalogue", () => {
   it("has the 18 permissions the brief lists, plus branding (D-124)", () => {
     expect([...PERMISSIONS].sort()).toEqual(
-      ["prices.edit", "plans.edit", "products.edit", "settings.edit", "staff.manage", "roles.manage", "finance.view", "finance.export", "members.view", "members.view_sensitive", "members.edit", "refunds.issue", "classes.manage", "bookings.manage", "checkin.scan", "orders.manage", "announcements.send", "audit.view", "branding.edit"].sort()
+      ["prices.edit", "plans.edit", "products.edit", "settings.edit", "staff.manage", "roles.manage", "finance.view", "finance.export", "members.view", "members.view_sensitive", "members.edit", "refunds.issue", "classes.manage", "bookings.manage", "checkin.scan", "orders.manage", "announcements.send", "audit.view", "branding.edit", "data.import"].sort()
     );
   });
 
@@ -26,7 +26,7 @@ describe("the permission catalogue", () => {
 describe("preset roles", () => {
   it("Owner has every permission and Admin every one but branding (D-124); only Owner is an owner", () => {
     expect(PRESET_ROLES.OWNER.permissions).toEqual(PERMISSIONS);
-    expect(PRESET_ROLES.ADMIN.permissions).toEqual(PERMISSIONS.filter((p) => p !== "branding.edit"));
+    expect(PRESET_ROLES.ADMIN.permissions).toEqual(PERMISSIONS.filter((p) => p !== "branding.edit" && p !== "data.import"));
     expect(PRESET_ROLES.OWNER.isOwner).toBe(true);
     expect(PRESET_ROLES.ADMIN.isOwner).toBe(false);
   });

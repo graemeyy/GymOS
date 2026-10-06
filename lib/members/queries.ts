@@ -123,6 +123,7 @@ export function getMemberProfile(db: Db, memberId: string) {
       email: true,
       status: true,
       homeLocation: { select: { id: true, name: true } },
+      importedAt: true,
       createdAt: true,
       onboardedAt: true,
       stripeCustomerId: true,
