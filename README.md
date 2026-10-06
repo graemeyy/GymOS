@@ -77,6 +77,7 @@ npm test              # Vitest: unit tests and integration tests against Postgre
 npm run build         # production build (doesn't touch any database)
 npm run test:e2e      # Playwright + axe, against the production build
 npm run check:config  # validate config/gym.config.json
+npm run check:setup                  # is this copy fully set up for a gym? Reports what's missing, never values
 npm run check:rollback               # every down.sql rolls back cleanly (needs ROLLBACK_DATABASE_URL, a test database)
 npm run check:fresh-db               # a new database builds from migrations alone, seeds and is up to date (needs FRESH_DATABASE_URL, a test database)
 npm run check:locations-migration    # existing data moves to the main location (uses ROLLBACK_DATABASE_URL)
@@ -93,6 +94,8 @@ On Vercel, `vercel.json` sets the build command to `npm run vercel-build`, which
 Set the environment variables from `.env.example` in the hosting provider. `CRON_SECRET` enables the daily job (plan changes, pauses and cancellations falling due, payment reminders, timetable generation and retention scores); `IOT_GATEWAY_SECRET` enables door scanners. Both endpoints refuse every request until their secret is set. `SETUP_TOKEN` is required in production before `/admin/setup` will create the first owner account, so a stranger can't claim a fresh deployment; the setup form asks for it.
 
 ## Adopting GymOS for a new gym
+
+The full checklist, from Vercel project to first owner to import, is [docs/NEW-GYM-SETUP.md](docs/NEW-GYM-SETUP.md). In short:
 
 1. Edit `config/gym.config.json`: brand defaults, legal name, ABN, address, timezone, hours, plans and policies. Set `isDemo` to `false`. (Name, logo, colours, fonts and business details can also be changed later on the Branding page, without a redeploy.)
 2. Run `npm run check:config`. It explains anything that's wrong, such as an ABN whose check digits don't add up.
