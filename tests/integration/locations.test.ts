@@ -20,6 +20,7 @@ import * as staffInvite from "@/app/api/staff/invite/route";
 import * as staffById from "@/app/api/staff/[id]/route";
 import * as me from "@/app/api/auth/me/route";
 import { MAIN_LOCATION_ID } from "@/lib/locations/constants";
+import { createPassToken } from "@/lib/checkin/qr";
 import { captureEmailsForTests } from "@/lib/email";
 import { call, createMember, createStaff, makeRequest, prisma, resetDb, setStock, stockOf, type As } from "../helpers";
 import { installFakeStripe } from "../fake-stripe";
@@ -282,5 +283,53 @@ describe("reports per location and combined (D-129)", () => {
     expect((await call(summary.GET, await makeRequest("GET", `/x?period=this-month&locationId=${MAIN_LOCATION_ID}`, { as: manager }))).status).toBe(403);
     const listed = (await call(payments.GET, await makeRequest("GET", "/x", { as: manager }))).body as unknown as { amount: number }[];
     expect(listed.map((p) => p.amount)).toEqual([2000]);
+  });
+});
+
+// #25's rotating passes (D-119) and these location rules (D-126, D-128) at
+// the same desk.
+describe("check-in passes and location rules together", () => {
+  const scanAt = async (as: As, query: string, locationId?: string) => call(checkIn.POST, await makeRequest("POST", "/x", { as, body: { query, ...(locationId ? { locationId } : {}) } }));
+
+  it("checks the pass first, then the plan's locations; a refused visit still uses up that code", async () => {
+    const desk = { staff: await createStaff("STAFF") };
+    await prisma.membershipPlan.update({ where: { slug: "off-peak" }, data: { locationAccess: "HOME" } });
+    const m = await memberAt(north.id, "off-peak");
+
+    // A fresh code at a location the plan doesn't cover: refused for the location, no visit.
+    // Issued 20 seconds ago: a later code is needed after one is used, and
+    // codes are stamped to the second.
+    const away = await createPassToken(m.id, 0, new Date(Date.now() - 20_000));
+    const refused = await scanAt(desk, away.token, MAIN_LOCATION_ID);
+    expect(refused.status).toBe(200);
+    expect(refused.body).toMatchObject({ granted: false, reason: "Membership doesn't include this location", method: "QR" });
+    // That code counts as used (D-119), even at the member's own location.
+    const reused = await scanAt(desk, away.token, north.id);
+    expect(reused.status).toBe(409);
+    expect(reused.body.error?.message).toContain("already been used");
+
+    // An expired code is refused before location rules, and the refusal names the desk.
+    const old = await createPassToken(m.id, 0, new Date(Date.now() - 91_000));
+    expect((await scanAt(desk, old.token, north.id)).status).toBe(409);
+    const expired = await prisma.auditLog.findFirstOrThrow({ where: { action: "member.check_in_refused", targetId: m.id, details: { path: ["reason"], equals: "Expired pass" } } });
+    expect(expired.details).toMatchObject({ location: "Front desk, North", method: "QR" });
+
+    // A fresh code at their home location lets them in, recorded there.
+    const home = await createPassToken(m.id, 0);
+    expect((await scanAt(desk, home.token, north.id)).body).toMatchObject({ granted: true, method: "QR" });
+    const visits = await prisma.checkIn.findMany({ where: { memberId: m.id } });
+    expect(visits.map((v) => [v.locationId, v.method])).toEqual([[north.id, "QR"]]);
+  });
+
+  it("doesn't use up a pass scanned at a desk outside the person's locations", async () => {
+    const desk = await scopedStaff("STAFF", [north.id]);
+    const m = await memberAt(MAIN_LOCATION_ID);
+    const pass = await createPassToken(m.id, 0);
+    // The desk's location is checked before the pass, so the code survives.
+    expect((await scanAt(desk, pass.token, MAIN_LOCATION_ID)).status).toBe(403);
+    expect((await prisma.member.findUniqueOrThrow({ where: { id: m.id } })).passUsedIssuedAt).toBeNull();
+    // At the desk's own location (its only one, so it needn't say) the same code works.
+    expect((await scanAt(desk, pass.token)).body).toMatchObject({ granted: true, method: "QR" });
+    expect((await prisma.checkIn.findFirstOrThrow({ where: { memberId: m.id } })).locationId).toBe(north.id);
   });
 });

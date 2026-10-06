@@ -94,6 +94,9 @@ model Member {
   // location unless one is given.
   homeLocationId       String            @default("main")
   homeLocation         Location          @relation("HomeLocation", fields: [homeLocationId], references: [id], onDelete: Restrict)
+  // When the newest pass that let this member in was issued. A pass issued
+  // at or before it is refused, so a code can't be used twice (R-34, D-119).
+  passUsedIssuedAt     DateTime?
   notifyAnnouncements  Boolean           @default(true)
   notifyWaitlist       Boolean           @default(true)
   onboardedAt          DateTime?

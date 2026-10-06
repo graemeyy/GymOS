@@ -27,8 +27,11 @@ function band(score: number) {
 }
 
 export default function RetentionPage() {
-  const members = useResource<{ items: Row[] }>("/api/members?status=ACTIVE&take=500");
-  const rows = [...(members.data?.items ?? [])].sort((a, b) => a.retentionScore - b.retentionScore);
+  // Most at-risk first, sorted by the server, so with more than 500 active
+  // members the ones shown are the ones that matter (R-94).
+  const members = useResource<{ items: Row[]; nextCursor: string | null }>("/api/members?status=ACTIVE&take=500&sort=retention");
+  const rows = members.data?.items ?? [];
+  const more = Boolean(members.data?.nextCursor);
   const atRisk = rows.filter((m) => m.retentionScore < AT_RISK_BELOW);
   const quiet = rows.filter((m) => (daysSince(m.lastCheckIn) ?? 999) >= 14);
 
@@ -60,10 +63,11 @@ export default function RetentionPage() {
         items={[
           { label: "Likely to leave", value: members.data ? String(atRisk.length) : null, tone: atRisk.length > 0 ? "alert" : "neutral" },
           { label: "No visit in 14+ days", value: members.data ? String(quiet.length) : null, tone: quiet.length > 0 ? "alert" : "neutral" },
-          { label: "Active members", value: members.data ? String(rows.length) : null },
+          { label: "Active members", value: members.data ? `${rows.length}${more ? "+" : ""}` : null },
           { label: "Average score", value: rows.length ? String(Math.round(rows.reduce((s, m) => s + m.retentionScore, 0) / rows.length)) : members.data ? "0" : null },
         ]}
       />
+      {more ? <p className="mt-3 text-sm text-ink-soft">These figures cover the {rows.length} members most likely to leave. Members with higher scores aren&apos;t counted.</p> : null}
       <Panel className="mt-6">
         <AsyncBlock loading={members.loading} error={members.error} data={members.data} onRetry={members.reload}>
           {() =>

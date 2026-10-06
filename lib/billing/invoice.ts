@@ -1,4 +1,3 @@
-import { gym } from "@/lib/config";
 import { brandingFrom } from "@/lib/branding/defaults";
 import { formatBrandAddress, type Branding } from "@/lib/branding/types";
 import { invoiceNo } from "@/lib/format";
@@ -27,7 +26,10 @@ export interface TaxInvoice {
 // "Tax invoice", seller name and ABN, date, what was sold, the GST amount and
 // the total. For sales of $1,000 or more the buyer's identity is also needed;
 // the buyer's name and email are always included. A business that isn't
-// registered for GST issues a receipt instead.
+// registered for GST issues a receipt instead. Which one is decided by the
+// GST recorded on the payment when it was made, not today's setting, so an
+// old invoice still reads the same after the gym registers or deregisters
+// (R-73, D-121).
 export function buildTaxInvoice(payment: {
   invoiceNumber: number;
   paidAt: Date;
@@ -41,7 +43,7 @@ export function buildTaxInvoice(payment: {
   lines?: InvoiceLine[];
   // The seller's details from the Branding page (D-124).
 }, seller: Branding = brandingFrom(null)): TaxInvoice {
-  const registered = gym.business.gstRegistered;
+  const registered = payment.gstCents > 0;
   return {
     title: registered ? "Tax invoice" : "Receipt",
     number: invoiceNo(payment.invoiceNumber),
