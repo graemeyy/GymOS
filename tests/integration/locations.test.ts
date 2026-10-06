@@ -297,7 +297,9 @@ describe("check-in passes and location rules together", () => {
     const m = await memberAt(north.id, "off-peak");
 
     // A fresh code at a location the plan doesn't cover: refused for the location, no visit.
-    const away = await createPassToken(m.id, 0);
+    // Issued 20 seconds ago: a later code is needed after one is used, and
+    // codes are stamped to the second.
+    const away = await createPassToken(m.id, 0, new Date(Date.now() - 20_000));
     const refused = await scanAt(desk, away.token, MAIN_LOCATION_ID);
     expect(refused.status).toBe(200);
     expect(refused.body).toMatchObject({ granted: false, reason: "Membership doesn't include this location", method: "QR" });
