@@ -5,6 +5,8 @@ export interface EmailMessage {
   to: string;
   subject: string;
   text: string;
+  // Extra headers, such as List-Unsubscribe on optional emails (D-118).
+  headers?: Record<string, string>;
 }
 
 export type SendResult = { sent: true; id: string | null } | { sent: false; reason: "not_configured" | "failed" };
@@ -46,6 +48,7 @@ export async function sendEmail(message: EmailMessage): Promise<SendResult> {
         to: [message.to],
         subject: message.subject,
         text: message.text,
+        ...(message.headers ? { headers: message.headers } : {}),
       }),
     });
     if (!response.ok) {

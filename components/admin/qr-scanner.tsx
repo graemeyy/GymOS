@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/primitives";
+import { looksLikePass } from "@/lib/checkin/pass-format";
 
 interface DetectedBarcode {
   rawValue: string;
@@ -65,7 +66,7 @@ export function QrScannerDialog({ open, onClose, onScan }: { open: boolean; onCl
         if (stopped) return;
         try {
           const codes = await detector.detect(video);
-          const value = codes.find((c) => c.rawValue.startsWith("GYM1."))?.rawValue;
+          const value = codes.find((c) => looksLikePass(c.rawValue))?.rawValue;
           if (value) {
             onScanRef.current(value);
             return;
