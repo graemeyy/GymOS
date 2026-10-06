@@ -18,6 +18,7 @@ export const PERMISSIONS = [
   "refunds.issue",
   "announcements.send",
   "settings.edit",
+  "branding.edit",
   "staff.manage",
   "roles.manage",
   "audit.view",
@@ -46,6 +47,7 @@ export const PERMISSION_INFO: Record<Permission, { label: string; detail: string
   "refunds.issue": { label: "Issue refunds", detail: "Refund payments through Stripe or record a manual refund." },
   "announcements.send": { label: "Send announcements", detail: "Write, publish and email announcements to members or staff." },
   "settings.edit": { label: "Change settings", detail: "Gym settings such as keycard entry." },
+  "branding.edit": { label: "Change branding", detail: "The gym's name, logo, colours, fonts, app name, email sender and footer, and the business details on the terms and privacy pages. Only the Owner has it unless they give it to a role." },
   "staff.manage": { label: "Manage staff accounts", detail: "Invite staff, assign roles and deactivate accounts. Nobody can give a role with permissions they don't have themselves." },
   "roles.manage": { label: "Manage roles", detail: "Edit what each role can do and create custom roles, within the permissions you have yourself." },
   "audit.view": { label: "See the audit log", detail: "Who changed what and when, with old and new values, and its CSV export." },
@@ -56,7 +58,7 @@ export const PERMISSION_GROUPS: { group: string; permissions: Permission[] }[] =
   { group: "Classes and front desk", permissions: ["classes.manage", "bookings.manage", "checkin.scan"] },
   { group: "Shop", permissions: ["orders.manage", "products.edit"] },
   { group: "Money", permissions: ["prices.edit", "finance.view", "finance.export", "refunds.issue"] },
-  { group: "Running the gym", permissions: ["plans.edit", "announcements.send", "settings.edit", "staff.manage", "roles.manage", "audit.view"] },
+  { group: "Running the gym", permissions: ["plans.edit", "announcements.send", "settings.edit", "branding.edit", "staff.manage", "roles.manage", "audit.view"] },
 ];
 
 // Things only an owner can do, whatever permissions a role has. The first
@@ -78,7 +80,9 @@ export type Preset = (typeof PRESETS)[number];
 // into them, without any permission (lib/auth/access.ts).
 export const PRESET_ROLES: Record<Preset, { name: string; description: string; isOwner: boolean; permissions: readonly Permission[] }> = {
   OWNER: { name: "Owner", description: "Everything, including the owner-only actions.", isOwner: true, permissions: PERMISSIONS },
-  ADMIN: { name: "Admin", description: "Everything except the owner-only actions.", isOwner: false, permissions: PERMISSIONS },
+  // Branding is the owner's (D-124): it changes how the gym looks to every
+  // member and on every email.
+  ADMIN: { name: "Admin", description: "Everything except branding and the owner-only actions.", isOwner: false, permissions: PERMISSIONS.filter((p) => p !== "branding.edit") },
   MANAGER: {
     name: "Manager",
     description: "Runs the gym day to day and sees the money, but can't change prices, settings, plans, staff or roles.",

@@ -1,4 +1,6 @@
-import { gym, formatAddress } from "@/lib/config";
+import { gym } from "@/lib/config";
+import { brandingFrom } from "@/lib/branding/defaults";
+import { formatBrandAddress, type Branding } from "@/lib/branding/types";
 import { invoiceNo } from "@/lib/format";
 
 export interface InvoiceLine {
@@ -37,13 +39,14 @@ export function buildTaxInvoice(payment: {
   planName: string | null;
   member: { name: string | null; email: string };
   lines?: InvoiceLine[];
-}): TaxInvoice {
+  // The seller's details from the Branding page (D-124).
+}, seller: Branding = brandingFrom(null)): TaxInvoice {
   const registered = gym.business.gstRegistered;
   return {
     title: registered ? "Tax invoice" : "Receipt",
     number: invoiceNo(payment.invoiceNumber),
     issuedAt: payment.paidAt,
-    seller: { name: gym.business.legalName, abn: gym.business.abn, address: formatAddress(), email: gym.business.email },
+    seller: { name: seller.legalName, abn: seller.abn, address: formatBrandAddress(seller.address), email: seller.contactEmail },
     buyer: { name: payment.member.name ?? payment.member.email, email: payment.member.email },
     lines: payment.lines ?? [{ description: payment.description ?? (payment.planName ? `${payment.planName} membership` : "Membership"), quantity: 1, amountCents: payment.amount }],
     totalCents: payment.amount,

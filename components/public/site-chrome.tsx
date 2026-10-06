@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { gym } from "@/lib/config/client";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/token";
 import { Wordmark } from "@/components/ui/logo";
 import { LinkButton } from "@/components/ui/primitives";
 import { ThemeToggle } from "@/components/ui/theme";
 import { CartLink } from "./cart-link";
+import { BusinessName } from "@/components/branding/business-name";
 
 // The public header. Reads the session cookie only to choose between
 // "Sign in" and "My membership"; it never trusts it for anything else.
@@ -45,7 +45,7 @@ export function SiteFooter() {
     <footer className="border-t border-line">
       <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-6 text-sm text-ink-soft sm:flex-row sm:items-center sm:justify-between">
         <span>
-          {gym.business.legalName}, ABN {gym.business.abn}
+          <BusinessName />
         </span>
         <nav aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-2">
           <Link href="/shop" className="underline underline-offset-2 sm:hidden">

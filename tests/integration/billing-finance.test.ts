@@ -9,6 +9,7 @@ import { sendPaymentReminders } from "@/lib/billing/reminders";
 import { captureEmailsForTests, capturedEmails } from "@/lib/email";
 import { call, createMember, createStaff, makeRequest, prisma, resetDb, type As } from "../helpers";
 import { installFakeStripe } from "../fake-stripe";
+import { gym } from "@/lib/config";
 
 const DAY = 86_400_000;
 let manager: As;
@@ -137,7 +138,7 @@ describe("tax invoice", () => {
   it("shows ABN, GST and a sequential invoice number", async () => {
     const p = await payment();
     const res = await call(invoice.GET, await makeRequest("GET", "/x", { as: manager }), { id: p.id });
-    expect(res.body).toMatchObject({ title: "Tax invoice", seller: { abn: "94 687 093 963" }, gstCents: 363, totalCents: 3995 });
+    expect(res.body).toMatchObject({ title: "Tax invoice", seller: { abn: gym.business.abn }, gstCents: 363, totalCents: 3995 });
     expect(String(res.body.number)).toMatch(/^INV-\d{6}$/);
   });
 });

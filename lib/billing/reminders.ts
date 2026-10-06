@@ -4,6 +4,7 @@ import { gym } from "@/lib/config";
 import { formatAud } from "@/lib/money";
 import { sendEmail, signature } from "@/lib/email";
 import { DAY_MS } from "@/lib/time";
+import { getBranding } from "@/lib/branding/service";
 
 // Sends each configured reminder once per overdue episode. Stripe's own
 // Smart Retries keep retrying the card; these emails ask the member to update
@@ -28,12 +29,12 @@ export async function sendPaymentReminders(db: Db, now = new Date()) {
     const owing = m.amountOwingCents > 0 ? ` of ${formatAud(m.amountOwingCents)}` : "";
     await sendEmail({
       to: m.email,
-      subject: `Your ${gym.brand.shortName} payment didn't go through`,
+      subject: `Your ${(await getBranding(db)).appName} payment didn't go through`,
       text:
         `Hi ${m.name?.split(" ")[0] ?? "there"},\n\nYour last membership payment${owing} didn't go through. ` +
         `Update your card at ${appUrl("/member")} and we'll retry it automatically.` +
         (suspendIn > 0 ? ` Gym access pauses in ${suspendIn} day(s) if it's still unpaid.` : " Gym access is paused until it's paid.") +
-        signature(),
+        (await signature()),
     });
     sent++;
   }

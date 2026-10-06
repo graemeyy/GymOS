@@ -10,6 +10,7 @@ import { logAction } from "@/lib/audit";
 import { recordAcceptance } from "@/lib/legal";
 import { getStripe } from "./stripe";
 import { stripeRecurring } from "./intervals";
+import { getBranding } from "@/lib/branding/service";
 
 export const PaymentListQuery = z.object({
   take: z.coerce.number().int().min(1).max(500).default(100),
@@ -54,7 +55,7 @@ export async function startMembershipCheckout(db: Db, member: MemberActor, planI
           currency: "aud",
           unit_amount: plan.priceCents,
           recurring: stripeRecurring(plan.interval),
-          product_data: { name: `${gym.brand.name} ${plan.name} membership`, description: "Price includes GST." },
+          product_data: { name: `${(await getBranding(db)).name} ${plan.name} membership`, description: "Price includes GST." },
         },
         quantity: 1,
       },

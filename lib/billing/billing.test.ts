@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { gym } from "@/lib/config";
 import { refundGst } from "./refunds";
 import { buildTaxInvoice } from "./invoice";
 import { withinGracePeriod } from "./reminders";
@@ -20,7 +21,7 @@ describe("tax invoice", () => {
     expect(inv).toMatchObject({
       title: "Tax invoice",
       number: "INV-000042",
-      seller: { abn: "94 687 093 963" },
+      seller: { abn: gym.business.abn },
       buyer: { name: "Jack O'Sullivan" },
       totalCents: 2995,
       gstCents: 272,

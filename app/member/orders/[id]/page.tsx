@@ -8,6 +8,7 @@ import { useCart } from "@/lib/client/cart";
 import { fmtDate, fmtDateTime, invoiceNo } from "@/lib/format";
 import { formatAud } from "@/lib/money";
 import { gym } from "@/lib/config/client";
+import { useBranding } from "@/components/branding/branding-provider";
 import { ORDER_STATUS_TEXT, ORDER_STATUS_TONE, type OrderStatusName } from "@/lib/shop/labels";
 import { PageHeader, Panel, PanelHeader, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock } from "@/components/ui/feedback";
@@ -51,6 +52,7 @@ function MyOrder() {
   const [justPaid] = useState(() => params.get("paid") === "1");
   const order = useResource<Order>(`/api/me/orders/${id}`);
   const { clear } = useCart();
+  const brand = useBranding();
   const { reload } = order;
   const waiting = order.data?.status === "PENDING_PAYMENT";
 
@@ -152,7 +154,7 @@ function MyOrder() {
 
           <p className="text-sm text-ink-soft">
             Something wrong with your order? Faulty or not as described items are covered by the Australian Consumer Law.
-            {o.changeOfMindReturnsDays > 0 ? ` Change-of-mind returns are accepted within ${o.changeOfMindReturnsDays} days of ${fmtDate(o.createdAt)} for unused items.` : ""} Contact {gym.business.email}.
+            {o.changeOfMindReturnsDays > 0 ? ` Change-of-mind returns are accepted within ${o.changeOfMindReturnsDays} days of ${fmtDate(o.createdAt)} for unused items.` : ""} Contact {brand.contactEmail}.
           </p>
         </div>
       )}

@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import type { Db } from "@/lib/db";
 import { buildTaxInvoice, type TaxInvoice } from "./invoice";
+import { getBranding } from "@/lib/branding/service";
 import { invoiceLinesForPayment } from "./invoice-lines";
 import type { PaymentListFilter } from "./payments";
 
@@ -64,7 +65,7 @@ export function listPaymentsForMember(db: Db, memberId: string) {
 async function taxInvoiceFor(db: Db, where: Prisma.PaymentWhereInput): Promise<TaxInvoice | null> {
   const payment = await db.payment.findFirst({ where, include: { member: { select: { name: true, email: true } } } });
   if (!payment) return null;
-  return buildTaxInvoice({ ...payment, lines: await invoiceLinesForPayment(db, payment) });
+  return buildTaxInvoice({ ...payment, lines: await invoiceLinesForPayment(db, payment) }, await getBranding(db));
 }
 
 export function getTaxInvoice(db: Db, paymentId: string) {

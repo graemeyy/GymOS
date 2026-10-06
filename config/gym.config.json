@@ -5,7 +5,11 @@
     "name": "Ironbark Strength Co.",
     "shortName": "Ironbark",
     "tagline": "Strength and conditioning in Marrickville",
-    "logoText": "IB"
+    "logoText": "IB",
+    "primaryColour": "#1F5AA6",
+    "accentColour": "#F2C230",
+    "bodyFont": "atkinson",
+    "displayFont": "barlow-condensed"
   },
   "business": {
     "legalName": "Ironbark Strength Co. Pty Ltd",

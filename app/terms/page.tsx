@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { gym, formatAddress } from "@/lib/config";
+import { gym } from "@/lib/config";
+import { brandingForPage } from "@/lib/branding/service";
+import { formatBrandAddress } from "@/lib/branding/types";
 import { formatAud } from "@/lib/money";
 import { LegalPage } from "@/components/legal/legal-page";
 
@@ -8,7 +10,8 @@ export const metadata: Metadata = { title: "Membership terms" };
 // Template membership terms built from the owner's settings. Written to
 // respect the Australian Consumer Law: nothing here limits consumer
 // guarantees, and every rule comes from config so the page and the app agree.
-export default function TermsPage() {
+export default async function TermsPage() {
+  const brand = await brandingForPage();
   const c = gym.policies.cancellation;
   const p = gym.policies.pause;
   const classes = gym.policies.classes;
@@ -17,7 +20,7 @@ export default function TermsPage() {
   return (
     <LegalPage title="Membership terms" version={gym.legal.termsVersion}>
       <p>
-        These terms are between you and {gym.business.legalName} (ABN {gym.business.abn}), {formatAddress()} (&quot;we&quot;). They apply when you join online or at the front desk.
+        These terms are between you and {brand.legalName} (ABN {brand.abn}), {formatBrandAddress(brand.address)} (&quot;we&quot;). They apply when you join online or at the front desk.
       </p>
 
       <h2>Your rights under Australian Consumer Law</h2>
@@ -46,7 +49,7 @@ export default function TermsPage() {
       <h2>Cancelling</h2>
       <ul>
         <li>
-          You can cancel {c.allowMemberSelfCancel ? "in the member app, " : ""}at the front desk or by emailing {gym.business.email}.
+          You can cancel {c.allowMemberSelfCancel ? "in the member app, " : ""}at the front desk or by emailing {brand.contactEmail}.
         </li>
         <li>After the cooling-off period, cancellation takes effect {c.noticeDays} days after you ask{c.minimumTermWeeks > 0 ? `, or at the end of your ${c.minimumTermWeeks}-week minimum term if that's later` : ""}. You can keep training until then.</li>
         <li>We may end a membership straight away for serious or repeated breaches of the gym rules, and will refund any amount paid for the period after that.</li>
@@ -87,7 +90,7 @@ export default function TermsPage() {
 
       <h2>Contact and complaints</h2>
       <p>
-        Email {gym.business.email} or call {gym.business.phone}. If we can&apos;t resolve a complaint, you can contact your state or territory&apos;s fair trading or consumer affairs agency.
+        Email {brand.contactEmail} or call {brand.contactPhone}. If we can&apos;t resolve a complaint, you can contact your state or territory&apos;s fair trading or consumer affairs agency.
       </p>
     </LegalPage>
   );

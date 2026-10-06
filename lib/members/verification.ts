@@ -3,11 +3,11 @@ import type { MemberActor } from "@/lib/auth/session";
 import { ApiError } from "@/lib/http/errors";
 import { logAction } from "@/lib/audit";
 import { appUrl } from "@/lib/app-url";
-import { gym } from "@/lib/config";
 import { signature } from "@/lib/email";
 import { sendLinkEmail } from "@/lib/email/links";
 import { hitRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { consumeAuthToken, issueAuthToken } from "@/lib/auth/auth-tokens";
+import { getBranding } from "@/lib/branding/service";
 
 // Email verification for online sign-ups (D-113). Links last 24 hours and
 // work once; a new one replaces the last.
@@ -26,8 +26,8 @@ export async function sendEmailVerification(db: Db, member: Recipient): Promise<
   return sendLinkEmail(
     {
       to: member.email,
-      subject: `Confirm your email for ${gym.brand.shortName}`,
-      text: `Hi ${member.name?.split(" ")[0] ?? "there"},\n\nPlease confirm this is your email address by opening this link within ${VERIFY_HOURS} hours:\n\n${link}\n\nUntil you do, you can't pay for a membership or shop orders online. If you didn't sign up, ignore this email.${signature()}`,
+      subject: `Confirm your email for ${(await getBranding(db)).appName}`,
+      text: `Hi ${member.name?.split(" ")[0] ?? "there"},\n\nPlease confirm this is your email address by opening this link within ${VERIFY_HOURS} hours:\n\n${link}\n\nUntil you do, you can't pay for a membership or shop orders online. If you didn't sign up, ignore this email.${await signature()}`,
     },
     link
   );
