@@ -39,7 +39,7 @@ Least privilege: "See money" and "See members' private details" are off for Fron
 | **Running the gym** | | | | | | |
 | Edit plans (`plans.edit`) | Change plans' names, descriptions and benefits, and retire them. New plans and anything about what a plan costs need "Change prices" too. | Yes | Yes | No | No | No |
 | Send announcements (`announcements.send`) | Write, publish and email announcements to members or staff. | Yes | Yes | Yes | No | No |
-| Change settings (`settings.edit`) | Gym settings such as keycard entry. | Yes | Yes | No | No | No |
+| Change settings (`settings.edit`) | Gym settings such as keycard entry, and adding, editing and archiving locations. | Yes | Yes | No | No | No |
 | Change branding (`branding.edit`) | The gym's name, logo, colours, fonts, app name, email sender and footer, and the business details on the terms and privacy pages. | Yes | No | No | No | No |
 | Manage staff accounts (`staff.manage`) | Invite staff, assign roles and deactivate accounts. Nobody can give a role with permissions they don't have themselves. | Yes | Yes | No | No | No |
 | Manage roles (`roles.manage`) | Edit what each role can do and create custom roles, within the permissions you have yourself. | Yes | Yes | No | No | No |
@@ -58,6 +58,16 @@ Any active staff account, whatever its role, can:
 - see the Roles page, read-only, so everyone can check what their role allows;
 - see the names of other active staff, for trainer and roster pickers;
 - change their own password.
+
+## Locations
+
+A role says what someone can do; their **locations** say where (D-128). Set them on the Staff page when there's more than one location. An empty list means every location, including ones added later, and owners always cover every location. Someone limited to some locations:
+
+- checks members in, books classes, marks attendance, and manages classes, timetable slots, shifts, stock and orders at their locations only;
+- sees lists and combined reports (dashboard, finance, payments, exports) for their locations only, and is refused when asking for another;
+- can only give their own locations to staff they invite or edit, and can't send an announcement to every location.
+
+Members aren't limited by location for staff, because members can train at several locations. Which locations a *member* can use is set by their plan (D-126).
 
 ## Rules that depend on the record
 

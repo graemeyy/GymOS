@@ -9,7 +9,8 @@ import { gstFromInclusive } from "@/lib/money";
 import { logAction, type Actor } from "@/lib/audit";
 import { commitStock, priceOrder } from "./orders";
 import { variantLabel } from "./labels";
-import { memberShopDiscount } from "./queries";
+import { memberShopDiscount, shopLocation } from "./queries";
+import { stockAt } from "./stock";
 import type { ShopCheckoutInput } from "./schema";
 import { STRIPE_MINIMUM_CENTS } from "./limits";
 import { MINUTE_MS } from "@/lib/time";
@@ -30,10 +31,13 @@ export async function startShopCheckout(db: Db, actor: Actor & { kind: "member" 
     include: { product: { select: { name: true, category: true } } },
   });
   if (variants.length !== quantities.size) throw new ApiError("conflict", "Something in your cart is no longer sold. Remove it and try again.");
+  const locationId = await shopLocation(db, actor.id, input.locationId);
+  const units = await stockAt(db, [...quantities.keys()], locationId);
   for (const v of variants) {
     const wanted = quantities.get(v.id)!;
-    if (v.stockQty < wanted) {
-      throw new ApiError("conflict", v.stockQty === 0 ? `${v.product.name} (${variantLabel(v)}) is sold out.` : `Only ${v.stockQty} of ${v.product.name} (${variantLabel(v)}) left.`);
+    const have = units.get(v.id) ?? 0;
+    if (have < wanted) {
+      throw new ApiError("conflict", have === 0 ? `${v.product.name} (${variantLabel(v)}) is sold out at this location.` : `Only ${have} of ${v.product.name} (${variantLabel(v)}) left at this location.`);
     }
   }
 
@@ -53,6 +57,7 @@ export async function startShopCheckout(db: Db, actor: Actor & { kind: "member" 
       email: member.email,
       customerName: member.name ?? member.email,
       fulfilment: input.fulfilment,
+      locationId,
       subtotalCents: priced.subtotalCents,
       discountCents: priced.discountCents,
       discountPercent,
@@ -156,6 +161,8 @@ export async function recordShopPayment(tx: Tx, session: Stripe.Checkout.Session
       description: `Shop order ${order.number}`,
       kind: "SHOP",
       orderId,
+      // Reported under the order's location (D-129).
+      locationId: order.locationId,
     },
   });
 

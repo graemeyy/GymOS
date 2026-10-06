@@ -22,8 +22,12 @@ export function upcomingDates(tz: string, days: number, now = new Date()): { dat
 // a class staff cancelled (kept as a cancelled row) isn't recreated, and
 // editing a template's time doesn't add a second class on days already
 // generated (R-05, R-32).
-export async function generateClasses(db: Db | Tx, tz: string, weeks = 2, now = new Date()) {
-  const templates = await db.classTemplate.findMany({ where: { active: true }, include: { trainer: { select: { name: true } } } });
+export async function generateClasses(db: Db | Tx, tz: string, weeks = 2, now = new Date(), locationIds: readonly string[] | null = null) {
+  // Slots at an archived location don't make new classes.
+  const templates = await db.classTemplate.findMany({
+    where: { active: true, location: { archivedAt: null }, ...(locationIds ? { locationId: { in: [...locationIds] } } : {}) },
+    include: { trainer: { select: { name: true } } },
+  });
   if (templates.length === 0) return { created: 0 };
   const dates = upcomingDates(tz, weeks * 7, now);
   const existing = await db.class.findMany({
@@ -37,7 +41,7 @@ export async function generateClasses(db: Db | Tx, tz: string, weeks = 2, now = 
       if (taken.has(`${t.id}|${date}`)) continue;
       const startTime = zonedTimeToUtc(date, t.startTime, tz);
       if (startTime <= now) continue;
-      rows.push({ name: t.name, templateId: t.id, trainerId: t.trainerId, instructor: t.trainer?.name ?? null, startTime, durationMinutes: t.durationMinutes, capacity: t.capacity });
+      rows.push({ name: t.name, templateId: t.id, trainerId: t.trainerId, instructor: t.trainer?.name ?? null, startTime, durationMinutes: t.durationMinutes, capacity: t.capacity, locationId: t.locationId });
     }
   }
   if (rows.length === 0) return { created: 0 };

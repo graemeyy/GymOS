@@ -17,7 +17,17 @@ export interface CatalogueProduct {
   variants: CatalogueVariant[];
 }
 
+export interface CatalogueLocation {
+  id: string;
+  name: string;
+  address: string;
+}
+
 export interface Catalogue {
+  // Where stock is counted and the order is collected from (D-127): the one
+  // asked for, else the member's home location, else the main location.
+  location: CatalogueLocation;
+  locations: CatalogueLocation[];
   discountPercent: number;
   signedIn: boolean;
   shipping: { pickupOnly: boolean; flatCents: number; freeOverCents: number | null };

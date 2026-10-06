@@ -15,6 +15,7 @@ import { Button, IconButton, PageHeader, Panel, StatusTag } from "@/components/u
 import { SearchField, SelectField } from "@/components/ui/form";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
 import { DataList } from "@/components/ui/data-list";
+import { useLocationFilter } from "@/components/admin/location-filter";
 
 interface MemberRow extends EditableMember {
   membershipPlan: { id: string; name: string } | null;
@@ -36,7 +37,10 @@ function MembersInner() {
   if (debouncedQ) query.set("q", debouncedQ);
   if (status) query.set("status", status);
   if (planId) query.set("planId", planId);
-  const members = useResource<{ items: MemberRow[]; nextCursor: string | null }>(`/api/members?${query.toString()}`);
+  // The location filter shows members by home location (D-125).
+  const filter = useLocationFilter();
+  if (filter.selected) query.set("locationId", filter.selected);
+  const members = useResource<{ items: MemberRow[]; nextCursor: string | null }>(filter.ready ? `/api/members?${query.toString()}` : null);
   const plans = useResource<PlanOption[]>("/api/plans");
   const filtered = Boolean(debouncedQ || status || planId);
 
@@ -46,6 +50,7 @@ function MembersInner() {
       { header: "Email", value: (m) => m.email },
       { header: "Status", value: (m) => STATUS_TEXT[m.status] },
       { header: "Plan", value: (m) => m.membershipPlan?.name ?? "" },
+      { header: "Home location", value: (m) => m.homeLocation?.name ?? "" },
       { header: "Member since", value: (m) => fmtDate(m.createdAt) },
       { header: "Last visit", value: (m) => lastSeen(m.lastCheckIn) },
     ]);
@@ -125,6 +130,7 @@ function MembersInner() {
                   },
                   { header: "Status", cell: (m) => <StatusTag tone={STATUS_TONE[m.status]}>{STATUS_TEXT[m.status]}</StatusTag> },
                   { header: "Plan", cell: (m) => m.membershipPlan?.name ?? <span className="text-ink-soft">None</span> },
+                  ...(filter.multiple && !filter.selected ? [{ header: "Home location", cell: (m: MemberRow) => m.homeLocation?.name ?? "" }] : []),
                   { header: "Last visit", cell: (m) => <span className="tabular">{lastSeen(m.lastCheckIn)}</span> },
                 ]}
                 actions={

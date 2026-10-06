@@ -10,6 +10,7 @@ import { Button, PageHeader, Panel, StatusTag } from "@/components/ui/primitives
 import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField, TextareaField } from "@/components/ui/form";
+import { LocationField, useLocationFilter } from "@/components/admin/location-filter";
 
 interface Announcement {
   id: string;
@@ -18,6 +19,8 @@ interface Announcement {
   audience: "ALL_ACTIVE" | "PLAN" | "STAFF_ONLY";
   planId: string | null;
   plan: { name: string } | null;
+  locationId: string | null;
+  location: { id: string; name: string } | null;
   publishedAt: string | null;
   expiresAt: string | null;
   emailedAt: string | null;
@@ -31,11 +34,12 @@ const AUDIENCE_TEXT = { ALL_ACTIVE: "All current members", PLAN: "Members on one
 // last day shown is the gym-local date just before it (R-108).
 const lastShownDay = (expiresAt: string) => localDateIn(gym.business.timezone, new Date(new Date(expiresAt).getTime() - 1));
 
-const blank = { title: "", body: "", audience: "ALL_ACTIVE" as Announcement["audience"], planId: "", expiresAt: "" };
+const blank = { title: "", body: "", audience: "ALL_ACTIVE" as Announcement["audience"], planId: "", locationId: "", expiresAt: "" };
 
 export default function AnnouncementsPage() {
   const toast = useToast();
-  const list = useResource<Announcement[]>("/api/announcements");
+  const filter = useLocationFilter();
+  const list = useResource<Announcement[]>(filter.ready ? `/api/announcements${filter.param("?")}` : null);
   const plans = useResource<{ id: string; name: string }[]>("/api/plans");
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [open, setOpen] = useState(false);
@@ -84,13 +88,13 @@ export default function AnnouncementsPage() {
   const openForm = (a: Announcement | null) => {
     setEditing(a);
     save.reset();
-    setForm(a ? { title: a.title, body: a.body, audience: a.audience, planId: a.planId ?? "", expiresAt: a.expiresAt ? lastShownDay(a.expiresAt) : "" } : blank);
+    setForm(a ? { title: a.title, body: a.body, audience: a.audience, planId: a.planId ?? "", locationId: a.locationId ?? "", expiresAt: a.expiresAt ? lastShownDay(a.expiresAt) : "" } : { ...blank, locationId: filter.selected ?? "" });
     setOpen(true);
   };
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    const body = { title: form.title, body: form.body, audience: form.audience, planId: form.audience === "PLAN" ? form.planId || null : null, expiresAt: form.expiresAt || null };
+    const body = { title: form.title, body: form.body, audience: form.audience, planId: form.audience === "PLAN" ? form.planId || null : null, locationId: form.locationId || null, expiresAt: form.expiresAt || null };
     void save.run(editing, body);
   };
 
@@ -122,6 +126,7 @@ export default function AnnouncementsPage() {
                         </h2>
                         <p className="mt-1 text-sm text-ink-soft">
                           {a.audience === "PLAN" ? `${a.plan?.name ?? "One plan"} members` : AUDIENCE_TEXT[a.audience]}
+                          {a.location && filter.multiple ? `, ${a.location.name} members` : ""}
                           {a.expiresAt ? `, shown until ${fmtDate(new Date(new Date(a.expiresAt).getTime() - 1))}` : ""}
                         </p>
                       </div>
@@ -198,6 +203,7 @@ export default function AnnouncementsPage() {
                 ))}
               </SelectField>
             ) : null}
+            <LocationField label="Location" allLabel="Every location" hint="Members whose home location this is." value={form.locationId} error={save.fields.locationId} onChange={(locationId) => setForm({ ...form, locationId })} />
             <TextField label="Stop showing after (optional)" type="date" value={form.expiresAt} error={save.fields.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
           </div>
           {save.error ? <FormMessage>{save.error}</FormMessage> : null}

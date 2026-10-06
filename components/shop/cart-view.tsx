@@ -19,7 +19,9 @@ const STATES = ["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"];
 
 export function CartView() {
   const brand = useBranding();
-  const catalogue = useResource<Catalogue>("/api/shop/products");
+  // Availability depends on where the order comes from (D-127).
+  const [locationId, setLocationId] = useState<string | null>(null);
+  const catalogue = useResource<Catalogue>(locationId ? `/api/shop/products?locationId=${encodeURIComponent(locationId)}` : "/api/shop/products");
   const { lines, setQuantity } = useCart();
   const [fulfilment, setFulfilment] = useState<"PICKUP" | "SHIPPING">("PICKUP");
   const [address, setAddress] = useState<{ line1: string; line2: string; suburb: string; state: string; postcode: string }>({ line1: "", line2: "", suburb: "", state: brand.address.state, postcode: "" });
@@ -42,6 +44,7 @@ export function CartView() {
         body: {
           lines: priceable.map((r) => r.line),
           fulfilment,
+          locationId: catalogue.data?.location.id,
           shippingAddress: fulfilment === "SHIPPING" ? { ...address, line2: address.line2 || undefined } : undefined,
         },
       }),
@@ -127,9 +130,26 @@ export function CartView() {
                       ))}
                     </div>
                   </fieldset>
-                ) : (
-                  <p className="text-sm">Collect from the front desk at {brand.address.line1}, {brand.address.suburb}.</p>
-                )}
+                ) : null}
+                {data.locations.length > 1 ? (
+                  <SelectField
+                    label={fulfilment === "PICKUP" ? "Collect from" : "Sent from"}
+                    value={data.location.id}
+                    onChange={(e) => setLocationId(e.target.value)}
+                    hint="What's in stock depends on the location."
+                  >
+                    {data.locations.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </SelectField>
+                ) : null}
+                {fulfilment === "PICKUP" ? (
+                  <p className="text-sm">
+                    Collect from the front desk at {data.location.address ? `${data.location.name}, ${data.location.address}` : `${brand.address.line1}, ${brand.address.suburb}`}.
+                  </p>
+                ) : null}
                 {fulfilment === "SHIPPING" ? (
                   <div className="space-y-3">
                     <TextField label="Street address" autoComplete="address-line1" value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} error={fields.line1} />

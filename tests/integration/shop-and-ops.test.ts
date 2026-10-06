@@ -14,7 +14,7 @@ import * as audit from "@/app/api/audit-log/route";
 import * as adminPlans from "@/app/api/admin/plans/route";
 import { createPassToken } from "@/lib/checkin/qr";
 import { captureEmailsForTests, capturedEmails } from "@/lib/email";
-import { call, createMember, createStaff, createStaffWith, makeRequest, prisma, resetDb, type As } from "../helpers";
+import { call, createMember, createStaff, createStaffWith, makeRequest, prisma, resetDb, stockOf, type As } from "../helpers";
 
 let owner: As;
 let desk: As;
@@ -116,12 +116,12 @@ describe("orders", () => {
 
   it("a paid order must be refunded, not cancelled, and a full refund marks it refunded and restocks", async () => {
     const { order, payment, variantId } = await paidOrder();
-    const stockBefore = (await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } })).stockQty;
+    const stockBefore = (await stockOf(variantId));
     expect((await move(order.id, { status: "CANCELLED" })).status).toBe(409);
     const manager = { staff: await createStaff("MANAGER") };
     await call(refund.POST, await makeRequest("POST", "/x", { as: manager, body: { amountCents: 3500, reason: "Wrong size", method: "MANUAL" } }), { id: payment.id });
     expect(await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).toMatchObject({ status: "REFUNDED", stockCommitted: false });
-    expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } })).stockQty).toBe(stockBefore + 1);
+    expect((await stockOf(variantId))).toBe(stockBefore + 1);
   });
 
   it("a partial refund leaves the order alone, and a refund after collection doesn't restock", async () => {
@@ -132,10 +132,10 @@ describe("orders", () => {
     await move(order.id, { status: "PACKED" });
     await move(order.id, { status: "READY_FOR_PICKUP" });
     await move(order.id, { status: "COMPLETED" });
-    const stockBefore = (await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } })).stockQty;
+    const stockBefore = (await stockOf(variantId));
     await call(refund.POST, await makeRequest("POST", "/x", { as: manager, body: { amountCents: 2500, reason: "Faulty print", method: "MANUAL" } }), { id: payment.id });
     expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status).toBe("REFUNDED");
-    expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } })).stockQty).toBe(stockBefore);
+    expect((await stockOf(variantId))).toBe(stockBefore);
   });
 });
 

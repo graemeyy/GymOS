@@ -12,6 +12,7 @@ import { SelectField, TextField } from "@/components/ui/form";
 import { Scoreboard } from "@/components/ui/scoreboard";
 import { BarList } from "@/components/ui/bar-list";
 import { CATEGORY_TEXT } from "@/lib/shop/labels";
+import { useLocationFilter } from "@/components/admin/location-filter";
 
 interface Summary {
   label: string;
@@ -28,18 +29,23 @@ interface Summary {
   outstanding: { memberId: string; name: string; email: string; owingCents: number; pastDueSince: string | null }[];
   outstandingTotalCents: number;
   otherCurrency: { currency: string; cents: number }[];
+  byLocation: { locationId: string; name: string; cents: number; count: number }[];
 }
 
 export default function FinancePage() {
   const [period, setPeriod] = useState("this-month");
   const [custom, setCustom] = useState({ from: "", to: "" });
   const range = period === "custom" ? (custom.from && custom.to ? `from=${custom.from}&to=${custom.to}` : null) : `period=${period}`;
-  const summary = useResource<Summary>(range ? `/api/finance/summary?${range}` : null);
-  const exportHref = (type: string) => (range ? `/api/finance/export?type=${type}&${range}` : undefined);
+  // One location's figures, or combined across every location this person
+  // can see, with the split by location (D-129).
+  const filter = useLocationFilter();
+  const summary = useResource<Summary>(range && filter.ready ? `/api/finance/summary?${range}${filter.param()}` : null);
+  const exportHref = (type: string) => (range ? `/api/finance/export?type=${type}&${range}${filter.param()}` : undefined);
+  const where = filter.multiple ? (filter.selected ? filter.locations.find((l) => l.id === filter.selected)?.name : "all locations") : null;
 
   return (
     <>
-      <PageHeader title="Finance" description="Takings, refunds and GST for a period. Amounts are in AUD and include GST." />
+      <PageHeader title="Finance" description={`Takings, refunds and GST for a period${where ? ` at ${where}` : ""}. Amounts are in AUD and include GST.`} />
       <Panel className="mb-6">
         <div className="grid gap-3 p-4 sm:grid-cols-[16rem_1fr_1fr] sm:items-end">
           <SelectField label="Period" value={period} onChange={(e) => setPeriod(e.target.value)}>
@@ -120,6 +126,12 @@ export default function FinancePage() {
                   </ul>
                   <p className="border-t border-line px-4 py-3 text-sm text-ink-soft">Each file is labelled as a summary, not tax advice.</p>
                 </Panel>
+                {filter.multiple && !filter.selected ? (
+                  <Panel aria-labelledby="location-heading" className="lg:col-span-2">
+                    <PanelHeader id="location-heading" title="Takings by location" />
+                    <BarList rows={s.byLocation.map((l) => ({ name: `${l.name} (${l.count})`, value: l.cents }))} empty="No payments in this period." />
+                  </Panel>
+                ) : null}
                 <Panel aria-labelledby="plan-heading">
                   <PanelHeader id="plan-heading" title="Memberships by plan" />
                   <BarList rows={s.byPlan.map((p) => ({ name: `${p.name} (${p.count})`, value: p.cents }))} empty="No membership payments in this period." />

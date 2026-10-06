@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useResource } from "@/lib/client/api";
+import { useLocationFilter } from "@/components/admin/location-filter";
 import { formatAud } from "@/lib/money";
 import { fmtTime } from "@/lib/format";
 import {
@@ -57,9 +58,10 @@ interface EquipmentRow {
 
 export default function DashboardPage() {
   const { can, me } = useStaff();
-  const stats = useResource<Stats>("/api/dashboard/stats");
+  const filter = useLocationFilter();
+  const stats = useResource<Stats>(filter.ready ? `/api/dashboard/stats${filter.param("?")}` : null);
   const checkIns = useResource<CheckInRow[]>(
-    can("checkin.scan") ? "/api/check-in" : null,
+    can("checkin.scan") && filter.ready ? `/api/check-in${filter.param("?")}` : null,
   );
   const seesEquipment = allows(me, SEE_STOCK_AND_EQUIPMENT);
   const equipment = useResource<EquipmentRow[]>(

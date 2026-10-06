@@ -26,9 +26,11 @@ import {
   Receipt,
   ShieldCheck,
   UserCog,
+  MapPin,
   Palette,
 } from "lucide-react";
 import { api } from "@/lib/client/api";
+import { LocationSwitcher } from "@/components/admin/location-filter";
 import { cn } from "@/lib/client/cn";
 import { ForcedPasswordChange } from "@/components/auth/forced-password-change";
 import { allows, SEE_STOCK_AND_EQUIPMENT, type PermissionRule } from "@/lib/auth/permissions";
@@ -76,6 +78,7 @@ const NAV: { group: string; items: NavItem[] }[] = [
       { href: "/admin/equipment", label: "Equipment", icon: Dumbbell, permission: SEE_STOCK_AND_EQUIPMENT },
       { href: "/admin/inventory", label: "Stock", icon: Package, permission: SEE_STOCK_AND_EQUIPMENT },
       { href: "/admin/access", label: "Door access", icon: DoorOpen, permission: "checkin.scan" },
+      { href: "/admin/locations", label: "Locations", icon: MapPin, permission: "settings.edit" },
       { href: "/admin/staff", label: "Staff", icon: UserCog, permission: "staff.manage" },
       { href: "/admin/roles", label: "Roles", icon: ShieldCheck, permission: null },
       { href: "/admin/audit", label: "Audit log", icon: ClipboardList, permission: "audit.view" },
@@ -240,7 +243,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main id="main" className="min-w-0 flex-1">
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">{children}</div>
+        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+          {/* The location filter, on every staff page once there's more than one location (D-125). */}
+          <div className="mb-4 flex justify-end empty:hidden">
+            <LocationSwitcher className="block w-full sm:w-64" />
+          </div>
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -3,14 +3,17 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { api, useMutation } from "@/lib/client/api";
+import { api, useMutation, useResource } from "@/lib/client/api";
 import { Button } from "@/components/ui/primitives";
-import { FormMessage, TextField } from "@/components/ui/form";
+import { FormMessage, SelectField, TextField } from "@/components/ui/form";
 
 export function SignUpForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const [form, setForm] = useState({ name: "", email: "", password: "", acceptTerms: false });
+  const [form, setForm] = useState({ name: "", email: "", password: "", acceptTerms: false, homeLocationId: "" });
+  // With more than one location, new members choose their home one (D-126).
+  const locations = useResource<{ id: string; name: string; suburb: string }[]>("/api/locations/open");
+  const choices = locations.data ?? [];
   // Stays busy after success, while the browser moves to the next step.
   const [redirecting, setRedirecting] = useState(false);
   const signUp = useMutation((body: typeof form) => api("/api/auth/member-signup", { body }), {
@@ -25,13 +28,24 @@ export function SignUpForm() {
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    void signUp.run(form);
+    const { homeLocationId: chosen, ...rest } = form;
+    const homeLocationId = chosen || (choices.length > 1 ? choices[0].id : "");
+    void signUp.run({ ...rest, ...(homeLocationId ? { homeLocationId } : {}) } as typeof form);
   };
 
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
       <TextField label="Your name" autoComplete="name" required value={form.name} error={fields.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
       <TextField label="Email" type="email" autoComplete="email" required value={form.email} error={fields.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+      {choices.length > 1 ? (
+        <SelectField label="Home location" hint="Where you'll usually train." value={form.homeLocationId || choices[0].id} error={fields.homeLocationId} onChange={(e) => setForm({ ...form, homeLocationId: e.target.value })}>
+          {choices.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.suburb && l.suburb !== l.name ? `${l.name}, ${l.suburb}` : l.name}
+            </option>
+          ))}
+        </SelectField>
+      ) : null}
       <TextField
         label="Password"
         type="password"

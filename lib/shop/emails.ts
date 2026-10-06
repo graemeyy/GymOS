@@ -3,7 +3,7 @@ import type { Db } from "@/lib/db";
 import { gym } from "@/lib/config";
 import { formatAud } from "@/lib/money";
 import { sendEmail, signature } from "@/lib/email";
-import { getBranding } from "@/lib/branding/service";
+import { pickupAddress } from "@/lib/locations/queries";
 
 export type OrderEmailKind = "confirmed" | "ready" | "shipped" | "refunded";
 
@@ -23,7 +23,7 @@ export async function sendOrderEmail(db: Db, orderId: string, kind: OrderEmailKi
   ]
     .filter(Boolean)
     .join("\n");
-  const { address } = await getBranding(db);
+  const address = await pickupAddress(db, order.locationId);
   const pickup = `Collect it from the front desk at ${address.line1}, ${address.suburb}.`;
   const messages: Record<OrderEmailKind, { subject: string; body: string }> = {
     confirmed: {

@@ -340,8 +340,8 @@ describe("the audit log keeps who, when, and old and new values", () => {
     await call(staffById.PUT, await put(owner, { active: false }), { id: desk.id });
     const entries = await prisma.auditLog.findMany({ where: { targetId: desk.id }, orderBy: { createdAt: "asc" } });
     expect(entries.map((e) => [e.action, e.before, e.after])).toEqual([
-      ["staff.role_changed", { name: desk.name, role: "Front desk", active: true }, { name: desk.name, role: "Manager", active: true }],
-      ["staff.deactivated", { name: desk.name, role: "Manager", active: true }, { name: desk.name, role: "Manager", active: false }],
+      ["staff.role_changed", { name: desk.name, role: "Front desk", active: true, locationIds: [] }, { name: desk.name, role: "Manager", active: true, locationIds: [] }],
+      ["staff.deactivated", { name: desk.name, role: "Manager", active: true, locationIds: [] }, { name: desk.name, role: "Manager", active: false, locationIds: [] }],
     ]);
   });
 

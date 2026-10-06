@@ -26,15 +26,22 @@ export const ProductBody = z.object({
     .optional(),
   active: z.boolean().default(true),
   variants: z.array(VariantBody).min(1, "Add at least one variant").max(60),
+  // Where new variants' opening stock goes (D-127); the main location if left out.
+  stockLocationId: z.string().min(1).max(40).optional(),
 });
 
 export type ProductInput = z.infer<typeof ProductBody>;
 
-export const ProductListQuery = z.object({ category: z.enum(PRODUCT_CATEGORIES).optional(), includeArchived: z.enum(["1", "0"]).default("0") });
+export const ProductListQuery = z.object({ category: z.enum(PRODUCT_CATEGORIES).optional(), includeArchived: z.enum(["1", "0"]).default("0"), locationId: z.string().min(1).max(40).optional() });
 
 export type ProductListFilter = z.infer<typeof ProductListQuery>;
 
-export const StockAdjustBody = z.object({ delta: z.number().int().min(-10_000).max(10_000).refine((d) => d !== 0, "Must not be zero"), reason: z.string().trim().max(200).optional() });
+export const StockAdjustBody = z.object({
+  delta: z.number().int().min(-10_000).max(10_000).refine((d) => d !== 0, "Must not be zero"),
+  reason: z.string().trim().max(200).optional(),
+  // The location being counted (D-127); the main location if left out.
+  locationId: z.string().min(1).max(40).optional(),
+});
 
 export type StockAdjustInput = z.infer<typeof StockAdjustBody>;
 
@@ -42,6 +49,7 @@ export const OrderListQuery = z.object({
   status: z.enum(["PENDING_PAYMENT", "PAID", "PACKED", "READY_FOR_PICKUP", "SHIPPED", "COMPLETED", "CANCELLED", "REFUNDED"]).optional(),
   open: z.enum(["1", "0"]).default("0"),
   take: z.coerce.number().int().min(1).max(200).default(100),
+  locationId: z.string().min(1).max(40).optional(),
 });
 
 export type OrderListFilter = z.infer<typeof OrderListQuery>;
@@ -72,6 +80,8 @@ export const ShopCheckoutBody = z
       .max(30),
     fulfilment: z.enum(["PICKUP", "SHIPPING"]),
     shippingAddress: ShippingAddress.optional(),
+    // The pickup (or shipping) location; the member's home location if left out.
+    locationId: z.string().min(1).max(40).optional(),
   })
   .refine((b) => b.fulfilment === "PICKUP" || b.shippingAddress, { message: "Add a delivery address", path: ["shippingAddress"] });
 

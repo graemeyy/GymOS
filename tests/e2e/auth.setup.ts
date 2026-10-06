@@ -5,7 +5,8 @@ import { firstSignIn } from "./helpers";
 // trip the login rate limit (10 attempts per IP per 15 minutes). This is
 // each seeded account's first sign-in, so it also goes through the required
 // password change (D-111).
-const STAFF = { owner: "owner@example.com", frontdesk: "frontdesk@example.com", trainer: "trainer@example.com" } as const;
+// deskSecond works at the demo's second location only (D-128).
+const STAFF = { owner: "owner@example.com", frontdesk: "frontdesk@example.com", trainer: "trainer@example.com", deskSecond: "desk.second@example.com" } as const;
 
 for (const [name, email] of Object.entries(STAFF)) {
   setup(`sign in ${name}`, async ({ page }) => {

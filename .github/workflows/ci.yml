@@ -62,6 +62,9 @@ jobs:
       # and report itself up to date (R-68).
       - name: Build a fresh database from migrations, seed it and check its status
         run: npm run check:fresh-db
+      # Existing data moves to the main location and no stock is lost (D-125).
+      - name: Locations migration keeps existing data
+        run: npm run check:locations-migration
       # Every copy shows its own brand: the demo gym's name and details may
       # only appear in config and seed files (D-124).
       - name: No demo gym text outside config and seed files

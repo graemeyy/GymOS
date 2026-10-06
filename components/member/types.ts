@@ -4,6 +4,7 @@ import type { Interval } from "@/lib/money";
 export type { Interval };
 
 export interface Me {
+  homeLocation: { id: string; name: string } | null;
   id: string;
   name: string | null;
   email: string;

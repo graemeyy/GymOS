@@ -10,9 +10,19 @@ export const staffSelect = {
   inviteExpiresAt: true,
   passwordHash: false,
   assignedRole: { select: { id: true, name: true, isOwner: true } },
+  locations: { select: { locationId: true } },
 } as const;
 
-type StaffRow = { id: string; name: string; email: string; createdAt: Date; deactivatedAt: Date | null; inviteExpiresAt: Date | null; assignedRole: { id: string; name: string; isOwner: boolean } | null };
+type StaffRow = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: Date;
+  deactivatedAt: Date | null;
+  inviteExpiresAt: Date | null;
+  assignedRole: { id: string; name: string; isOwner: boolean } | null;
+  locations: { locationId: string }[];
+};
 
 // An invited person who hasn't set a password yet shows as "invited".
 export function toStaffView(row: StaffRow) {
@@ -24,6 +34,8 @@ export function toStaffView(row: StaffRow) {
     role: row.assignedRole,
     status: row.deactivatedAt ? ("deactivated" as const) : row.inviteExpiresAt ? ("invited" as const) : ("active" as const),
     inviteExpiresAt: row.inviteExpiresAt,
+    // Empty means every location (D-128).
+    locationIds: row.locations.map((l) => l.locationId),
   };
 }
 

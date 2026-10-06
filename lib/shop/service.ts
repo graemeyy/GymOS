@@ -7,6 +7,9 @@ import { updateOrderStatus } from "./orders";
 import { sendOrderEmail } from "./emails";
 import { can } from "@/lib/auth/permissions";
 import type { OrderStatusInput, ProductInput } from "./schema";
+import { addStock, stockAt, takeStock } from "./stock";
+import { MAIN_LOCATION_ID } from "@/lib/locations/constants";
+import { assertLocation } from "@/lib/locations/scope";
 
 const ONLY_ADMINS_PRICES = "Only admins can change prices.";
 
@@ -44,17 +47,24 @@ export function createProduct(db: Db, staff: StaffActor, input: ProductInput) {
     assertDistinctSkus(skus);
     await assertSkusFree(tx, skus);
 
-    const { variants, ...fields } = input;
+    const { variants, stockLocationId, ...fields } = input;
+    const stockAt = stockLocationId ?? MAIN_LOCATION_ID;
+    assertLocation(staff, stockAt);
     const product = await tx.product.create({
       data: {
         ...fields,
         description: fields.description ?? null,
         imageUrl: fields.imageUrl ?? null,
         slug,
-        variants: { create: variants.map(({ id: _id, ...v }) => ({ ...v, ...blankToNull(v) })) },
+        variants: { create: variants.map(({ id: _id, stockQty: _stock, ...v }) => ({ ...v, ...blankToNull(v) })) },
       },
       include: { variants: true },
     });
+    // Opening stock goes to one location (D-127).
+    for (const v of product.variants) {
+      const opening = variants.find((i) => i.sku === v.sku)?.stockQty ?? 0;
+      if (opening > 0) await addStock(tx, v.id, stockAt, opening);
+    }
     await logAction(tx, staff, { action: "product.created", targetType: "Product", targetId: product.id, details: { name: product.name }, after: productSnapshot(product) });
     return product;
   });
@@ -76,7 +86,9 @@ export function updateProduct(db: Db, staff: StaffActor, id: string, input: Prod
     const pricesChange = input.variants.some((v) => !v.id || !ownIds.has(v.id) || oldPrice.get(v.id) !== v.priceCents);
     if (pricesChange && !can(staff, "prices.edit")) throw new ApiError("forbidden", ONLY_ADMINS_PRICES, { variants: ONLY_ADMINS_PRICES });
 
-    const { variants, ...fields } = input;
+    const { variants, stockLocationId, ...fields } = input;
+    const stockAt = stockLocationId ?? MAIN_LOCATION_ID;
+    assertLocation(staff, stockAt);
     const keep = new Set(variants.filter((v) => v.id && ownIds.has(v.id)).map((v) => v.id!));
     await tx.product.update({ where: { id }, data: { ...fields, description: fields.description ?? null, imageUrl: fields.imageUrl ?? null } });
     await tx.productVariant.updateMany({ where: { productId: id, id: { notIn: [...keep] } }, data: { active: false } });
@@ -86,7 +98,10 @@ export function updateProduct(db: Db, staff: StaffActor, id: string, input: Prod
       // adjustment endpoint: this form's number may be stale, and writing it
       // would bring back units sold while the form was open (R-11).
       if (variantId && ownIds.has(variantId)) await tx.productVariant.update({ where: { id: variantId }, data });
-      else await tx.productVariant.create({ data: { ...data, stockQty, productId: id } });
+      else {
+        const created = await tx.productVariant.create({ data: { ...data, productId: id } });
+        if (stockQty > 0) await addStock(tx, created.id, stockAt, stockQty);
+      }
     }
     const product = await tx.product.findUniqueOrThrow({ where: { id }, include: { variants: true } });
     await logAction(tx, staff, { action: pricesChange ? "product.price_changed" : "product.updated", targetType: "Product", targetId: id, details: { name: product.name }, before: productSnapshot(existing), after: productSnapshot(product) });
@@ -105,23 +120,28 @@ export function archiveProduct(db: Db, staff: StaffActor, id: string) {
 // Stock count adjustments (deliveries, stocktake corrections, damaged goods).
 // The quantity condition makes the check and the write one atomic statement,
 // so stock can't go negative.
-export function adjustVariantStock(db: Db, staff: StaffActor, id: string, delta: number, reason: string | undefined) {
+export function adjustVariantStock(db: Db, staff: StaffActor, id: string, delta: number, reason: string | undefined, locationId: string = MAIN_LOCATION_ID) {
+  assertLocation(staff, locationId);
   return db.$transaction(async (tx) => {
-    const result = await tx.productVariant.updateMany({
-      where: { id, stockQty: { gte: delta < 0 ? -delta : 0 } },
-      data: { stockQty: { increment: delta } },
-    });
-    if (result.count === 0) {
-      const exists = await tx.productVariant.findUnique({ where: { id }, select: { id: true } });
-      throw exists ? new ApiError("conflict", "That would take stock below zero.") : new ApiError("not_found", "Variant not found.");
+    const variant = await tx.productVariant.findUnique({ where: { id }, include: { product: { select: { name: true } } } });
+    if (!variant) throw new ApiError("not_found", "Variant not found.");
+    const location = await tx.location.findUnique({ where: { id: locationId }, select: { name: true } });
+    if (!location) throw new ApiError("not_found", "Location not found.");
+    let stock: number;
+    if (delta < 0) {
+      if (!(await takeStock(tx, id, locationId, -delta))) throw new ApiError("conflict", "That would take stock below zero.");
+      stock = (await stockAt(tx, [id], locationId)).get(id) ?? 0;
+    } else {
+      stock = await addStock(tx, id, locationId, delta);
     }
-    const variant = await tx.productVariant.findUniqueOrThrow({ where: { id }, include: { product: { select: { name: true } } } });
-    await logAction(tx, staff, { action: "stock.adjusted", targetType: "ProductVariant", targetId: id, details: { product: variant.product.name, sku: variant.sku, delta, stock: variant.stockQty, reason: reason ?? null } });
-    return variant;
+    await logAction(tx, staff, { action: "stock.adjusted", targetType: "ProductVariant", targetId: id, details: { product: variant.product.name, sku: variant.sku, location: location.name, delta, stock, reason: reason ?? null } });
+    return { ...variant, stockQty: stock, locationId };
   });
 }
 
 export async function changeOrderStatus(db: Db, staff: StaffActor, id: string, input: OrderStatusInput) {
+  const where = await db.order.findUnique({ where: { id }, select: { locationId: true } });
+  if (where) assertLocation(staff, where.locationId);
   const order = await updateOrderStatus(db, staff, id, input.status, { note: input.note, trackingNumber: input.trackingNumber });
   // Tell the customer when there's something for them to do or expect.
   if (input.status === "READY_FOR_PICKUP" || input.status === "SHIPPED") {

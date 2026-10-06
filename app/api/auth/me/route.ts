@@ -6,7 +6,7 @@ import { resolveMember, resolveStaff } from "@/lib/auth/session";
 // can show or lock controls; the server checks again on every request.
 export const GET = publicRoute({}, async ({ request, db }) => {
   const staff = await resolveStaff(request, db);
-  if (staff) return json({ kind: "staff", id: staff.id, name: staff.name, roleId: staff.roleId, roleName: staff.roleName, isOwner: staff.isOwner, permissions: staff.permissions, mustChangePassword: staff.mustChangePassword });
+  if (staff) return json({ kind: "staff", id: staff.id, name: staff.name, roleId: staff.roleId, roleName: staff.roleName, isOwner: staff.isOwner, permissions: staff.permissions, mustChangePassword: staff.mustChangePassword, locationIds: staff.locationIds });
   const member = await resolveMember(request, db);
   if (member) return json({ kind: "member", id: member.id, name: member.name, email: member.email, mustChangePassword: member.mustChangePassword });
   throw new ApiError("unauthenticated", "Not signed in.");

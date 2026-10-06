@@ -11,7 +11,7 @@ import * as shopCheckout from "@/app/api/shop/checkout/route";
 import { changePlan } from "@/lib/membership/service";
 import { sendPaymentReminders } from "@/lib/billing/reminders";
 import { captureEmailsForTests, capturedEmails } from "@/lib/email";
-import { call, createMember, createStaff, makeRequest, prisma, resetDb, type As } from "../helpers";
+import { call, createMember, createStaff, makeRequest, prisma, resetDb, setStock, stockFromQty, stockOf, type As } from "../helpers";
 import { installFakeStripe } from "../fake-stripe";
 import { sendStripeEvent } from "../stripe-events";
 
@@ -147,14 +147,15 @@ describe("R-11 saving a product doesn't overwrite stock", () => {
       include: { variants: true },
     });
     const v = product.variants[0];
-    await prisma.productVariant.update({ where: { id: v.id }, data: { stockQty: 7 } }); // three sold meanwhile
+    await stockFromQty();
+    await setStock(v.id, 7); // three sold meanwhile
     const res = await call(
       productById.PUT,
       await makeRequest("PUT", "/x", { as: owner, body: { name: "Club tee (fixed typo)", category: "APPAREL", variants: [{ id: v.id, sku: "T-M", size: "M", priceCents: 3500, stockQty: 10 }] } }),
       { id: product.id }
     );
     expect(res.status).toBe(200);
-    expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: v.id } })).stockQty).toBe(7);
+    expect((await stockOf(v.id))).toBe(7);
   });
 });
 
@@ -254,6 +255,7 @@ describe("R-24 checkout accepts cards only", () => {
     const plan = await prisma.membershipPlan.findUniqueOrThrow({ where: { slug: "standard" } });
     await call(checkout.POST, await makeRequest("POST", "/x", { as: asMember(m), body: { planId: plan.id, acceptTerms: true } }));
     const product = await prisma.product.create({ data: { name: "Chalk", slug: "chalk", category: "ACCESSORIES", variants: { create: [{ sku: "C-1", priceCents: 800, stockQty: 5 }] } }, include: { variants: true } });
+    await stockFromQty();
     await call(shopCheckout.POST, await makeRequest("POST", "/x", { as: asMember(m), body: { lines: [{ variantId: product.variants[0].id, quantity: 1 }], fulfilment: "PICKUP" } }));
     const sessions = stripe.calls.filter((c) => c.method === "checkout.sessions.create").map((c) => c.args[0] as { payment_method_types?: string[] });
     expect(sessions).toHaveLength(2);

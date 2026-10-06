@@ -13,6 +13,8 @@ import { FormMessage, SelectField, TextField, TextareaField } from "@/components
 import { Switch } from "@/components/ui/switch";
 import { DataList } from "@/components/ui/data-list";
 import { planPerks } from "@/lib/plans/perks";
+import { LOCATION_ACCESS, LOCATION_ACCESS_TEXT, type LocationAccessName } from "@/lib/locations/constants";
+import { useLocationFilter } from "@/components/admin/location-filter";
 
 interface Plan {
   id: string;
@@ -27,9 +29,11 @@ interface Plan {
   guestRateCents: number;
   // null when the viewer can't see revenue.
   memberCount: number | null;
+  locationAccess: LocationAccessName;
+  locationIds: string[];
 }
 
-const blank = { name: "", description: "", price: "", interval: "WEEK" as Interval, active: true, unlimited: false, classes: "0", guestPasses: "0", discount: "0", guestRate: "" };
+const blank = { name: "", description: "", price: "", interval: "WEEK" as Interval, active: true, unlimited: false, classes: "0", guestPasses: "0", discount: "0", guestRate: "", locationAccess: "ALL" as LocationAccessName, locationIds: [] as string[] };
 
 const benefitsText = (p: Plan) => planPerks(p, p.interval, { includeGuestRate: true }).join(", ");
 
@@ -41,6 +45,10 @@ export default function PlansPage() {
   // they're shown read-only in the editor.
   const canPrice = can("prices.edit");
   const plans = useResource<Plan[]>("/api/admin/plans");
+  const filter = useLocationFilter();
+  const locationName = new Map(filter.locations.map((l) => [l.id, l.name]));
+  const accessText = (p: Plan) =>
+    p.locationAccess === "SELECTED" ? p.locationIds.map((id) => locationName.get(id)).filter(Boolean).join(", ") || "Chosen locations" : p.locationAccess === "HOME" ? "Home location only" : "Every location";
   const [editing, setEditing] = useState<Plan | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
@@ -79,6 +87,8 @@ export default function PlansPage() {
             guestPasses: String(p.guestPassesPerCycle),
             discount: String(p.shopDiscountPercent),
             guestRate: p.guestRateCents ? (p.guestRateCents / 100).toFixed(2) : "",
+            locationAccess: p.locationAccess,
+            locationIds: p.locationIds,
           }
         : blank
     );
@@ -105,6 +115,8 @@ export default function PlansPage() {
       guestPassesPerCycle: Number(form.guestPasses) || 0,
       shopDiscountPercent: Number(form.discount) || 0,
       guestRateCents,
+      locationAccess: form.locationAccess,
+      locationIds: form.locationAccess === "SELECTED" ? form.locationIds : [],
     };
     void save.run(editing, body);
   };
@@ -145,6 +157,7 @@ export default function PlansPage() {
                           {p.name} {!p.active ? <StatusTag>Retired</StatusTag> : null}
                         </p>
                         <p className="text-sm text-ink-soft">{benefitsText(p)}</p>
+                        {filter.multiple ? <p className="text-sm text-ink-soft">Access: {accessText(p)}</p> : null}
                       </div>
                     ),
                   },
@@ -216,6 +229,34 @@ export default function PlansPage() {
               <TextField label="Guest visit rate (AUD)" inputMode="decimal" readOnly={!canPrice} aria-describedby={canPrice ? undefined : "price-note"} value={form.guestRate} error={errors.guestRateCents} hint="What a guest pays without a pass." onChange={(e) => setForm({ ...form, guestRate: e.target.value })} />
             </div>
           </fieldset>
+          {filter.multiple ? (
+            <fieldset className="space-y-3 rounded border border-line p-4">
+              <legend className="px-1 text-sm font-medium">Locations members can use</legend>
+              {LOCATION_ACCESS.map((a) => (
+                <label key={a} className="flex items-center gap-3">
+                  <input type="radio" name="locationAccess" className="h-5 w-5 accent-plate" checked={form.locationAccess === a} onChange={() => setForm({ ...form, locationAccess: a })} />
+                  {LOCATION_ACCESS_TEXT[a]}
+                </label>
+              ))}
+              {form.locationAccess === "SELECTED" ? (
+                <div className="ml-8 space-y-2" role="group" aria-label="Chosen locations">
+                  {filter.locations.map((l) => (
+                    <label key={l.id} className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        className="h-5 w-5 accent-plate"
+                        checked={form.locationIds.includes(l.id)}
+                        onChange={(e) => setForm({ ...form, locationIds: e.target.checked ? [...form.locationIds, l.id] : form.locationIds.filter((id) => id !== l.id) })}
+                      />
+                      {l.name}
+                    </label>
+                  ))}
+                  {errors.locationIds ? <p className="text-sm font-medium text-bad">{errors.locationIds}</p> : null}
+                </div>
+              ) : null}
+              <p className="text-sm text-ink-soft">Check-in and class bookings follow this. Shop pickup is open to every member at any location.</p>
+            </fieldset>
+          ) : null}
           <Switch label="Available for new sign-ups" description="Turn off to retire the plan. Members already on it keep it." checked={form.active} onChange={(v) => setForm({ ...form, active: v })} />
           {message ? <FormMessage>{message}</FormMessage> : null}
         </form>

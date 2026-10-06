@@ -9,6 +9,7 @@ const Body = z.object({
   email: zEmail,
   password: zPassword,
   acceptTerms: z.literal(true, { error: "Please accept the membership terms and privacy policy" }),
+  homeLocationId: z.string().min(1).max(40).optional(),
 });
 
 // Creates a member account with no plan (status PENDING) and signs them in.

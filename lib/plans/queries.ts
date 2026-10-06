@@ -15,6 +15,7 @@ export const planSelect = {
   guestPassesPerCycle: true,
   shopDiscountPercent: true,
   guestRateCents: true,
+  locationAccess: true,
 } as const;
 
 export type PlanSummary = Pick<MembershipPlan, keyof typeof planSelect>;
@@ -41,8 +42,11 @@ export async function listPlans(db: Db = prisma, opts: { includeInactive?: boole
 // when revenue is hidden, because price times count is the revenue (R-43).
 export async function listPlansWithMemberCounts(db: Db, showMemberCounts: boolean) {
   const plans = await listPlans(db, { includeInactive: true });
-  if (!showMemberCounts) return plans.map((p) => ({ ...p, memberCount: null }));
+  // Which locations each "selected locations" plan covers (D-126).
+  const links = await db.planLocation.findMany({ where: { planId: { in: plans.map((p) => p.id) } }, select: { planId: true, locationId: true } });
+  const withLocations = plans.map((p) => ({ ...p, locationIds: links.filter((l) => l.planId === p.id).map((l) => l.locationId) }));
+  if (!showMemberCounts) return withLocations.map((p) => ({ ...p, memberCount: null }));
   const counts = await db.member.groupBy({ by: ["planId"], where: { archivedAt: null, status: { not: "CANCELED" } }, _count: { _all: true } });
   const byPlan = new Map(counts.map((c) => [c.planId, c._count._all]));
-  return plans.map((p) => ({ ...p, memberCount: byPlan.get(p.id) ?? 0 }));
+  return withLocations.map((p) => ({ ...p, memberCount: byPlan.get(p.id) ?? 0 }));
 }

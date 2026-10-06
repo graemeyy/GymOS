@@ -7,10 +7,14 @@ export const AnnouncementBody = z
     body: z.string().trim().min(3, "Write the announcement").max(4000),
     audience: z.enum(["ALL_ACTIVE", "PLAN", "STAFF_ONLY"]).default("ALL_ACTIVE"),
     planId: zId.nullable().optional(),
+    // One location's members (by home location), or null for everyone (D-125).
+    locationId: z.string().min(1).max(40).nullable().optional(),
     // A plain date means "until the end of that day at the gym" (R-108).
     expiresAt: zGymDateEnd.nullable().optional(),
   })
   .refine((b) => b.audience !== "PLAN" || Boolean(b.planId), { message: "Choose a plan", path: ["planId"] });
+
+export const AnnouncementListQuery = z.object({ locationId: z.string().min(1).max(40).optional() });
 
 export const PublishAnnouncementBody = z.object({ email: z.boolean().default(false) });
 

@@ -18,6 +18,7 @@ export const AUTH = {
   owner: "tests/e2e/.auth/owner.json",
   frontdesk: "tests/e2e/.auth/frontdesk.json",
   trainer: "tests/e2e/.auth/trainer.json",
+  deskSecond: "tests/e2e/.auth/deskSecond.json",
   member: "tests/e2e/.auth/member.json",
 } as const;
 

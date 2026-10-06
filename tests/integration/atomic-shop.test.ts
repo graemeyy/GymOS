@@ -22,7 +22,7 @@ const order = await import("@/app/api/orders/[id]/route");
 const refund = await import("@/app/api/payments/[id]/refund/route");
 const shopCheckout = await import("@/app/api/shop/checkout/route");
 const membershipCheckout = await import("@/app/api/checkout/route");
-const { call, createMember, createStaff, makeRequest, prisma, resetDb } = await import("../helpers");
+const { call, createMember, createStaff, makeRequest, prisma, resetDb, stockFromQty, stockOf } = await import("../helpers");
 const { installFakeStripe } = await import("../fake-stripe");
 
 let stripe: ReturnType<typeof installFakeStripe>;
@@ -39,10 +39,12 @@ afterEach(() => {
 const productBody = { name: "Club tee", category: "APPAREL", variants: [{ sku: "T-M", size: "M", priceCents: 3500, stockQty: 4 }] };
 
 async function seedProduct() {
-  return prisma.product.create({
+  const product = await prisma.product.create({
     data: { name: "Club tee", slug: "club-tee", category: "APPAREL", variants: { create: [{ sku: "T-M", size: "M", priceCents: 3500, stockQty: 4 }] } },
     include: { variants: true },
   });
+  await stockFromQty();
+  return product;
 }
 
 describe("R-98 products", () => {
@@ -79,7 +81,7 @@ describe("R-98 products", () => {
     failAudit.on = true;
     const res = await call(variant.PATCH, await makeRequest("PATCH", "/x", { as: owner, body: { delta: -3, reason: "Damaged" } }), { id: seeded.variants[0].id });
     expect(res.status).toBe(500);
-    expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: seeded.variants[0].id } })).stockQty).toBe(4);
+    expect((await stockOf(seeded.variants[0].id))).toBe(4);
   });
 });
 
@@ -125,7 +127,7 @@ describe("R-98 orders and payments", () => {
     expect(await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).toMatchObject({ refundedCents: 0, status: "succeeded" });
     expect(await prisma.refund.count()).toBe(0);
     expect((await prisma.order.findUniqueOrThrow({ where: { id: o.id } })).status).toBe("PAID");
-    expect((await prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } })).stockQty).toBe(4);
+    expect((await stockOf(variantId))).toBe(4);
   });
 });
 

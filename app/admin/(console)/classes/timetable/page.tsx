@@ -10,6 +10,7 @@ import { AsyncBlock, EmptyState, useToast } from "@/components/ui/feedback";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { FormMessage, SelectField, TextField } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
+import { LocationField, LocationName, useLocationFilter } from "@/components/admin/location-filter";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -22,9 +23,11 @@ interface Slot {
   capacity: number;
   active: boolean;
   trainer: { id: string; name: string } | null;
+  locationId: string;
+  location: { id: string; name: string } | null;
 }
 
-const blank = { name: "", trainerId: "", weekday: "0", startTime: "06:00", durationMinutes: "45", capacity: "16", active: true };
+const blank = { name: "", trainerId: "", locationId: "", weekday: "0", startTime: "06:00", durationMinutes: "45", capacity: "16", active: true };
 
 function to12h(t: string) {
   const [h, m] = t.split(":").map(Number);
@@ -35,7 +38,8 @@ export default function TimetablePage() {
   const { can } = useStaff();
   const toast = useToast();
   const canEdit = can("classes.manage");
-  const slots = useResource<Slot[]>("/api/class-templates");
+  const filter = useLocationFilter();
+  const slots = useResource<Slot[]>(filter.ready ? `/api/class-templates${filter.param("?")}` : null);
   const staff = useResource<{ id: string; name: string; roleName: string }[]>(canEdit ? "/api/staff/directory" : null);
   const [editing, setEditing] = useState<Slot | null>(null);
   const [open, setOpen] = useState(false);
@@ -75,15 +79,15 @@ export default function TimetablePage() {
     save.reset();
     setForm(
       slot
-        ? { name: slot.name, trainerId: slot.trainer?.id ?? "", weekday: String(slot.weekday), startTime: slot.startTime, durationMinutes: String(slot.durationMinutes), capacity: String(slot.capacity), active: slot.active }
-        : blank
+        ? { name: slot.name, trainerId: slot.trainer?.id ?? "", locationId: slot.locationId, weekday: String(slot.weekday), startTime: slot.startTime, durationMinutes: String(slot.durationMinutes), capacity: String(slot.capacity), active: slot.active }
+        : { ...blank, locationId: filter.current ?? "" }
     );
     setOpen(true);
   };
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    const body = { name: form.name, trainerId: form.trainerId || null, weekday: Number(form.weekday), startTime: form.startTime, durationMinutes: Number(form.durationMinutes), capacity: Number(form.capacity), active: form.active };
+    const body = { name: form.name, trainerId: form.trainerId || null, ...(form.locationId ? { locationId: form.locationId } : {}), weekday: Number(form.weekday), startTime: form.startTime, durationMinutes: Number(form.durationMinutes), capacity: Number(form.capacity), active: form.active };
     void save.run(editing, body);
   };
 
@@ -133,6 +137,7 @@ export default function TimetablePage() {
                             <span className="block text-sm text-ink-soft">
                               {s.durationMinutes} min, {s.capacity} places{s.trainer ? `, ${s.trainer.name}` : ""}
                             </span>
+                            <LocationName location={s.location} className="block text-sm text-ink-soft" />
                           </span>
                           {canEdit ? (
                             <span className="flex shrink-0">
@@ -180,6 +185,7 @@ export default function TimetablePage() {
               </option>
             ))}
           </SelectField>
+          <LocationField value={form.locationId} error={save.fields.locationId} onChange={(locationId) => setForm({ ...form, locationId })} />
           <div className="grid grid-cols-2 gap-4">
             <SelectField label="Day" value={form.weekday} onChange={(e) => setForm({ ...form, weekday: e.target.value })}>
               {DAYS.map((d, i) => (

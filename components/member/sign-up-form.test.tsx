@@ -22,6 +22,7 @@ describe("sign-up form", () => {
     fireEvent.submit(button.closest("form")!);
     fireEvent.submit(button.closest("form")!);
     await waitFor(() => expect(button.disabled).toBe(true));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // The other request is the list of locations for the home location choice.
+    expect(fetchMock.mock.calls.filter((c: unknown[]) => String(c[0]).includes("member-signup"))).toHaveLength(1);
   });
 });

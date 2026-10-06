@@ -13,6 +13,7 @@ import { effectivePermissions } from "@/lib/auth/permissions";
 import { staffSelect, toStaffView } from "./queries";
 import type { FirstOwnerInput, InviteStaffInput, UpdateStaffInput } from "./schema";
 import { getBranding } from "@/lib/branding/service";
+import { assertLocation, canUseLocation, seesAllLocations } from "@/lib/locations/scope";
 
 const INVITE_DAYS = 7;
 // Changes that could leave the gym without an owner take this advisory lock
@@ -20,6 +21,19 @@ const INVITE_DAYS = 7;
 const OWNER_LOCK = 424243;
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+
+// Which locations someone's role applies at (D-128). Empty means every
+// location, which only a person who covers every location can give; anyone
+// else can only give locations they cover themselves. Owners always cover
+// every location, so limiting an owner is refused.
+async function checkLocationScope(tx: Tx, actor: StaffActor, ids: string[], role: { isOwner: boolean } | null): Promise<string[]> {
+  const unique = [...new Set(ids)];
+  if (role?.isOwner && unique.length) throw new ApiError("validation_failed", "Owners cover every location.", { locationIds: "Leave empty for an owner" });
+  if (!seesAllLocations(actor) && unique.length === 0) throw new ApiError("forbidden", "Your role covers some locations only, so choose from those.", { locationIds: "Choose at least one location" });
+  for (const id of unique) assertLocation(actor, id);
+  if (unique.length && (await tx.location.count({ where: { id: { in: unique } } })) !== unique.length) throw new ApiError("validation_failed", "Choose locations that exist.", { locationIds: "Not found" });
+  return unique;
+}
 
 async function activeOwnerCount(tx: Tx, excludeId: string) {
   return tx.staff.count({ where: { id: { not: excludeId }, deactivatedAt: null, assignedRole: { isOwner: true } } });
@@ -50,11 +64,21 @@ export async function inviteStaff(db: Db, actor: StaffActor, input: InviteStaffI
     if (!role) throw new ApiError("validation_failed", "Choose a role.", { roleId: "Not found" });
     assertNotMorePowerful(actor, role, "who gets the Owner role");
     if (await tx.staff.findUnique({ where: { email: input.email } })) throw new ApiError("conflict", "A staff account with that email already exists.", { email: "Already in use" });
+    const locationIds = await checkLocationScope(tx, actor, input.locationIds, role);
     const created = await tx.staff.create({
-      data: { name: input.name, email: input.email, roleId: role.id, role: legacyRoleFor(role), mustChangePassword: true, inviteTokenHash: hashToken(token), inviteExpiresAt: new Date(Date.now() + INVITE_DAYS * DAY_MS) },
+      data: {
+        name: input.name,
+        email: input.email,
+        roleId: role.id,
+        role: legacyRoleFor(role),
+        mustChangePassword: true,
+        inviteTokenHash: hashToken(token),
+        inviteExpiresAt: new Date(Date.now() + INVITE_DAYS * DAY_MS),
+        locations: { create: locationIds.map((locationId) => ({ locationId })) },
+      },
       select: staffSelect,
     });
-    await logAction(tx, actor, { action: "staff.invited", targetType: "Staff", targetId: created.id, details: { name: created.name }, after: { name: created.name, email: created.email, role: role.name } });
+    await logAction(tx, actor, { action: "staff.invited", targetType: "Staff", targetId: created.id, details: { name: created.name }, after: { name: created.name, email: created.email, role: role.name, locationIds } });
     return created;
   });
   const inviteUrl = appUrl(`/admin/invite?token=${token}`);
@@ -115,8 +139,13 @@ export async function acceptInvite(db: Db, token: string, password: string) {
 export async function updateStaff(db: Db, actor: StaffActor, id: string, input: UpdateStaffInput) {
   return db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${OWNER_LOCK})`;
-    const existing = await tx.staff.findUnique({ where: { id }, include: { assignedRole: true } });
+    const existing = await tx.staff.findUnique({ where: { id }, include: { assignedRole: true, locations: { select: { locationId: true } } } });
     if (!existing) throw new ApiError("not_found", "Staff account not found.");
+    const beforeLocations = existing.locations.map((l) => l.locationId).sort();
+    // A person limited to some locations can only manage staff within them.
+    if (beforeLocations.length === 0 ? !seesAllLocations(actor) : beforeLocations.some((l) => !canUseLocation(actor, l))) {
+      if (input.locationIds !== undefined || input.roleId !== undefined || input.active !== undefined) throw new ApiError("forbidden", "This person works at locations your role doesn't cover.");
+    }
     const roleChange = input.roleId !== undefined && input.roleId !== existing.roleId;
     const activeChange = input.active !== undefined && input.active !== !existing.deactivatedAt;
     if ((roleChange || activeChange) && existing.id === actor.id) throw new ApiError("conflict", "You can't change your own role or deactivate your own account.");
@@ -128,6 +157,10 @@ export async function updateStaff(db: Db, actor: StaffActor, id: string, input: 
       if (newRole.isOwner && !actor.isOwner) throw new ApiError("forbidden", "Only an owner can give someone the Owner role.");
       assertCanGrant(actor, effectivePermissions(newRole));
     }
+    const locationIds = input.locationIds !== undefined ? (await checkLocationScope(tx, actor, input.locationIds, newRole)).sort() : beforeLocations;
+    const locationsChange = locationIds.join() !== beforeLocations.join();
+    if (locationsChange && existing.id === actor.id) throw new ApiError("conflict", "You can't change your own locations.");
+    if (roleChange && newRole?.isOwner && locationIds.length) throw new ApiError("validation_failed", "Owners cover every location.", { locationIds: "Leave empty for an owner" });
     const losesOwner = existing.assignedRole?.isOwner && !existing.deactivatedAt && ((roleChange && !newRole?.isOwner) || input.active === false);
     if (losesOwner && (await activeOwnerCount(tx, existing.id)) === 0) throw new ApiError("conflict", "There must always be at least one active owner. Make someone else an owner first.");
 
@@ -142,11 +175,15 @@ export async function updateStaff(db: Db, actor: StaffActor, id: string, input: 
       },
       select: staffSelect,
     });
-    const before = { name: existing.name, role: existing.assignedRole?.name ?? null, active: !existing.deactivatedAt };
-    const after = { name: updated.name, role: updated.assignedRole?.name ?? null, active: !updated.deactivatedAt };
-    const action = activeChange ? (input.active ? "staff.reactivated" : "staff.deactivated") : roleChange ? "staff.role_changed" : "staff.updated";
+    if (locationsChange) {
+      await tx.staffLocation.deleteMany({ where: { staffId: id } });
+      if (locationIds.length) await tx.staffLocation.createMany({ data: locationIds.map((locationId) => ({ staffId: id, locationId })) });
+    }
+    const before = { name: existing.name, role: existing.assignedRole?.name ?? null, active: !existing.deactivatedAt, locationIds: beforeLocations };
+    const after = { name: updated.name, role: updated.assignedRole?.name ?? null, active: !updated.deactivatedAt, locationIds };
+    const action = activeChange ? (input.active ? "staff.reactivated" : "staff.deactivated") : roleChange ? "staff.role_changed" : locationsChange ? "staff.locations_changed" : "staff.updated";
     await logAction(tx, actor, { action, targetType: "Staff", targetId: id, details: { name: updated.name }, before, after });
-    return toStaffView(updated);
+    return toStaffView({ ...updated, locations: locationIds.map((locationId) => ({ locationId })) });
   });
 }
 

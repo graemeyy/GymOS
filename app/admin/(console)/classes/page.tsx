@@ -8,6 +8,7 @@ import { localDateIn } from "@/lib/dates";
 import { gym } from "@/lib/config/client";
 import { fmtDayHeading } from "@/lib/format";
 import { useStaff } from "@/components/admin/staff-session";
+import { useLocationFilter } from "@/components/admin/location-filter";
 import { ownClassesOnly } from "@/lib/auth/permissions";
 import { Button, IconButton, LinkButton, PageHeader, Panel, StatusTag } from "@/components/ui/primitives";
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
@@ -20,13 +21,14 @@ const WEEK = 7 * DAY_MS;
 
 export default function ClassesPage() {
   const { can, me } = useStaff();
+  const filter = useLocationFilter();
   const [weekOffset, setWeekOffset] = useState(0);
   const [mineOnly, setMineOnly] = useState<boolean | null>(null);
   const mine = mineOnly ?? (me ? ownClassesOnly(me) : false);
   // Rounded to the hour so the URL (and the fetch) doesn't change every render.
   const from = new Date(Math.floor((Date.now() - DAY_MS + weekOffset * WEEK) / HOUR_MS) * HOUR_MS);
   const to = new Date(from.getTime() + WEEK + 24 * 60 * 60 * 1000);
-  const classes = useResource<ClassRow[]>(me ? `/api/classes?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}${mine ? "&mine=1" : ""}` : null);
+  const classes = useResource<ClassRow[]>(me && filter.ready ? `/api/classes?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}${mine ? "&mine=1" : ""}${filter.param()}` : null);
   const members = useResource<{ items: Person[] }>(can("bookings.manage") ? "/api/members?status=ACTIVE&take=500&sort=name" : null);
   const staffList = useResource<{ id: string; name: string; roleName: string }[]>(can("classes.manage") ? "/api/staff/directory" : null);
   const [newOpen, setNewOpen] = useState(false);

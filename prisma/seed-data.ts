@@ -5,7 +5,8 @@ import { syncPlansFromConfig } from "../lib/plans/service";
 import { gym } from "../lib/config";
 import { DAY_MS } from "../lib/time";
 import { PRESET_ROLES, PRESETS } from "../lib/auth/permissions";
-import { CLASSES, daysAgo, DEMO_MEMBERS, DEMO_STAFF, EQUIPMENT, inDays, INVENTORY, PRODUCTS, TEMPLATES } from "./seed-fixtures";
+import { CLASSES, daysAgo, DEMO_MEMBERS, DEMO_STAFF, EQUIPMENT, inDays, INVENTORY, PLAN_ACCESS, PRODUCTS, SECOND_LOCATION, TEMPLATES } from "./seed-fixtures";
+import { MAIN_LOCATION_ID } from "../lib/locations/constants";
 
 export { DEMO_MEMBERS, DEMO_STAFF };
 
@@ -48,6 +49,9 @@ export async function resetDatabase(prisma: PrismaClient) {
     prisma.rateLimit.deleteMany(),
     prisma.gymSettings.deleteMany(),
     prisma.branding.deleteMany(),
+    // Back to the one location the migration creates (D-125).
+    prisma.location.deleteMany({ where: { id: { not: MAIN_LOCATION_ID } } }),
+    prisma.location.updateMany({ where: { id: MAIN_LOCATION_ID }, data: { name: "Main location", code: "main", addressLine1: "", addressLine2: "", suburb: "", state: "", postcode: "", phone: null, sortOrder: 0, archivedAt: null } }),
   ]);
   await restorePresetRoles(prisma);
 }
@@ -71,12 +75,27 @@ export async function restorePresetRoles(prisma: PrismaClient) {
 // change it at first sign-in (D-111).
 export async function seedDatabase(prisma: PrismaClient, opts: { password: string }) {
   if (opts.password.length < 10) throw new Error("The demo password must be at least 10 characters.");
+  // The main location takes the gym's address from the config; the demo
+  // adds a second one (D-125).
+  const { address } = gym.business;
+  await prisma.location.update({
+    where: { id: MAIN_LOCATION_ID },
+    data: { name: address.suburb, code: address.suburb.toLowerCase().replace(/[^a-z0-9]+/g, "-"), addressLine1: address.line1, addressLine2: address.line2, suburb: address.suburb, state: address.state, postcode: address.postcode, phone: gym.business.phone },
+  });
+  await prisma.location.create({ data: SECOND_LOCATION });
+
   await syncPlansFromConfig(prisma);
+  for (const [slug, locationAccess] of Object.entries(PLAN_ACCESS)) {
+    await prisma.membershipPlan.update({ where: { slug }, data: { locationAccess } });
+  }
   const plans = new Map((await prisma.membershipPlan.findMany()).map((p) => [p.slug, p]));
   const passwordHash = await hashPassword(opts.password);
 
   for (const s of DEMO_STAFF) {
-    await prisma.staff.create({ data: { name: s.name, email: s.email, role: s.role, roleId: presetRoleId(s.preset), passwordHash, mustChangePassword: true } });
+    const locations = "locations" in s ? s.locations : [];
+    await prisma.staff.create({
+      data: { name: s.name, email: s.email, role: s.role, roleId: presetRoleId(s.preset), passwordHash, mustChangePassword: true, locations: { create: locations.map((locationId) => ({ locationId })) } },
+    });
   }
 
   const memberIds: string[] = [];
@@ -88,6 +107,7 @@ export async function seedDatabase(prisma: PrismaClient, opts: { password: strin
         name: m.name,
         email: m.email,
         status: m.status,
+        homeLocationId: m.home ?? MAIN_LOCATION_ID,
         planId: plan?.id ?? null,
         retentionScore: m.retentionScore,
         lastCheckIn: m.lastSeenDays === null ? null : daysAgo(m.lastSeenDays, 2),
@@ -127,7 +147,7 @@ export async function seedDatabase(prisma: PrismaClient, opts: { password: strin
     const visits = Math.round(m.visitsPerWeek * 3);
     for (let v = 0; v < visits; v++) {
       await prisma.checkIn.create({
-        data: { memberId: member.id, location: "Front desk", timestamp: daysAgo((m.lastSeenDays ?? 30) + Math.floor((v * 21) / Math.max(visits, 1)), v % 12) },
+        data: { memberId: member.id, location: "Front desk", locationId: m.home ?? MAIN_LOCATION_ID, timestamp: daysAgo((m.lastSeenDays ?? 30) + Math.floor((v * 21) / Math.max(visits, 1)), v % 12) },
       });
     }
 
@@ -145,6 +165,7 @@ export async function seedDatabase(prisma: PrismaClient, opts: { password: strin
             description: `${plan.name} membership`,
             planName: plan.name,
             kind: "MEMBERSHIP",
+            locationId: m.home ?? MAIN_LOCATION_ID,
             createdAt: daysAgo(w * 7 + (m.status === "PAST_DUE" ? 14 : 0) + 1),
             paidAt: daysAgo(w * 7 + (m.status === "PAST_DUE" ? 14 : 0) + 1),
           },
@@ -158,10 +179,11 @@ export async function seedDatabase(prisma: PrismaClient, opts: { password: strin
   await prisma.member.update({ where: { id: memberIds[6] }, data: { referredById: memberIds[0] } });
 
   const trainers = new Map((await prisma.staff.findMany()).map((s) => [s.name, s.id]));
-  for (const [i, c] of CLASSES.entries()) {
+  for (const [i, { location, ...c }] of CLASSES.entries()) {
     const cls = await prisma.class.create({
-      data: { name: c.name, instructor: c.instructor, trainerId: trainers.get(c.instructor) ?? null, startTime: inDays(c.day, c.hourUtc), durationMinutes: c.durationMinutes, capacity: c.capacity },
+      data: { name: c.name, instructor: c.instructor, trainerId: trainers.get(c.instructor) ?? null, startTime: inDays(c.day, c.hourUtc), durationMinutes: c.durationMinutes, capacity: c.capacity, locationId: location ?? MAIN_LOCATION_ID },
     });
+    if (location) continue;
     // Only Unlimited members are pre-booked, so nobody's class credits are off.
     const active = memberIds.filter((_, idx) => DEMO_MEMBERS[idx].status === "ACTIVE" && DEMO_MEMBERS[idx].plan === "unlimited");
     const take = i === 3 ? c.capacity : Math.min(active.length, 3 + i);
@@ -172,8 +194,8 @@ export async function seedDatabase(prisma: PrismaClient, opts: { password: strin
 
   // Weekly timetable slots (not generated into dated classes here, so the
   // demo classes above stay as they are; "Generate" in the app adds more).
-  for (const { trainer, ...slot } of TEMPLATES) {
-    await prisma.classTemplate.create({ data: { ...slot, trainerId: trainers.get(trainer) ?? null } });
+  for (const { trainer, location, ...slot } of TEMPLATES) {
+    await prisma.classTemplate.create({ data: { ...slot, trainerId: trainers.get(trainer) ?? null, locationId: location ?? MAIN_LOCATION_ID } });
   }
 
   await seedShop(prisma);
@@ -199,6 +221,10 @@ export async function seedDatabase(prisma: PrismaClient, opts: { password: strin
     await prisma.shift.create({ data: { staffId: frontDesk.id, startTime: inDays(d, 19), endTime: inDays(d + 1, 3), notes: d === 0 ? "Opening shift" : null } });
   }
   await prisma.shift.create({ data: { staffId: owner.id, startTime: inDays(1, 22), endTime: inDays(2, 6) } });
+  const secondDesk = await prisma.staff.findUniqueOrThrow({ where: { email: "desk.second@example.com" } });
+  for (let d = 0; d < 3; d++) {
+    await prisma.shift.create({ data: { staffId: secondDesk.id, locationId: SECOND_LOCATION.id, startTime: inDays(d, 20), endTime: inDays(d + 1, 2) } });
+  }
 
   return { staff: DEMO_STAFF.length, members: DEMO_MEMBERS.length, classes: CLASSES.length };
 }
@@ -214,11 +240,16 @@ async function seedShop(prisma: PrismaClient) {
         slug: p.slug,
         description: p.description,
         category: p.category,
-        variants: { create: p.variants.map((v) => ({ ...v, size: v.size ?? null, colour: v.colour ?? null, flavour: v.flavour ?? null })) },
+        variants: { create: p.variants.map(({ secondStock: _secondStock, ...v }) => ({ ...v, size: v.size ?? null, colour: v.colour ?? null, flavour: v.flavour ?? null })) },
       },
       include: { variants: true },
     });
     for (const v of product.variants) variantIds[v.sku] = v.id;
+    // Stock is held per location (D-127); stockQty is only kept for rollback.
+    for (const v of p.variants) {
+      await prisma.variantStock.create({ data: { variantId: variantIds[v.sku], locationId: MAIN_LOCATION_ID, quantity: v.stockQty } });
+      if (v.secondStock) await prisma.variantStock.create({ data: { variantId: variantIds[v.sku], locationId: SECOND_LOCATION.id, quantity: v.secondStock } });
+    }
   }
 
   // A handful of orders across the fulfilment states.
@@ -289,6 +320,7 @@ async function seedShop(prisma: PrismaClient) {
         description: `Shop order #${order.number}`,
         kind: "SHOP",
         orderId: order.id,
+        locationId: MAIN_LOCATION_ID,
         refundedCents: spec.status === "REFUNDED" ? total : 0,
         createdAt: created,
         paidAt: created,

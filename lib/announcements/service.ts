@@ -6,15 +6,24 @@ import { logAction } from "@/lib/audit";
 import { sendEmail, signature } from "@/lib/email";
 import { unsubscribeLinks } from "@/lib/members/unsubscribe";
 import { audienceWhere } from "./queries";
+import { assertLocation, seesAllLocations } from "@/lib/locations/scope";
 import type { AnnouncementInput } from "./schema";
 import { getBranding } from "@/lib/branding/service";
 
 function announcementData(input: AnnouncementInput) {
-  return { ...input, planId: input.audience === "PLAN" ? input.planId : null, expiresAt: input.expiresAt ?? null };
+  return { ...input, planId: input.audience === "PLAN" ? input.planId : null, expiresAt: input.expiresAt ?? null, locationId: input.locationId ?? null };
+}
+
+// Someone whose role covers some locations announces to those locations
+// only; an announcement for everyone needs a role that covers them all (D-128).
+function assertAnnouncementScope(staff: StaffActor, locationId: string | null | undefined) {
+  if (locationId) assertLocation(staff, locationId);
+  else if (!seesAllLocations(staff)) throw new ApiError("forbidden", "Your role covers some locations only. Choose one of them.", { locationId: "Choose a location" });
 }
 
 export function createAnnouncement(db: Db, staff: StaffActor, input: AnnouncementInput) {
   return db.$transaction(async (tx) => {
+    assertAnnouncementScope(staff, input.locationId);
     const a = await tx.announcement.create({ data: { ...announcementData(input), createdById: staff.id } });
     await logAction(tx, staff, { action: "announcement.created", targetType: "Announcement", targetId: a.id, details: { title: a.title } });
     return a;
@@ -25,6 +34,8 @@ export function updateAnnouncement(db: Db, staff: StaffActor, id: string, input:
   return db.$transaction(async (tx) => {
     const existing = await tx.announcement.findUnique({ where: { id } });
     if (!existing) throw new ApiError("not_found", "Announcement not found.");
+    assertAnnouncementScope(staff, existing.locationId);
+    assertAnnouncementScope(staff, input.locationId);
     if (existing.emailedAt) throw new ApiError("conflict", "This announcement has already been emailed, so it can't be edited. Post a correction instead.");
     const a = await tx.announcement.update({ where: { id }, data: announcementData(input) });
     await logAction(tx, staff, { action: "announcement.updated", targetType: "Announcement", targetId: a.id, details: { title: a.title } });
@@ -34,6 +45,9 @@ export function updateAnnouncement(db: Db, staff: StaffActor, id: string, input:
 
 export function deleteAnnouncement(db: Db, staff: StaffActor, id: string) {
   return db.$transaction(async (tx) => {
+    const existing = await tx.announcement.findUnique({ where: { id }, select: { locationId: true } });
+    if (!existing) throw new ApiError("not_found", "Announcement not found.");
+    assertAnnouncementScope(staff, existing.locationId);
     const a = await tx.announcement.delete({ where: { id } });
     await logAction(tx, staff, { action: "announcement.deleted", targetType: "Announcement", targetId: a.id, details: { title: a.title } });
   });
@@ -49,6 +63,7 @@ export async function publishAnnouncement(db: Db, staff: StaffActor, id: string,
   const a = await db.$transaction(async (tx) => {
     const existing = await tx.announcement.findUnique({ where: { id } });
     if (!existing) throw new ApiError("not_found", "Announcement not found.");
+    assertAnnouncementScope(staff, existing.locationId);
     const published = existing.publishedAt ? existing : await tx.announcement.update({ where: { id }, data: { publishedAt: new Date() } });
     if (!email) await logAction(tx, staff, publishedEntry(published, 0));
     return published;

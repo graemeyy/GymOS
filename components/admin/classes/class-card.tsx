@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/feedback";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { SelectField } from "@/components/ui/form";
 import type { ClassRow, Person } from "./types";
+import { LocationName } from "@/components/admin/location-filter";
 
 export function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: Person[]; onChange: () => void }) {
   const { can, me } = useStaff();
@@ -61,6 +62,7 @@ export function ClassCard({ cls, members, onChange }: { cls: ClassRow; members: 
           <p className="font-medium">{cls.name}</p>
           <p className="text-sm text-ink-soft">
             {cls.durationMinutes} min{cls.trainer?.name ?? cls.instructor ? `, ${cls.trainer?.name ?? cls.instructor}` : ""}
+            <LocationName location={cls.location} className="ml-2 whitespace-nowrap" />
           </p>
         </div>
         <span className={full ? "text-sm font-medium text-warn" : "text-sm text-ink-soft"}>

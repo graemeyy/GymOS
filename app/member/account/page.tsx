@@ -46,6 +46,8 @@ function ProfilePanel() {
   const me = useMe();
   const toast = useToast();
   const [name, setName] = useState("");
+  const locations = useResource<{ id: string }[]>("/api/locations/open");
+  const multipleLocations = (locations.data?.length ?? 0) > 1;
   useEffect(() => {
     if (me.data?.name) setName(me.data.name);
   }, [me.data?.name]);
@@ -65,6 +67,10 @@ function ProfilePanel() {
       <form onSubmit={submit} className="space-y-4 px-4 py-4 sm:px-5">
         <TextField label="Name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} error={save.fields.name ?? save.error ?? undefined} />
         <TextField label="Email" type="email" value={me.data?.email ?? ""} readOnly hint="To change your email, ask at the front desk." />
+        {/* Shown only once there's more than one location to choose from. On a
+            home-location plan it decides where they can get in, so the front
+            desk changes it (D-126). */}
+        {multipleLocations && me.data?.homeLocation ? <TextField label="Home location" value={me.data.homeLocation.name} readOnly hint="To change your home location, ask at the front desk." /> : null}
         <Button type="submit" variant="secondary" busy={save.busy}>
           Save name
         </Button>

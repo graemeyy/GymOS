@@ -11,6 +11,7 @@ import { Button, PageHeader, Panel, PanelHeader, StatusTag } from "@/components/
 import { AsyncBlock, EmptyState } from "@/components/ui/feedback";
 import { cn } from "@/lib/client/cn";
 import { AT_RISK_BELOW } from "@/lib/retention";
+import { useLocationFilter } from "@/components/admin/location-filter";
 
 interface Result {
   granted: boolean;
@@ -29,6 +30,7 @@ interface Found {
 interface RecentRow {
   id: string;
   location: string;
+  site: { id: string; name: string } | null;
   timestamp: string;
   member: { id: string; name: string | null; status: MemberStatus };
 }
@@ -39,14 +41,18 @@ export default function CheckInPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
   const [result, setResult] = useState<Result | null>(null);
-  const recent = useResource<RecentRow[]>("/api/check-in");
+  const filter = useLocationFilter();
+  // The desk checks members in at one location (D-125): the one chosen at the
+  // top of the page, else the first this person can use.
+  const desk = filter.locations.find((l) => l.id === filter.current) ?? null;
+  const recent = useResource<RecentRow[]>(filter.ready ? `/api/check-in${filter.param("?")}` : null);
   const [cameraOpen, setCameraOpen] = useState(false);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  const mutation = useMutation((query: string) => api<Result>("/api/check-in", { body: { query } }), {
+  const mutation = useMutation((query: string) => api<Result>("/api/check-in", { body: { query, ...(filter.current ? { locationId: filter.current } : {}) } }), {
     onSuccess: (data) => {
       setResult(data);
       setValue("");
@@ -115,6 +121,11 @@ export default function CheckInPage() {
                 Check in
               </Button>
             </form>
+            {filter.multiple && desk ? (
+              <p className="mt-3 text-sm text-ink-soft">
+                Checking in at <span className="font-medium text-ink">{desk.name}</span>.{filter.selected ? "" : " Choose this desk's location at the top of the page."}
+              </p>
+            ) : null}
             {mutation.error ? (
               <p role="alert" className="mt-3 rounded bg-bad-tint px-3 py-2 text-sm font-medium text-bad">
                 {mutation.error}
@@ -158,7 +169,10 @@ export default function CheckInPage() {
                 <ul className="divide-y divide-line">
                   {rows.map((r) => (
                     <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                      <span className="truncate font-medium">{r.member.name ?? "Unnamed"}</span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{r.member.name ?? "Unnamed"}</span>
+                        {filter.multiple && !filter.selected && r.site ? <span className="block text-sm text-ink-soft">{r.site.name}</span> : null}
+                      </span>
                       <span className="tabular text-sm text-ink-soft">{fmtTime(r.timestamp)}</span>
                     </li>
                   ))}
