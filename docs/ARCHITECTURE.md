@@ -57,12 +57,12 @@ Route handlers stay thin and call `lib/<domain>/`: reads in `queries.ts`, writes
 | Membership changes | `lib/membership/service.ts` | Pause, resume, cancel (cooling-off, notice, minimum term), plan changes with proration, and the daily transitions. Used by both staff and member routes. |
 | Benefits | `lib/membership/benefits.ts`, `cycle.ts` | Ledger balances per billing cycle, counted from when the membership started, in the gym's time zone. |
 | Classes | `lib/classes/service.ts`, `timetable.ts` | Every booking path locks the class row (`SELECT ... FOR UPDATE`), so classes can't be overbooked. Waitlist promotion uses savepoints. |
-| Check-in | `lib/checkin/service.ts`, `qr.ts` | Signed QR passes (`GYM1.`) with a version that reissuing bumps. Grace period for overdue payments. |
+| Check-in | `lib/checkin/service.ts`, `qr.ts`, `queries.ts` | Signed QR passes (`GYM2.`) that refresh every minute, last 90 seconds and work once (D-119), with a version that reissuing bumps. Find-by-name fallback. Grace period for overdue payments. |
 | Billing | `lib/billing/*` | Stripe client (lazy, test keys only), webhook processing, refunds (GST pro rata, idempotency key, guarded update), reminders, tax invoices. |
 | Shop | `lib/shop/*` | `pricing.ts`, `limits.ts` and `labels.ts` (shared by server and browser), `queries.ts`, `service.ts`, `checkout.ts` (Stripe Checkout, webhook payment, expiry), `orders.ts` (status changes, stock), `emails.ts`. |
 | Finance | `lib/finance/*` | Summaries by month, BAS quarter and financial year, AUD only. CSV exports neutralise spreadsheet formulas (`lib/csv.ts`). |
 | Branding | `lib/branding/*` | The gym's name, logo, colours (turned into design tokens), fonts, email sender and business details, from the `Branding` row with config defaults (D-124). `getBranding()` on the server, `useBranding()` in the browser. |
-| Members | `lib/members/*` | Sign-up, password change, data export, erasure and anonymisation. |
+| Members | `lib/members/*` | Sign-up, password change, data export, erasure and anonymisation. One-click unsubscribe links for optional emails (`unsubscribe.ts`, D-118). |
 | Legal | `lib/legal.ts` | Current document versions and acceptance records. |
 | Plans, staff, roles, settings, announcements, audit log | `lib/plans/*`, `lib/staff/*`, `lib/roles/*`, `lib/settings/*`, `lib/announcements/*`, `lib/audit-log/*` | Queries, services and schemas per area; `lib/plans/perks.ts` is the one wording for plan benefits. |
 | Daily jobs | `lib/jobs/daily.ts` | Transitions, reminders, timetable generation, retention scores, data retention, rate-limit clean-up. |

@@ -11,6 +11,9 @@ export const MemberListQuery = z.object({
   archived: z.enum(["only", "include", "exclude"]).default("exclude"),
   take: z.coerce.number().int().min(1).max(500).default(200),
   cursor: zId.optional(),
+  // Sorted in the database, so a capped list keeps the right members: the
+  // most at-risk for retention, A to Z for pickers (R-94).
+  sort: z.enum(["newest", "name", "retention"]).default("newest"),
 });
 
 export const CreateMemberBody = z.object({

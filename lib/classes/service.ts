@@ -6,6 +6,7 @@ import { gym } from "@/lib/config";
 import { DAY_MS, HOUR_MS, MINUTE_MS } from "@/lib/time";
 import { returnClassCredit, spendClassCredit } from "@/lib/membership/benefits";
 import { sendEmail, signature } from "@/lib/email";
+import { unsubscribeLinks } from "@/lib/members/unsubscribe";
 import { generateClasses } from "./timetable";
 import type { AttendanceInput, ClassInput, TemplateInput } from "./schema";
 import { assertCanMarkAttendance } from "@/lib/auth/access";
@@ -111,10 +112,12 @@ async function promoteNext(tx: Tx, cls: LockedClass): Promise<Promoted | null> {
 async function emailPromotion(promoted: Promoted | null, cls: LockedClass) {
   if (!promoted?.notify) return;
   const when = new Intl.DateTimeFormat("en-AU", { timeZone: gym.business.timezone, weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }).format(cls.startTime);
+  const unsubscribe = await unsubscribeLinks(promoted.memberId, "waitlist");
   await sendEmail({
     to: promoted.email,
     subject: `You're in: ${cls.name}`,
-    text: `Hi ${promoted.name?.split(" ")[0] ?? "there"},\n\nA spot opened up and you've been moved off the waitlist into ${cls.name} on ${when}. If you can't make it, cancel from your bookings so someone else can go.${await signature()}`,
+    text: `Hi ${promoted.name?.split(" ")[0] ?? "there"},\n\nA spot opened up and you've been moved off the waitlist into ${cls.name} on ${when}. If you can't make it, cancel from your bookings so someone else can go.${await signature()}\n\nStop waitlist emails: ${unsubscribe.page}`,
+    headers: unsubscribe.headers,
   });
 }
 

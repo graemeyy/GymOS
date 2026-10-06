@@ -137,7 +137,7 @@ function toResponse(result: unknown): Response {
   return json(result ?? { ok: true });
 }
 
-function handleError(error: unknown): Response {
+export function handleError(error: unknown): Response {
   if (error instanceof ApiError) return errorResponse(error);
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2025") return errorResponse(new ApiError("not_found", "That record doesn't exist."));

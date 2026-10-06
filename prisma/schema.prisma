@@ -87,6 +87,9 @@ model Member {
   amountOwingCents     Int               @default(0)
   lastFailedInvoiceId  String?
   qrVersion            Int               @default(0)
+  // When the newest pass that let this member in was issued. A pass issued
+  // at or before it is refused, so a code can't be used twice (R-34, D-119).
+  passUsedIssuedAt     DateTime?
   notifyAnnouncements  Boolean           @default(true)
   notifyWaitlist       Boolean           @default(true)
   onboardedAt          DateTime?
