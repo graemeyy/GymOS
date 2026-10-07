@@ -104,3 +104,11 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* On phones, toasts sit above the member app's bottom tab bar rather than
+   over it. */
+@media (max-width: 639px) {
+  body:has([data-tabbar]) [data-toasts] {
+    bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+}
