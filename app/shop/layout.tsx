@@ -1,6 +1,12 @@
+import { currentMemberId } from "@/lib/auth/server-session";
+import { MemberShell } from "@/components/member/member-shell";
 import { SiteFooter, SiteHeader } from "@/components/public/site-chrome";
 
-export default function ShopLayout({ children }: { children: React.ReactNode }) {
+// Signed-in members shop inside the member app, with its top bar and tab bar
+// (Shop is one of the tabs). Everyone else gets the public site's header and
+// footer. The session is checked the same way the shop pages check it.
+export default async function ShopLayout({ children }: { children: React.ReactNode }) {
+  if (await currentMemberId()) return <MemberShell wide>{children}</MemberShell>;
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
